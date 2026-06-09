@@ -1,3 +1,13 @@
 <Solution>
-  <Project Path="TaskOTime.App/TaskOTime.App.csproj" />
+  <Folder Name="/AppFrontEnd/">
+    <Project Path="TaskOTime.App/TaskOTime.App.csproj" />
+    <Project Path="TaskOTime.ViewModel/TaskOTime.ViewModel.csproj" />
+  </Folder>
+  <Folder Name="/AppServer/">
+    <Project Path="TaskOTime.AppServer/TaskOTime.AppServer.csproj" />
+  </Folder>
+  <Folder Name="/DataLayer/">
+    <Project Path="TaskOTime.DataLayer/TaskOTime.DataLayer.csproj" />
+    <Project Path="TaskOTime.DTOs/TaskOTime.DTOs.csproj" />
+  </Folder>
 </Solution>
