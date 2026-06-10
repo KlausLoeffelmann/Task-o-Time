@@ -19,8 +19,7 @@ namespace TaskOTime.DataLayer
         public TaskOTimeContext()
             : base("name=TaskOTimeContext")
         {
-            this.Configuration.LazyLoadingEnabled = false;
-            this.Configuration.ProxyCreationEnabled = false;
+            ConfigureContext();
         }
     
         protected override void OnModelCreating(DbModelBuilder modelBuilder)

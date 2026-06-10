@@ -10,4 +10,7 @@
     <Project Path="TaskOTime.DataLayer/TaskOTime.DataLayer.csproj" />
     <Project Path="TaskOTime.DTOs/TaskOTime.DTOs.csproj" />
   </Folder>
+  <Folder Name="/Tools/">
+    <Project Path="TaskOTime.Cli/TaskOTime.Cli.csproj" />
+  </Folder>
 </Solution>

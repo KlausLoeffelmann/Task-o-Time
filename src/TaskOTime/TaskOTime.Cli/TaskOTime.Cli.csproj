@@ -4,12 +4,13 @@
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
     <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{10748F5E-3D82-49DA-A37D-ED291C39D362}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <RootNamespace>TaskOTime.DataLayer</RootNamespace>
-    <AssemblyName>TaskOTime.DataLayer</AssemblyName>
+    <ProjectGuid>{416C4C60-289D-47EB-B8F3-B250DFB6AA8A}</ProjectGuid>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>TaskOTime.Cli</RootNamespace>
+    <AssemblyName>TaskOTime.Cli</AssemblyName>
     <TargetFrameworkVersion>v4.6</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Deterministic>true</Deterministic>
     <LangVersion>10.0</LangVersion>
   </PropertyGroup>
@@ -33,53 +34,42 @@
     <Reference Include="System.Configuration" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Data.Entity" />
-    <Reference Include="System.Xml" />
+    <Reference Include="System.Web.Extensions" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DemoDataGenerator.cs" />
-    <Compile Include="DemoDataOptions.cs" />
-    <Compile Include="DisconnectedEntityExtensions.cs" />
-    <Compile Include="Model\TaskOTime.Context.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>TaskOTime.Context.tt</DependentUpon>
-    </Compile>
-    <Compile Include="TaskOTimeContext.partial.cs" />
-    <Compile Include="TaskOTimeContextFactory.cs" />
-    <Compile Include="TaskOTimeDatabaseAdmin.cs" />
+    <Compile Include="DemoDataConfigLoader.cs" />
+    <Compile Include="Program.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EntityDeploy Include="Model\TaskOTime.edmx">
-      <Generator>EntityModelCodeGenerator</Generator>
-      <LastGenOutput>TaskOTime.Context.cs</LastGenOutput>
-    </EntityDeploy>
-    <None Include="DbGenerationScript.sql">
+    <None Include="App.config" />
+    <Content Include="demodataconfig.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
-    <None Include="Model\EF6.Utility.CS.ttinclude" />
-    <None Include="Model\TaskOTime.Context.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-      <LastGenOutput>TaskOTime.Context.cs</LastGenOutput>
-    </None>
-    <None Include="Model\TaskOTime.tt">
-      <Generator>TextTemplatingFileGenerator</Generator>
-    </None>
+    </Content>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="EntityFramework">
-      <Version>6.5.1</Version>
-    </PackageReference>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net46">
       <Version>1.0.3</Version>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\TaskOTime.DataLayer\TaskOTime.DataLayer.csproj">
+      <Project>{10748F5E-3D82-49DA-A37D-ED291C39D362}</Project>
+      <Name>TaskOTime.DataLayer</Name>
+    </ProjectReference>
     <ProjectReference Include="..\TaskOTime.DTOs\TaskOTime.DTOs.csproj">
       <Project>{5627E69E-7076-43B3-A9C1-AFCE82D7B6DD}</Project>
       <Name>TaskOTime.DTOs</Name>
     </ProjectReference>
   </ItemGroup>
+  <Target Name="CopyEfMetadata" AfterTargets="Build">
+    <ItemGroup>
+      <EfMetadata Include="..\TaskOTime.DataLayer\bin\$(Configuration)\Model\TaskOTime.csdl" />
+      <EfMetadata Include="..\TaskOTime.DataLayer\bin\$(Configuration)\Model\TaskOTime.ssdl" />
+      <EfMetadata Include="..\TaskOTime.DataLayer\bin\$(Configuration)\Model\TaskOTime.msl" />
+    </ItemGroup>
+    <MakeDir Directories="$(OutputPath)Model" />
+    <Copy SourceFiles="@(EfMetadata)" DestinationFolder="$(OutputPath)Model" SkipUnchangedFiles="true" />
+  </Target>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>

@@ -59,8 +59,7 @@ using System.Linq;
     public <#=code.Escape(container)#>()
         : base("name=<#=container.Name#>")
     {
-        this.Configuration.LazyLoadingEnabled = false;
-        this.Configuration.ProxyCreationEnabled = false;
+        ConfigureContext();
 <#
 foreach (var entitySet in container.BaseEntitySets.OfType<EntitySet>())
 {
