@@ -169,7 +169,7 @@ namespace TaskOTime.DataLayer
                 {
                     IdTaskList = Guid.NewGuid(),
                     IdProject = project.IdProject,
-                    IdUser = users[i % users.Count].IdUser,
+                    IdUser = project.IdUser,
                     IdSymbol = symbols[i % symbols.Count].IdCategorySymbol,
                     TaskListName = "List " + (i + 1),
                     DisplayOrder = i,
@@ -212,13 +212,14 @@ namespace TaskOTime.DataLayer
             var tasks = new List<TaskItem>();
             for (var i = 0; i < options.Total; i++)
             {
+                var list = lists[i % lists.Count];
                 var isCompleted = i >= options.Open;
                 var task = new TaskItem
                 {
                     IdTaskItem = Guid.NewGuid(),
-                    IdUser = users[i % users.Count].IdUser,
-                    IdProject = projects[i % projects.Count].IdProject,
-                    IdTaskList = lists[i % lists.Count].IdTaskList,
+                    IdUser = list.IdUser,
+                    IdProject = list.IdProject,
+                    IdTaskList = list.IdTaskList,
                     IdSymbol = symbols[i % symbols.Count].IdCategorySymbol,
                     TaskItemName = (isCompleted ? "Closed" : "Open") + " Demo Task " + (i + 1),
                     TaskItemDescription = "Generated task for demo data.",
@@ -257,13 +258,14 @@ namespace TaskOTime.DataLayer
         {
             for (var i = 0; i < count; i++)
             {
+                var task = tasks[i % tasks.Count];
                 var duration = TimeSpan.FromMinutes(15 + (i % 8) * 15);
                 var item = new TimeItem
                 {
                     IdTimeItem = Guid.NewGuid(),
-                    IdUser = users[i % users.Count].IdUser,
-                    IdProject = projects[i % projects.Count].IdProject,
-                    IdTask = tasks[i % tasks.Count].IdTaskItem,
+                    IdUser = task.IdUser,
+                    IdProject = task.IdProject,
+                    IdTask = task.IdTaskItem,
                     IdCategory = categories[i % categories.Count].IdCategory,
                     ShortTitle = "Time " + (i + 1),
                     Description = "Generated demo time item.",
@@ -298,12 +300,13 @@ namespace TaskOTime.DataLayer
             var count = Math.Max(6, tasks.Count / 4);
             for (var i = 0; i < count; i++)
             {
+                var task = tasks[i % tasks.Count];
                 var note = new Note
                 {
                     IdNote = Guid.NewGuid(),
-                    IdUser = users[i % users.Count].IdUser,
-                    IdProject = projects[i % projects.Count].IdProject,
-                    IdTask = tasks[i % tasks.Count].IdTaskItem,
+                    IdUser = task.IdUser,
+                    IdProject = task.IdProject,
+                    IdTask = task.IdTaskItem,
                     NoteMnemonic = "NOTE-" + (i + 1).ToString("000"),
                     Note1 = "Generated note " + (i + 1),
                     DateCreated = now.AddDays(-(i % 10)),
