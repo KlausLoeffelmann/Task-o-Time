@@ -24,6 +24,11 @@
                                               TrueLength="0"
                                               FalseLength="Auto" />
         <convert:TimeSpanDisplayConverter x:Key="TimeSpanDisplayConverter" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF2F3842" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFF3F7FA" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FF050505" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#FF050505" />
+        <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#FFF3F7FA" />
         <CollectionViewSource x:Key="BookedDatesView" Source="{Binding BookedDates}">
             <CollectionViewSource.GroupDescriptions>
                 <data:PropertyGroupDescription PropertyName="GroupName" />
@@ -40,7 +45,52 @@
             <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
             <Setter Property="Background" Value="{StaticResource MenuPopupBackgroundBrush}" />
             <Setter Property="TextElement.Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type MenuItem}">
+                        <Grid>
+                            <Border x:Name="MenuItemBorder"
+                                    Background="{TemplateBinding Background}"
+                                    BorderThickness="0"
+                                    Padding="{TemplateBinding Padding}">
+                                <ContentPresenter ContentSource="Header"
+                                                  RecognizesAccessKey="True"
+                                                  TextElement.Foreground="{StaticResource MenuForegroundBrush}" />
+                            </Border>
+                            <Popup x:Name="PART_Popup"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
+                                   Placement="Bottom"
+                                   PopupAnimation="Fade">
+                                <Border Background="{StaticResource MenuPopupBackgroundBrush}"
+                                        BorderBrush="{StaticResource MenuPopupBackgroundBrush}"
+                                        BorderThickness="0"
+                                        Padding="4">
+                                    <StackPanel IsItemsHost="True"
+                                                KeyboardNavigation.DirectionalNavigation="Cycle" />
+                                </Border>
+                            </Popup>
+                        </Grid>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="MenuItemBorder" Property="Background" Value="#FF1D252E" />
+                            </Trigger>
+                            <Trigger Property="IsSubmenuOpen" Value="True">
+                                <Setter TargetName="MenuItemBorder" Property="Background" Value="#FF1D252E" />
+                            </Trigger>
+                            <Trigger Property="Role" Value="SubmenuItem">
+                                <Setter TargetName="PART_Popup" Property="Placement" Value="Right" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.55" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style TargetType="{x:Type Button}">
@@ -49,6 +99,17 @@
             <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
             <Setter Property="Padding" Value="9,4" />
             <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+
+        <Style x:Key="CommandStripIconButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Background" Value="{StaticResource CommandBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource CommandBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="MinWidth" Value="34" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="8,6" />
+            <Setter Property="Margin" Value="1,0" />
         </Style>
 
         <Style x:Key="MutedTextStyle" TargetType="{x:Type TextBlock}">
@@ -160,7 +221,6 @@
                                   Command="{Binding PlacementTarget.Tag.NewTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
                         <MenuItem Header="{StaticResource EditTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.EditTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <Separator />
                         <MenuItem Header="{StaticResource StartTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.StartTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
                         <MenuItem Header="{StaticResource CompleteTaskButtonText}"
@@ -423,7 +483,6 @@
                           Command="{Binding ExportSelectedDayCommand}" />
                 <MenuItem Header="{StaticResource ExportPeriodMenuHeader}"
                           Command="{Binding ExportPeriodCommand}" />
-                <Separator />
                 <MenuItem Header="{StaticResource QuitMenuHeader}" Click="OnQuitMenuItemClick" />
             </MenuItem>
             <MenuItem Header="{StaticResource MasterDataMenuHeader}">
@@ -435,7 +494,6 @@
                           Command="{Binding ManageTaskListsCommand}" />
                 <MenuItem Header="{StaticResource ManageTasksMenuHeader}"
                           Command="{Binding ManageTasksCommand}" />
-                <Separator />
                 <MenuItem Header="{StaticResource ManageUsersAdminMenuHeader}"
                           Command="{Binding ManageUsersAdminCommand}" />
             </MenuItem>
@@ -446,7 +504,6 @@
                           Command="{Binding ShowWeeklyStatementCommand}" />
                 <MenuItem Header="{StaticResource MonthlyStatementMenuHeader}"
                           Command="{Binding ShowMonthlyStatementCommand}" />
-                <Separator />
                 <MenuItem Header="{StaticResource TenantAdminStatisticsMenuHeader}"
                           Command="{Binding ShowTenantAdminStatisticsCommand}" />
             </MenuItem>
@@ -456,26 +513,25 @@
             </MenuItem>
         </Menu>
 
-        <ToolBarTray Grid.Row="1" Background="{StaticResource CommandBackgroundBrush}">
-            <ToolBar Style="{StaticResource ClassicToolBarStyle}">
-                <Button Command="{Binding TaskManagement.NewTaskCommand}" ToolTip="Neue Aufgabe">
+        <Border Grid.Row="1" Background="{StaticResource CommandBackgroundBrush}" Padding="8,3">
+            <DockPanel LastChildFill="False">
+                <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
+                <Button Command="{Binding TaskManagement.NewTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Neue Aufgabe">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.EditTaskCommand}" ToolTip="Aufgabe bearbeiten">
+                <Button Command="{Binding TaskManagement.EditTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabe bearbeiten">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Separator />
-                <Button Command="{Binding TaskManagement.NewTaskListCommand}" ToolTip="Neue Aufgabenliste">
+                <Button Command="{Binding TaskManagement.NewTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Neue Aufgabenliste">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.EditTaskListCommand}" ToolTip="Aufgabenliste bearbeiten">
+                <Button Command="{Binding TaskManagement.EditTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabenliste bearbeiten">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Separator />
-                <Button Command="{Binding TaskManagement.StartTaskCommand}" ToolTip="Aufgabe beginnen">
+                <Button Command="{Binding TaskManagement.StartTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabe beginnen">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TimeCollection.CheckOutCommand}" ToolTip="Ausbuchen">
+                <Button Command="{Binding TimeCollection.CheckOutCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Ausbuchen">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <StackPanel Orientation="Horizontal"
@@ -498,17 +554,17 @@
                              Margin="0,0,4,0"
                              Text="{Binding ManualCompletionDurationText, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
-                <Button Command="{Binding TaskManagement.CompleteTaskCommand}" ToolTip="Aufgabe erledigt">
+                <Button Command="{Binding TaskManagement.CompleteTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabe erledigt">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TimeCollection.InsertWorkBreakCommand}" ToolTip="Pause">
+                <Button Command="{Binding TimeCollection.InsertWorkBreakCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Pause">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TimeCollection.InsertDownTimeCommand}" ToolTip="Ausfallzeit">
+                <Button Command="{Binding TimeCollection.InsertDownTimeCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Ausfallzeit">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-            </ToolBar>
-            <ToolBar Style="{StaticResource ClassicToolBarStyle}" HorizontalAlignment="Right">
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <StackPanel Orientation="Horizontal" Visibility="{Binding IsTaskRecording, Converter={StaticResource BooleanToVisibilityConverter}}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="">
                         <TextBlock.Foreground>
@@ -529,8 +585,9 @@
                     </TextBlock>
                     <TextBlock Margin="6,0,0,0" Foreground="{StaticResource MenuForegroundBrush}" Text="{Binding RecordingStatusText}" />
                 </StackPanel>
-            </ToolBar>
-        </ToolBarTray>
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
         <Grid Grid.Row="2" Margin="8">
             <Grid.ColumnDefinitions>
@@ -569,7 +626,18 @@
                              Background="{StaticResource ListItemBackgroundBrush}"
                              Foreground="{StaticResource ListItemForegroundBrush}"
                               Margin="0,0,0,12"
-                              SelectedDate="{Binding SelectedDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                             SelectedDate="{Binding SelectedDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
+                        <Calendar.Resources>
+                            <Style TargetType="{x:Type CalendarDayButton}">
+                               <Setter Property="Foreground" Value="{StaticResource ListItemForegroundBrush}" />
+                               <Setter Property="Background" Value="{StaticResource ListItemBackgroundBrush}" />
+                            </Style>
+                            <Style TargetType="{x:Type CalendarButton}">
+                               <Setter Property="Foreground" Value="{StaticResource ListItemForegroundBrush}" />
+                               <Setter Property="Background" Value="{StaticResource ListItemBackgroundBrush}" />
+                            </Style>
+                        </Calendar.Resources>
+                    </Calendar>
 
                     <StackPanel Grid.Row="3">
                        <TextBlock Style="{StaticResource SectionHeaderTextStyle}"
@@ -694,7 +762,6 @@
             <StatusBarItem>
                 <TextBlock Text="{Binding SelectedDateSummary}" />
             </StatusBarItem>
-            <Separator />
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Soll: " />

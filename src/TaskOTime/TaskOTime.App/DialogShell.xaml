@@ -49,8 +49,12 @@
                     HorizontalAlignment="Right"
                     MinWidth="96"
                     Command="{Binding CloseCommand}"
-                    Content="{StaticResource DialogCloseButtonText}"
-                    IsDefault="True" />
+                    ToolTip="{StaticResource DialogCloseButtonText}"
+                    IsDefault="True">
+                <Button.Content>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                </Button.Content>
+            </Button>
         </Grid>
     </Border>
 </Window>

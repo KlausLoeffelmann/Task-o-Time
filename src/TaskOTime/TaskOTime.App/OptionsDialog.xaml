@@ -39,8 +39,12 @@
                        Text="{Binding BookedDateRangeDescription}" />
 
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <Button MinWidth="88" Content="OK" IsDefault="True" Click="OnOkClick" />
-                <Button MinWidth="88" Content="Abbrechen" IsCancel="True" />
+                <Button MinWidth="42" ToolTip="OK" IsDefault="True" Click="OnOkClick">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                </Button>
+                <Button MinWidth="42" ToolTip="Abbrechen" IsCancel="True">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                </Button>
             </StackPanel>
         </StackPanel>
     </Border>
