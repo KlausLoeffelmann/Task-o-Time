@@ -83,6 +83,7 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Convert\BooleanToVisibilityConverter.cs" />
+    <Compile Include="Convert\BooleanToGridLengthConverter.cs" />
     <Compile Include="Convert\TimeSpanDisplayConverter.cs" />
     <Compile Include="Convert\WidthToLayoutModeConverter.cs" />
     <Page Include="Themes\ClassicDark.xaml">

@@ -1,4 +1,5 @@
 ﻿using System.Windows;
+using TaskOTime.ViewModel.ViewModels;
 
 namespace TaskOTime.App;
 
@@ -7,8 +8,24 @@ namespace TaskOTime.App;
 /// </summary>
 public partial class MainWindow : Window
 {
+    private const double WideLayoutThreshold = 1080d;
+    private readonly VmMain _viewModel = new VmMain();
+
     public MainWindow()
     {
         InitializeComponent();
+        DataContext = _viewModel;
+        Loaded += (_, _) => UpdateLayoutMode(ActualWidth);
+        SizeChanged += (_, args) => UpdateLayoutMode(args.NewSize.Width);
+    }
+
+    private void UpdateLayoutMode(double width)
+    {
+        _viewModel.IsWideLayout = width >= WideLayoutThreshold;
+    }
+
+    private void OnQuitMenuItemClick(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 }

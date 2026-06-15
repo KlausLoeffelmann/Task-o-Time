@@ -1,12 +1,240 @@
 ﻿<Window x:Class="TaskOTime.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:convert="clr-namespace:TaskOTime.App.Convert"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:TaskOTime.App"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800">
-    <Grid>
-        
+        Title="{StaticResource AppTitle}"
+        MinHeight="640"
+        MinWidth="820"
+        Height="760"
+        Width="1120">
+    <Window.Resources>
+        <convert:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+        <convert:BooleanToGridLengthConverter x:Key="TaskPanelColumnWidthConverter"
+                                              TrueLength="320"
+                                              FalseLength="0" />
+        <convert:BooleanToGridLengthConverter x:Key="TaskPanelSplitterWidthConverter"
+                                              TrueLength="8"
+                                              FalseLength="0" />
+        <convert:BooleanToGridLengthConverter x:Key="NarrowTaskPanelRowHeightConverter"
+                                              TrueLength="0"
+                                              FalseLength="Auto" />
+        <convert:TimeSpanDisplayConverter x:Key="TimeSpanDisplayConverter" />
+
+        <Style TargetType="{x:Type Menu}">
+            <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
+        </Style>
+
+        <Style TargetType="{x:Type MenuItem}">
+            <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
+            <Setter Property="Padding" Value="10,4" />
+        </Style>
+
+        <Style TargetType="{x:Type Button}">
+            <Setter Property="Background" Value="{StaticResource ContentBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
+            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+        </Style>
+
+        <Style x:Key="MutedTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="ContentTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <DataTemplate x:Key="PlaceholderItemTemplate">
+            <Border Background="{StaticResource ContentBackgroundBrush}"
+                    BorderBrush="{StaticResource PanelBorderBrush}"
+                    BorderThickness="1"
+                    Margin="0,0,0,6"
+                    Padding="8">
+                <TextBlock Style="{StaticResource ContentTextStyle}" Text="{Binding}" />
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="BookedDateTemplate">
+            <TextBlock Foreground="{StaticResource MutedForegroundBrush}"
+                       Margin="0,0,0,4"
+                       Text="{Binding StringFormat={}{0:dd.MM.yyyy}}" />
+        </DataTemplate>
+
+        <DataTemplate x:Key="TaskPanelTemplate">
+            <Border Style="{StaticResource PanelBorderStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Style="{StaticResource SectionHeaderTextStyle}"
+                               Text="{Binding TaskPanelTitle}" />
+                    <TextBlock Grid.Row="1"
+                               Style="{StaticResource MutedTextStyle}"
+                               Margin="0,0,0,12"
+                               Text="{Binding TaskPanelSummary}" />
+                    <ItemsControl Grid.Row="2"
+                                  ItemTemplate="{StaticResource PlaceholderItemTemplate}"
+                                  ItemsSource="{Binding TaskPlaceholders}" />
+                </Grid>
+            </Border>
+        </DataTemplate>
+    </Window.Resources>
+
+    <Grid Background="{StaticResource WindowBackgroundBrush}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Menu Grid.Row="0">
+            <MenuItem Header="{StaticResource FileMenuHeader}">
+                <MenuItem Header="{StaticResource ExportDayMenuHeader}" IsEnabled="False" />
+                <MenuItem Header="{StaticResource ExportPeriodMenuHeader}" IsEnabled="False" />
+                <Separator />
+                <MenuItem Header="{StaticResource QuitMenuHeader}" Click="OnQuitMenuItemClick" />
+            </MenuItem>
+            <MenuItem Header="{StaticResource MasterDataMenuHeader}" IsEnabled="False" />
+            <MenuItem Header="{StaticResource AnalysisMenuHeader}" IsEnabled="False" />
+        </Menu>
+
+        <Grid Grid.Row="1" Margin="8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="270" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource PanelBorderStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0"
+                               Style="{StaticResource SectionHeaderTextStyle}"
+                               Text="Datum" />
+
+                    <StackPanel Grid.Row="1"
+                                Margin="0,0,0,10"
+                                Orientation="Horizontal">
+                        <Button Command="{Binding TodayCommand}"
+                                Content="{StaticResource TodayButtonText}" />
+                        <Button Command="{Binding YesterdayCommand}"
+                                Content="{StaticResource YesterdayButtonText}"
+                                Margin="0" />
+                    </StackPanel>
+
+                    <Calendar Grid.Row="2"
+                              Margin="0,0,0,12"
+                              SelectedDate="{Binding SelectedDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+
+                    <StackPanel Grid.Row="3">
+                        <TextBlock Style="{StaticResource SectionHeaderTextStyle}"
+                                   Text="Gebuchte Tage" />
+                        <ItemsControl ItemTemplate="{StaticResource BookedDateTemplate}"
+                                      ItemsSource="{Binding BookedDates}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <Grid Grid.Column="1">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="{Binding IsWideLayout, Converter={StaticResource NarrowTaskPanelRowHeightConverter}}" />
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="{Binding IsWideLayout, Converter={StaticResource TaskPanelSplitterWidthConverter}}" />
+                    <ColumnDefinition Width="{Binding IsWideLayout, Converter={StaticResource TaskPanelColumnWidthConverter}}" />
+                </Grid.ColumnDefinitions>
+
+                <Border Grid.Row="0"
+                        Grid.Column="0"
+                        Style="{StaticResource PanelBorderStyle}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0"
+                                   Style="{StaticResource SectionHeaderTextStyle}"
+                                   Text="{Binding CenterPanelTitle}" />
+                        <TextBlock Grid.Row="1"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,0,4"
+                                   Text="{Binding SelectedDateSummary}" />
+                        <StackPanel Grid.Row="2" Margin="0,10,0,0">
+                            <TextBlock Style="{StaticResource MutedTextStyle}"
+                                       Margin="0,0,0,12"
+                                       Text="{Binding CenterPanelSummary}" />
+                            <ItemsControl ItemTemplate="{StaticResource PlaceholderItemTemplate}"
+                                          ItemsSource="{Binding TimeEntryPlaceholders}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+
+                <GridSplitter Grid.Row="0"
+                              Grid.Column="1"
+                              HorizontalAlignment="Stretch"
+                              Background="{StaticResource PanelBorderBrush}"
+                              Visibility="{Binding IsWideLayout, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                <ContentControl Grid.Row="0"
+                                Grid.Column="2"
+                                Content="{Binding}"
+                                ContentTemplate="{StaticResource TaskPanelTemplate}"
+                                Visibility="{Binding IsWideLayout, Converter={StaticResource BooleanToVisibilityConverter}}" />
+
+                <ContentControl Grid.Row="1"
+                                Grid.Column="0"
+                                Grid.ColumnSpan="3"
+                                Content="{Binding}"
+                                ContentTemplate="{StaticResource TaskPanelTemplate}"
+                                Visibility="{Binding IsWideLayout, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
+            </Grid>
+        </Grid>
+
+        <StatusBar Grid.Row="2">
+            <StatusBarItem>
+                <TextBlock Text="{Binding SelectedDateSummary}" />
+            </StatusBarItem>
+            <Separator />
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Soll: " />
+                    <TextBlock Text="{Binding TargetTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
+                </StackPanel>
+            </StatusBarItem>
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Gebucht: " />
+                    <TextBlock Text="{Binding BookedTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
+                </StackPanel>
+            </StatusBarItem>
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Offen: " />
+                    <TextBlock Text="{Binding RemainingTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
+                </StackPanel>
+            </StatusBarItem>
+        </StatusBar>
     </Grid>
 </Window>
