@@ -4,6 +4,7 @@
         xmlns:convert="clr-namespace:TaskOTime.App.Convert"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:data="clr-namespace:System.Windows.Data;assembly=PresentationFramework"
         xmlns:vm="clr-namespace:TaskOTime.ViewModel.ViewModels;assembly=TaskOTime.ViewModel"
         mc:Ignorable="d"
         Title="{StaticResource AppTitle}"
@@ -23,14 +24,20 @@
                                               TrueLength="0"
                                               FalseLength="Auto" />
         <convert:TimeSpanDisplayConverter x:Key="TimeSpanDisplayConverter" />
+        <CollectionViewSource x:Key="BookedDatesView" Source="{Binding BookedDates}">
+            <CollectionViewSource.GroupDescriptions>
+                <data:PropertyGroupDescription PropertyName="GroupName" />
+            </CollectionViewSource.GroupDescriptions>
+        </CollectionViewSource>
 
         <Style TargetType="{x:Type Menu}">
             <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
         </Style>
 
         <Style TargetType="{x:Type MenuItem}">
-            <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="Background" Value="{StaticResource MenuPopupBackgroundBrush}" />
             <Setter Property="Padding" Value="10,4" />
         </Style>
 
@@ -73,7 +80,7 @@
             <Setter Property="BorderBrush" Value="Transparent" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Margin" Value="0,0,0,4" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="{x:Type ListBoxItem}">
@@ -87,8 +94,8 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="SelectionBorder" Property="Background" Value="#337EA6C8" />
-                                <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="SelectionBorder" Property="Background" Value="{StaticResource ListItemSelectedBackgroundBrush}" />
+                                <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource ListItemSelectedBorderBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -104,11 +111,11 @@
         </Style>
 
         <DataTemplate x:Key="TaskListTemplate" DataType="{x:Type vm:TaskListViewModel}">
-            <Border Background="{StaticResource ContentBackgroundBrush}"
+            <Border Background="{StaticResource ListItemBackgroundBrush}"
                     BorderBrush="{StaticResource PanelBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="2"
-                    Padding="8">
+                    Padding="5">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -129,18 +136,51 @@
         </DataTemplate>
 
         <DataTemplate x:Key="TaskItemTemplate" DataType="{x:Type vm:TaskItemViewModel}">
-            <Border Background="{StaticResource ContentBackgroundBrush}"
+            <Border Background="{StaticResource ListItemBackgroundBrush}"
                     BorderBrush="{StaticResource PanelBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="2"
-                    Padding="8">
+                    Padding="5">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock FontWeight="SemiBold" Text="{Binding Title}">
+                    <DockPanel>
+                        <TextBlock x:Name="RecordingGlyph"
+                                   DockPanel.Dock="Left"
+                                   FontFamily="Segoe MDL2 Assets"
+                                   FontSize="13"
+                                   Margin="0,0,6,0"
+                                   Text=""
+                                   Visibility="{Binding IsStarted, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <TextBlock.Foreground>
+                                <SolidColorBrush Color="#FFFF5555" />
+                            </TextBlock.Foreground>
+                            <TextBlock.Style>
+                                <Style TargetType="{x:Type TextBlock}">
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding IsStarted}" Value="True">
+                                            <DataTrigger.EnterActions>
+                                                <BeginStoryboard x:Name="RecordingPulseStoryboard">
+                                                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                                        <ColorAnimation Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
+                                                                        From="#FFFFBBBB"
+                                                                        To="#FF7A0000"
+                                                                        Duration="0:0:0.85" />
+                                                    </Storyboard>
+                                                </BeginStoryboard>
+                                            </DataTrigger.EnterActions>
+                                            <DataTrigger.ExitActions>
+                                                <StopStoryboard BeginStoryboardName="RecordingPulseStoryboard" />
+                                            </DataTrigger.ExitActions>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                        <TextBlock FontWeight="SemiBold" Text="{Binding Title}">
                         <TextBlock.Style>
                             <Style BasedOn="{StaticResource ContentTextStyle}" TargetType="{x:Type TextBlock}">
                                 <Style.Triggers>
@@ -151,7 +191,8 @@
                                 </Style.Triggers>
                             </Style>
                         </TextBlock.Style>
-                    </TextBlock>
+                        </TextBlock>
+                    </DockPanel>
                     <TextBlock Grid.Row="1"
                                Margin="0,3,0,0"
                                Style="{StaticResource TaskCardMutedTextStyle}"
@@ -171,13 +212,35 @@
         <DataTemplate x:Key="BookedDateTemplate">
             <TextBlock Foreground="{StaticResource MutedForegroundBrush}"
                        Margin="0,0,0,4"
-                       Text="{Binding StringFormat={}{0:dd.MM.yyyy}}" />
+                       FontWeight="SemiBold"
+                       Text="{Binding DisplayText}" />
         </DataTemplate>
 
         <Style x:Key="TimeEntryListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
             <Setter Property="Margin" Value="0,0,0,6" />
             <Setter Property="Padding" Value="0" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                        <Border x:Name="SelectionBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="2">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="SelectionBorder" Property="Background" Value="{StaticResource ListItemSelectedBackgroundBrush}" />
+                                <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource ListItemSelectedBorderBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <Style x:Key="TimeEntryListBoxStyle" TargetType="{x:Type ListBox}">
@@ -188,7 +251,7 @@
         </Style>
 
         <DataTemplate x:Key="TimeEntryItemTemplate" DataType="{x:Type vm:TimeEntryViewModel}">
-            <Border Background="{StaticResource ContentBackgroundBrush}"
+            <Border Background="{StaticResource ListItemBackgroundBrush}"
                     BorderBrush="{Binding MarkerAccent}"
                     BorderThickness="1"
                     CornerRadius="2"
@@ -263,6 +326,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0"
@@ -282,6 +346,7 @@
                              MaxHeight="170"
                              ItemTemplate="{StaticResource TaskListTemplate}"
                              ItemsSource="{Binding TaskLists}"
+                             MouseDoubleClick="OnTaskListDoubleClick"
                              SelectedItem="{Binding SelectedTaskList, Mode=TwoWay}"
                              Style="{StaticResource TaskPanelListBoxStyle}" />
 
@@ -294,13 +359,19 @@
                                    Text="Aufgaben" />
                     </DockPanel>
 
-                    <ListBox Grid.Row="5"
+                    <CheckBox Grid.Row="5"
+                              Foreground="{StaticResource MutedForegroundBrush}"
+                              Margin="0,0,0,6"
+                              Content="{StaticResource CompleteRecordingTaskCheckBoxText}"
+                              IsChecked="{Binding CompleteRecordingOnNextTimeEntry}" />
+
+                    <ListBox Grid.Row="6"
                              ItemTemplate="{StaticResource TaskItemTemplate}"
                              ItemsSource="{Binding SelectedTaskList.Tasks}"
                              SelectedItem="{Binding SelectedTaskItem, Mode=TwoWay}"
                              Style="{StaticResource TaskPanelListBoxStyle}" />
 
-                    <Border Grid.Row="6"
+                    <Border Grid.Row="7"
                             Background="#2630363D"
                             BorderBrush="{StaticResource PanelBorderBrush}"
                             BorderThickness="1"
@@ -312,6 +383,8 @@
                                        Margin="0,0,0,8"
                                        Text="{Binding SelectedTaskSummary}" />
                             <WrapPanel>
+                                <Button Command="{Binding NewTaskCommand}" Content="Neu" />
+                                <Button Command="{Binding EditTaskCommand}" Content="Bearbeiten" />
                                 <Button Command="{Binding StartTaskCommand}" Content="Starten" />
                                 <Button Command="{Binding CompleteTaskCommand}" Content="Erledigt" />
                                 <Button Command="{Binding MoreToDoCommand}" Content="Mehr zu tun" Margin="0" />
@@ -325,6 +398,7 @@
 
     <Grid Background="{StaticResource WindowBackgroundBrush}">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -342,6 +416,8 @@
             <MenuItem Header="{StaticResource MasterDataMenuHeader}">
                 <MenuItem Header="{StaticResource ManageProjectsMenuHeader}"
                           Command="{Binding ManageProjectsCommand}" />
+                <MenuItem Header="{StaticResource NewTaskListButtonText}"
+                          Command="{Binding TaskManagement.NewTaskListCommand}" />
                 <MenuItem Header="{StaticResource ManageTaskListsMenuHeader}"
                           Command="{Binding ManageTaskListsCommand}" />
                 <MenuItem Header="{StaticResource ManageTasksMenuHeader}"
@@ -361,9 +437,69 @@
                 <MenuItem Header="{StaticResource TenantAdminStatisticsMenuHeader}"
                           Command="{Binding ShowTenantAdminStatisticsCommand}" />
             </MenuItem>
+            <MenuItem Header="{StaticResource ToolsMenuHeader}">
+                <MenuItem Header="{StaticResource OptionsMenuHeader}"
+                          Command="{Binding OptionsCommand}" />
+            </MenuItem>
         </Menu>
 
-        <Grid Grid.Row="1" Margin="8">
+        <ToolBarTray Grid.Row="1" Background="{StaticResource PanelBackgroundBrush}">
+            <ToolBar Style="{StaticResource ClassicToolBarStyle}">
+                <Button Command="{Binding TaskManagement.NewTaskCommand}" ToolTip="Neue Aufgabe">
+                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource NewTaskButtonText}" /></StackPanel>
+                </Button>
+                <Button Command="{Binding TaskManagement.EditTaskCommand}" ToolTip="Aufgabe bearbeiten">
+                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource EditTaskButtonText}" /></StackPanel>
+                </Button>
+                <Separator />
+                <Button Command="{Binding TaskManagement.NewTaskListCommand}" ToolTip="Neue Aufgabenliste">
+                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource NewTaskListButtonText}" /></StackPanel>
+                </Button>
+                <Button Command="{Binding TaskManagement.EditTaskListCommand}" ToolTip="Aufgabenliste bearbeiten">
+                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource EditTaskListButtonText}" /></StackPanel>
+                </Button>
+                <Separator />
+                <Button Command="{Binding TaskManagement.StartTaskCommand}" ToolTip="Aufgabe beginnen">
+                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource StartTaskButtonText}" /></StackPanel>
+                </Button>
+                <Button Command="{Binding TimeCollection.CheckOutCommand}" ToolTip="Ausbuchen">
+                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource CheckOutButtonText}" /></StackPanel>
+                </Button>
+                <Button Command="{Binding TaskManagement.CompleteTaskCommand}" ToolTip="Aufgabe erledigt">
+                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource CompleteTaskButtonText}" /></StackPanel>
+                </Button>
+                <Button Command="{Binding TimeCollection.InsertWorkBreakCommand}" ToolTip="Pause">
+                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource PauseButtonText}" /></StackPanel>
+                </Button>
+                <Button Command="{Binding TimeCollection.InsertDownTimeCommand}" ToolTip="Ausfallzeit">
+                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource DownTimeButtonText}" /></StackPanel>
+                </Button>
+            </ToolBar>
+            <ToolBar Style="{StaticResource ClassicToolBarStyle}" HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal" Visibility="{Binding IsTaskRecording, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="">
+                        <TextBlock.Foreground>
+                            <SolidColorBrush Color="#FFFF7777" />
+                        </TextBlock.Foreground>
+                        <TextBlock.Triggers>
+                            <EventTrigger RoutedEvent="Loaded">
+                                <BeginStoryboard>
+                                    <Storyboard RepeatBehavior="Forever" AutoReverse="True">
+                                        <ColorAnimation Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
+                                                        From="#FFFFCCCC"
+                                                        To="#FF780000"
+                                                        Duration="0:0:0.85" />
+                                    </Storyboard>
+                                </BeginStoryboard>
+                            </EventTrigger>
+                        </TextBlock.Triggers>
+                    </TextBlock>
+                    <TextBlock Margin="6,0,0,0" Foreground="{StaticResource MenuForegroundBrush}" Text="{Binding RecordingStatusText}" />
+                </StackPanel>
+            </ToolBar>
+        </ToolBarTray>
+
+        <Grid Grid.Row="2" Margin="8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="270" />
                 <ColumnDefinition Width="*" />
@@ -393,14 +529,35 @@
                     </StackPanel>
 
                     <Calendar Grid.Row="2"
+                             Background="{StaticResource ListItemBackgroundBrush}"
+                             Foreground="{StaticResource MutedForegroundBrush}"
                               Margin="0,0,0,12"
                               SelectedDate="{Binding SelectedDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
                     <StackPanel Grid.Row="3">
-                        <TextBlock Style="{StaticResource SectionHeaderTextStyle}"
-                                   Text="Gebuchte Tage" />
-                        <ItemsControl ItemTemplate="{StaticResource BookedDateTemplate}"
-                                      ItemsSource="{Binding BookedDates}" />
+                       <TextBlock Style="{StaticResource SectionHeaderTextStyle}"
+                                  Text="{StaticResource BookedDaysHeader}" />
+                       <ListBox Background="{StaticResource ListItemBackgroundBrush}"
+                                BorderBrush="{StaticResource PanelBorderBrush}"
+                                Foreground="{StaticResource MutedForegroundBrush}"
+                                ItemTemplate="{StaticResource BookedDateTemplate}"
+                                ItemsSource="{Binding Source={StaticResource BookedDatesView}}"
+                                SelectedValue="{Binding SelectedDate, Mode=TwoWay}"
+                                SelectedValuePath="BookingDate">
+                           <ListBox.GroupStyle>
+                               <GroupStyle>
+                                   <GroupStyle.HeaderTemplate>
+                                       <DataTemplate>
+                                           <Border Background="{StaticResource PanelBackgroundBrush}" Padding="4,3">
+                                               <TextBlock Foreground="{StaticResource AccentBrush}"
+                                                          FontWeight="SemiBold"
+                                                          Text="{Binding Name}" />
+                                           </Border>
+                                       </DataTemplate>
+                                   </GroupStyle.HeaderTemplate>
+                               </GroupStyle>
+                           </ListBox.GroupStyle>
+                       </ListBox>
                     </StackPanel>
                 </Grid>
             </Border>
@@ -459,6 +616,7 @@
                         <ListBox Grid.Row="4"
                                  ItemTemplate="{StaticResource TimeEntryItemTemplate}"
                                  ItemsSource="{Binding TimeCollection.SelectedDayEntries}"
+                                 MouseDoubleClick="OnTimeEntryDoubleClick"
                                  SelectedItem="{Binding TimeCollection.SelectedEntry, Mode=TwoWay}"
                                  Style="{StaticResource TimeEntryListBoxStyle}" />
                     </Grid>
@@ -485,7 +643,7 @@
             </Grid>
         </Grid>
 
-        <StatusBar Grid.Row="2">
+        <StatusBar Grid.Row="3">
             <StatusBarItem>
                 <TextBlock Text="{Binding SelectedDateSummary}" />
             </StatusBarItem>

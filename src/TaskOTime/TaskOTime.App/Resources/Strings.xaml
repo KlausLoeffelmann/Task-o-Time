@@ -8,6 +8,17 @@
     <sys:String x:Key="ExportDayMenuHeader">Tag als CSV exportieren</sys:String>
     <sys:String x:Key="ExportPeriodMenuHeader">Zeitraum als CSV exportieren</sys:String>
     <sys:String x:Key="QuitMenuHeader">Beenden</sys:String>
+    <sys:String x:Key="ToolsMenuHeader">_Extras</sys:String>
+    <sys:String x:Key="OptionsMenuHeader">Optionen...</sys:String>
+    <sys:String x:Key="NewTaskButtonText">Neue Aufgabe</sys:String>
+    <sys:String x:Key="EditTaskButtonText">Aufgabe bearbeiten</sys:String>
+    <sys:String x:Key="NewTaskListButtonText">Neue Aufgabenliste</sys:String>
+    <sys:String x:Key="EditTaskListButtonText">Aufgabenliste bearbeiten</sys:String>
+    <sys:String x:Key="StartTaskButtonText">Aufgabe beginnen</sys:String>
+    <sys:String x:Key="CheckOutButtonText">Ausbuchen</sys:String>
+    <sys:String x:Key="CompleteTaskButtonText">Aufgabe erledigt</sys:String>
+    <sys:String x:Key="PauseButtonText">Pause</sys:String>
+    <sys:String x:Key="DownTimeButtonText">Ausfallzeit</sys:String>
     <sys:String x:Key="ManageProjectsMenuHeader">Projekte...</sys:String>
     <sys:String x:Key="ManageTaskListsMenuHeader">Aufgabenlisten...</sys:String>
     <sys:String x:Key="ManageTasksMenuHeader">Aufgaben...</sys:String>
@@ -24,4 +35,6 @@
     <sys:String x:Key="DeleteTimeEntryButtonText">Löschen</sys:String>
     <sys:String x:Key="InsertWorkBreakButtonText">Pause einfügen</sys:String>
     <sys:String x:Key="InsertStopMarkButtonText">Stoppmarke</sys:String>
+    <sys:String x:Key="BookedDaysHeader">Tage mit Buchungen</sys:String>
+    <sys:String x:Key="CompleteRecordingTaskCheckBoxText">Aufgabe wird erledigt.</sys:String>
 </ResourceDictionary>

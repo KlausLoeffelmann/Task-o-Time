@@ -11,6 +11,8 @@ Namespace ViewModels
         Private ReadOnly _entriesByDate As Dictionary(Of DateTime, List(Of TimeEntrySeed))
         Private ReadOnly _editCommand As DelegateCommand
         Private ReadOnly _deleteCommand As DelegateCommand
+        Private _historyRangeCount As Integer = 14
+        Private _historyRangeUnit As String = "Tage"
         Private _bookingDate As DateTime
         Private _selectedEntry As TimeEntryViewModel
 
@@ -21,19 +23,25 @@ Namespace ViewModels
         Public Sub New(bookingDate As DateTime)
             _entriesByDate = New Dictionary(Of DateTime, List(Of TimeEntrySeed))()
             SelectedDayEntries = New ObservableCollection(Of TimeEntryViewModel)()
-            BookedDates = New ObservableCollection(Of DateTime)()
+            BookedDateItems = New ObservableCollection(Of BookedDateItemViewModel)()
 
-            AddCommand = New DelegateCommand(Sub(parameter) AddEntry())
-            _editCommand = New DelegateCommand(Sub(parameter) EditEntry(), Function(parameter) SelectedEntry IsNot Nothing)
+            AddCommand = New DelegateCommand(Sub(parameter) RequestAddEntry())
+            _editCommand = New DelegateCommand(Sub(parameter) RequestEditEntry(), Function(parameter) SelectedEntry IsNot Nothing)
             _deleteCommand = New DelegateCommand(Sub(parameter) DeleteEntry(), Function(parameter) SelectedEntry IsNot Nothing)
             InsertWorkBreakCommand = New DelegateCommand(Sub(parameter) InsertSystemMarker(TimeEntryMarkerKind.WorkBreak))
             InsertStopMarkCommand = New DelegateCommand(Sub(parameter) InsertSystemMarker(TimeEntryMarkerKind.StopMark))
+            InsertDownTimeCommand = New DelegateCommand(Sub(parameter) UpsertLatestSystemMarker(TimeEntryMarkerKind.DownTime))
+            CheckOutCommand = New DelegateCommand(Sub(parameter) UpsertLatestSystemMarker(TimeEntryMarkerKind.StopMark))
 
             SeedSampleData()
             RebuildBookedDates()
             _bookingDate = bookingDate.Date
             RefreshEntries()
         End Sub
+
+        Public Event TimeEntryCreated As EventHandler(Of Boolean)
+
+        Public Event TimeEntryEditRequested As EventHandler(Of TimeEntryEditRequestEventArgs)
 
         Public Property BookingDate As DateTime
             Get
@@ -61,7 +69,7 @@ Namespace ViewModels
 
         Public ReadOnly Property SelectedDayEntries As ObservableCollection(Of TimeEntryViewModel)
 
-        Public ReadOnly Property BookedDates As ObservableCollection(Of DateTime)
+        Public ReadOnly Property BookedDateItems As ObservableCollection(Of BookedDateItemViewModel)
 
         Public ReadOnly Property AddCommand As ICommand
 
@@ -80,6 +88,10 @@ Namespace ViewModels
         Public ReadOnly Property InsertWorkBreakCommand As ICommand
 
         Public ReadOnly Property InsertStopMarkCommand As ICommand
+
+        Public ReadOnly Property InsertDownTimeCommand As ICommand
+
+        Public ReadOnly Property CheckOutCommand As ICommand
 
         Public ReadOnly Property TargetTime As TimeSpan
             Get
@@ -147,23 +159,47 @@ Namespace ViewModels
             End Get
         End Property
 
-        Private Sub AddEntry()
+        Public Sub ApplyOptions(options As AppOptionsViewModel)
+            If options Is Nothing Then
+                Return
+            End If
+
+            _historyRangeCount = options.BookedDateRangeCount
+            _historyRangeUnit = options.BookedDateRangeUnit
+            RebuildBookedDates()
+        End Sub
+
+        Private Sub RequestAddEntry()
             Dim entryTime = GetNextEntryTime()
+            RaiseEvent TimeEntryEditRequested(
+                Me,
+                New TimeEntryEditRequestEventArgs(
+                    entryTime,
+                    "Neue Zeitbuchung",
+                    "Beschreibung ergänzen",
+                    False,
+                    Sub(savedTime, savedTitle, savedDescription, completeRunningTask)
+                        AddEntryFromDialog(savedTime, savedTitle, savedDescription, TimeEntryMarkerKind.Normal, completeRunningTask)
+                    End Sub))
+        End Sub
+
+        Private Sub AddEntryFromDialog(entryTime As DateTime, title As String, description As String, markerKind As TimeEntryMarkerKind, completeRunningTask As Boolean)
             Dim idTimeItem = Guid.NewGuid()
 
             GetOrCreateSeeds(BookingDate).Add(New TimeEntrySeed With {
                 .IdTimeItem = idTimeItem,
                 .EntryTime = entryTime,
-                .Title = "Neue Zeitbuchung",
-                .Description = "Beschreibung ergänzen",
-                .MarkerKind = TimeEntryMarkerKind.Normal
+                .Title = If(String.IsNullOrWhiteSpace(title), "Neue Zeitbuchung", title.Trim()),
+                .Description = If(String.IsNullOrWhiteSpace(description), "Beschreibung ergänzen", description.Trim()),
+                .MarkerKind = markerKind
             })
 
             RebuildBookedDates()
             RefreshEntries(idTimeItem)
+            RaiseEvent TimeEntryCreated(Me, completeRunningTask)
         End Sub
 
-        Private Sub EditEntry()
+        Private Sub RequestEditEntry()
             If SelectedEntry Is Nothing Then
                 Return
             End If
@@ -173,9 +209,57 @@ Namespace ViewModels
                 Return
             End If
 
-            seed.Title = "Bearbeitet: " & seed.Title
-            seed.Description = "Musteränderung für die spätere Bearbeiten-Maske."
-            RefreshEntries(seed.IdTimeItem)
+            RaiseEvent TimeEntryEditRequested(
+                Me,
+                New TimeEntryEditRequestEventArgs(
+                    seed.EntryTime,
+                    seed.Title,
+                    seed.Description,
+                    False,
+                    Sub(savedTime, savedTitle, savedDescription, completeRunningTask)
+                        seed.EntryTime = savedTime
+                        seed.Title = If(String.IsNullOrWhiteSpace(savedTitle), seed.Title, savedTitle.Trim())
+                        seed.Description = If(String.IsNullOrWhiteSpace(savedDescription), seed.Description, savedDescription.Trim())
+                        RefreshEntries(seed.IdTimeItem)
+                        If completeRunningTask Then
+                            RaiseEvent TimeEntryCreated(Me, True)
+                        End If
+                    End Sub))
+        End Sub
+
+        Private Sub InsertSystemMarker(markerKind As TimeEntryMarkerKind)
+            Dim markerTime = If(SelectedEntry Is Nothing, GetNextEntryTime(), SelectedEntry.EntryTime.AddMinutes(5))
+            markerTime = MoveToFreeMinute(markerTime)
+
+            AddEntryFromDialog(
+                markerTime,
+                If(markerKind = TimeEntryMarkerKind.WorkBreak, "Pause", "Stopp"),
+                If(markerKind = TimeEntryMarkerKind.WorkBreak, "Arbeitsunterbrechung eingefügt.", "Stoppmarke eingefügt."),
+                markerKind,
+                False)
+        End Sub
+
+        Private Sub UpsertLatestSystemMarker(markerKind As TimeEntryMarkerKind)
+            Dim nowTime = RoundUpToQuarterHour(DateTime.Now)
+            Dim seeds = GetOrCreateSeeds(BookingDate)
+            Dim latest = seeds.
+                Where(Function(seed) seed.MarkerKind = markerKind).
+                OrderByDescending(Function(seed) seed.EntryTime).
+                FirstOrDefault()
+
+            If latest Is Nothing Then
+                AddEntryFromDialog(
+                    MoveToFreeMinute(nowTime),
+                    If(markerKind = TimeEntryMarkerKind.DownTime, "Ausfallzeit", If(markerKind = TimeEntryMarkerKind.WorkBreak, "Pause", "Ausbuchen")),
+                    If(markerKind = TimeEntryMarkerKind.DownTime, "Ausfallzeit nachgetragen.", If(markerKind = TimeEntryMarkerKind.WorkBreak, "Pause aktualisiert.", "Tagesende aktualisiert.")),
+                    markerKind,
+                    False)
+                Return
+            End If
+
+            latest.EntryTime = MoveToFreeMinute(nowTime)
+            RefreshEntries(latest.IdTimeItem)
+            RaiseEvent TimeEntryCreated(Me, False)
         End Sub
 
         Private Sub DeleteEntry()
@@ -195,23 +279,6 @@ Namespace ViewModels
 
             RebuildBookedDates()
             RefreshEntries()
-        End Sub
-
-        Private Sub InsertSystemMarker(markerKind As TimeEntryMarkerKind)
-            Dim markerTime = If(SelectedEntry Is Nothing, GetNextEntryTime(), SelectedEntry.EntryTime.AddMinutes(5))
-            markerTime = MoveToFreeMinute(markerTime)
-
-            Dim idTimeItem = Guid.NewGuid()
-            GetOrCreateSeeds(BookingDate).Add(New TimeEntrySeed With {
-                .IdTimeItem = idTimeItem,
-                .EntryTime = markerTime,
-                .Title = If(markerKind = TimeEntryMarkerKind.WorkBreak, "Pause", "Stopp"),
-                .Description = If(markerKind = TimeEntryMarkerKind.WorkBreak, "Arbeitsunterbrechung eingefügt.", "Stoppmarke eingefügt."),
-                .MarkerKind = markerKind
-            })
-
-            RebuildBookedDates()
-            RefreshEntries(idTimeItem)
         End Sub
 
         Private Sub RefreshEntries(Optional selectedId As Guid? = Nothing)
@@ -354,11 +421,37 @@ Namespace ViewModels
             Dim dates = New List(Of DateTime)(_entriesByDate.Keys)
             dates.Sort(Function(left, right) right.CompareTo(left))
 
-            BookedDates.Clear()
+            BookedDateItems.Clear()
+            Dim oldest = DateTime.Today.AddDays(-If(_historyRangeUnit = "Wochen", _historyRangeCount * 7, _historyRangeCount))
             For Each bookedDay In dates
-                BookedDates.Add(bookedDay)
+                If bookedDay >= oldest Then
+                    BookedDateItems.Add(New BookedDateItemViewModel(bookedDay, GetBookedDateGroup(bookedDay)))
+                End If
             Next
         End Sub
+
+        Private Shared Function GetBookedDateGroup(bookedDay As DateTime) As String
+            Dim today = DateTime.Today
+            Dim currentWeekStart = StartOfWeek(today)
+            Dim bookedWeekStart = StartOfWeek(bookedDay)
+            Dim weekDelta = CInt((currentWeekStart - bookedWeekStart).Days \ 7)
+
+            Select Case weekDelta
+                Case 0
+                    Return "Diese Woche"
+                Case 1
+                    Return "Letzte Woche"
+                Case 2
+                    Return "Vorletzte Woche"
+                Case Else
+                    Return $"{weekDelta + 1}. Woche im {bookedDay:MMMM}"
+            End Select
+        End Function
+
+        Private Shared Function StartOfWeek(value As DateTime) As DateTime
+            Dim dayOffset = (CInt(value.DayOfWeek) + 6) Mod 7
+            Return value.Date.AddDays(-dayOffset)
+        End Function
 
         Private Sub SeedSampleData()
             AddSeed(DateTime.Today, 8, 30, "Tagesplanung", "Prioritäten und Aufgaben für den Tag sortieren.", TimeEntryMarkerKind.Normal)

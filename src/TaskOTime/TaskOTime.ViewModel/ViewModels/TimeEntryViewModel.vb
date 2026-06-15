@@ -7,6 +7,7 @@ Namespace ViewModels
         Normal = 0
         WorkBreak = 1
         StopMark = 2
+        DownTime = 3
     End Enum
 
     Public Class TimeEntryViewModel
@@ -106,6 +107,8 @@ Namespace ViewModels
                         Return "Arbeitsunterbrechung"
                     Case TimeEntryMarkerKind.StopMark
                         Return "Stoppmarke"
+                    Case TimeEntryMarkerKind.DownTime
+                        Return "Ausfallzeit"
                     Case Else
                         Return "Zeitbuchung"
                 End Select
@@ -119,6 +122,8 @@ Namespace ViewModels
                         Return "☕"
                     Case TimeEntryMarkerKind.StopMark
                         Return "■"
+                    Case TimeEntryMarkerKind.DownTime
+                        Return "◆"
                     Case Else
                         Return "●"
                 End Select
@@ -132,6 +137,8 @@ Namespace ViewModels
                         Return "#FFB58B2B"
                     Case TimeEntryMarkerKind.StopMark
                         Return "#FFB94A48"
+                    Case TimeEntryMarkerKind.DownTime
+                        Return "#FF8E8E8E"
                     Case Else
                         Return "#FF7EA6C8"
                 End Select

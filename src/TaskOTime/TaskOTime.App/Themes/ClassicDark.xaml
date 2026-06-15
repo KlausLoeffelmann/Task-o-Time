@@ -4,16 +4,26 @@
     <Color x:Key="PanelBackgroundColor">#FF3A4047</Color>
     <Color x:Key="PanelBorderColor">#FF5D6670</Color>
     <Color x:Key="ContentBackgroundColor">#FFF4F1EA</Color>
+    <Color x:Key="ListItemBackgroundColor">#FF333333</Color>
+    <Color x:Key="ListItemSelectedBackgroundColor">#FFC9E3FA</Color>
+    <Color x:Key="ListItemSelectedBorderColor">#FF2F6FA7</Color>
     <Color x:Key="ContentForegroundColor">#FF1F2328</Color>
     <Color x:Key="MutedForegroundColor">#FFCBD2D8</Color>
+    <Color x:Key="MenuForegroundColor">#FFF3F7FA</Color>
+    <Color x:Key="MenuPopupBackgroundColor">#FF252A30</Color>
     <Color x:Key="AccentColor">#FF7EA6C8</Color>
 
     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{StaticResource WindowBackgroundColor}" />
     <SolidColorBrush x:Key="PanelBackgroundBrush" Color="{StaticResource PanelBackgroundColor}" />
     <SolidColorBrush x:Key="PanelBorderBrush" Color="{StaticResource PanelBorderColor}" />
     <SolidColorBrush x:Key="ContentBackgroundBrush" Color="{StaticResource ContentBackgroundColor}" />
+    <SolidColorBrush x:Key="ListItemBackgroundBrush" Color="{StaticResource ListItemBackgroundColor}" />
+    <SolidColorBrush x:Key="ListItemSelectedBackgroundBrush" Color="{StaticResource ListItemSelectedBackgroundColor}" />
+    <SolidColorBrush x:Key="ListItemSelectedBorderBrush" Color="{StaticResource ListItemSelectedBorderColor}" />
     <SolidColorBrush x:Key="ContentForegroundBrush" Color="{StaticResource ContentForegroundColor}" />
     <SolidColorBrush x:Key="MutedForegroundBrush" Color="{StaticResource MutedForegroundColor}" />
+    <SolidColorBrush x:Key="MenuForegroundBrush" Color="{StaticResource MenuForegroundColor}" />
+    <SolidColorBrush x:Key="MenuPopupBackgroundBrush" Color="{StaticResource MenuPopupBackgroundColor}" />
     <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource AccentColor}" />
 
     <Style x:Key="PanelBorderStyle" TargetType="{x:Type Border}">
@@ -35,5 +45,11 @@
     <Style TargetType="{x:Type StatusBar}">
         <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}" />
         <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
+    </Style>
+
+    <Style x:Key="ClassicToolBarStyle" TargetType="{x:Type ToolBar}">
+        <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
+        <Setter Property="Padding" Value="4,2" />
     </Style>
 </ResourceDictionary>

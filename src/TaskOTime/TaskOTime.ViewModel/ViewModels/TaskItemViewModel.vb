@@ -12,6 +12,8 @@ Namespace ViewModels
         Private _isStarted As Boolean
         Private _isDone As Boolean
         Private _needsMore As Boolean
+        Private _startedAt As DateTime?
+        Private _recordingElapsed As TimeSpan
 
         Public Sub New(title As String, description As String, dueText As String)
             Me.New(Guid.NewGuid(), title, description, dueText)
@@ -68,6 +70,24 @@ Namespace ViewModels
             End Set
         End Property
 
+        Public ReadOnly Property StartedAt As DateTime?
+            Get
+                Return _startedAt
+            End Get
+        End Property
+
+        Public Property RecordingElapsed As TimeSpan
+            Get
+                Return _recordingElapsed
+            End Get
+            Private Set(value As TimeSpan)
+                If SetProperty(_recordingElapsed, value, NameOf(RecordingElapsed)) Then
+                    OnPropertyChanged(NameOf(RecordingElapsedText))
+                    OnPropertyChanged(NameOf(RecordingStatusText))
+                End If
+            End Set
+        End Property
+
         Public Property IsDone As Boolean
             Get
                 Return _isDone
@@ -114,6 +134,32 @@ Namespace ViewModels
             End Get
         End Property
 
+        Public ReadOnly Property ShortTitle As String
+            Get
+                If String.IsNullOrEmpty(Title) OrElse Title.Length <= 20 Then
+                    Return Title
+                End If
+
+                Return Title.Substring(0, 20)
+            End Get
+        End Property
+
+        Public ReadOnly Property RecordingElapsedText As String
+            Get
+                Return $"{CInt(Math.Floor(RecordingElapsed.TotalHours)):00}:{RecordingElapsed.Minutes:00}:{RecordingElapsed.Seconds:00}"
+            End Get
+        End Property
+
+        Public ReadOnly Property RecordingStatusText As String
+            Get
+                If Not IsStarted OrElse Not StartedAt.HasValue Then
+                    Return String.Empty
+                End If
+
+                Return $"{ShortTitle} seit {StartedAt.Value:HH:mm} - {RecordingElapsedText}"
+            End Get
+        End Property
+
         Public ReadOnly Property ActionHint As String
             Get
                 If IsDone Then
@@ -132,28 +178,56 @@ Namespace ViewModels
             End Get
         End Property
 
-        Public Sub MarkStarted()
+        Public Sub MarkStarted(Optional startedAt As DateTime? = Nothing)
             IsDone = False
             NeedsMore = False
+            _startedAt = If(startedAt, DateTime.Now)
+            OnPropertyChanged(NameOf(StartedAt))
             IsStarted = True
+            UpdateRecordingElapsed(DateTime.Now)
         End Sub
 
         Public Sub MarkDone()
             NeedsMore = False
+            _startedAt = Nothing
+            RecordingElapsed = TimeSpan.Zero
             IsStarted = False
             IsDone = True
         End Sub
 
         Public Sub MarkNeedsMore()
             IsDone = False
+            _startedAt = Nothing
+            RecordingElapsed = TimeSpan.Zero
             IsStarted = False
             NeedsMore = True
+        End Sub
+
+        Public Sub StopRecordingWithoutFinishing()
+            If Not IsStarted Then
+                Return
+            End If
+
+            _startedAt = Nothing
+            RecordingElapsed = TimeSpan.Zero
+            IsStarted = False
+        End Sub
+
+        Public Sub UpdateRecordingElapsed(nowValue As DateTime)
+            If Not IsStarted OrElse Not StartedAt.HasValue Then
+                RecordingElapsed = TimeSpan.Zero
+                Return
+            End If
+
+            RecordingElapsed = nowValue - StartedAt.Value
         End Sub
 
         Private Sub RaiseStatusPropertiesChanged()
             OnPropertyChanged(NameOf(IsOpen))
             OnPropertyChanged(NameOf(StatusText))
             OnPropertyChanged(NameOf(ActionHint))
+            OnPropertyChanged(NameOf(ShortTitle))
+            OnPropertyChanged(NameOf(RecordingStatusText))
         End Sub
     End Class
 End Namespace

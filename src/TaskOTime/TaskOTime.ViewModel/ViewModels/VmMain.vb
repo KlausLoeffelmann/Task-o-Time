@@ -13,13 +13,19 @@ Namespace ViewModels
 
         Public Sub New()
             _selectedDate = DateTime.Today
+            Options = New AppOptionsViewModel()
             TimeCollection = New TimeCollectionViewModel(_selectedDate)
             AddHandler TimeCollection.PropertyChanged, AddressOf OnTimeCollectionPropertyChanged
+            AddHandler TimeCollection.TimeEntryCreated, AddressOf OnTimeEntryCreated
+            AddHandler TimeCollection.TimeEntryEditRequested, AddressOf OnTimeEntryEditRequested
 
             TaskManagement = New TaskManagementViewModel()
+            AddHandler TaskManagement.PropertyChanged, AddressOf OnTaskManagementPropertyChanged
+            AddHandler TaskManagement.TaskListEditRequested, AddressOf OnTaskListEditRequested
 
             TodayCommand = New DelegateCommand(AddressOf SelectToday)
             YesterdayCommand = New DelegateCommand(AddressOf SelectYesterday)
+            OptionsCommand = New DelegateCommand(AddressOf ShowOptionsDialog)
             ExportSelectedDayCommand = New DelegateCommand(AddressOf ShowExportSelectedDayDialog)
             ExportPeriodCommand = New DelegateCommand(AddressOf ShowExportPeriodDialog)
             ManageProjectsCommand = New DelegateCommand(AddressOf ShowProjectsDialog)
@@ -33,6 +39,9 @@ Namespace ViewModels
         End Sub
 
         Public Event DialogRequested As EventHandler(Of DialogRequestedEventArgs)
+        Public Event OptionsRequested As EventHandler(Of AppOptionsViewModel)
+        Public Event TaskListEditRequested As EventHandler(Of TaskListEditRequestEventArgs)
+        Public Event TimeEntryEditRequested As EventHandler(Of TimeEntryEditRequestEventArgs)
 
         Public Property SelectedDate As DateTime
             Get
@@ -57,17 +66,21 @@ Namespace ViewModels
 
         Public ReadOnly Property TimeCollection As TimeCollectionViewModel
 
-        Public ReadOnly Property BookedDates As ObservableCollection(Of DateTime)
+        Public ReadOnly Property BookedDates As ObservableCollection(Of BookedDateItemViewModel)
             Get
-                Return TimeCollection.BookedDates
+                Return TimeCollection.BookedDateItems
             End Get
         End Property
 
         Public ReadOnly Property TaskManagement As TaskManagementViewModel
 
+        Public ReadOnly Property Options As AppOptionsViewModel
+
         Public ReadOnly Property TodayCommand As ICommand
 
         Public ReadOnly Property YesterdayCommand As ICommand
+
+        Public ReadOnly Property OptionsCommand As ICommand
 
         Public ReadOnly Property ExportSelectedDayCommand As ICommand
 
@@ -88,6 +101,18 @@ Namespace ViewModels
         Public ReadOnly Property ShowMonthlyStatementCommand As ICommand
 
         Public ReadOnly Property ShowTenantAdminStatisticsCommand As ICommand
+
+        Public ReadOnly Property IsTaskRecording As Boolean
+            Get
+                Return TaskManagement.IsTaskRecording
+            End Get
+        End Property
+
+        Public ReadOnly Property RecordingStatusText As String
+            Get
+                Return TaskManagement.RecordingStatusText
+            End Get
+        End Property
 
         Public ReadOnly Property TargetTime As TimeSpan
             Get
@@ -152,6 +177,27 @@ Namespace ViewModels
                 String.Format("Der Tag {0:dd.MM.yyyy} ist für den CSV-Export vorgemerkt.", SelectedDate),
                 "Platzhalter für Dateiauswahl, Spaltenauswahl und Exportstatus.",
                 "Die spätere Implementierung kann hier den Exportauftrag starten.")
+        End Sub
+
+        Private Sub ShowOptionsDialog()
+            RaiseEvent OptionsRequested(Me, Options.Clone())
+        End Sub
+
+        Public Sub ApplyOptions(updatedOptions As AppOptionsViewModel)
+            If updatedOptions Is Nothing Then
+                Return
+            End If
+
+            Options.RestoreMainWindowPlacement = updatedOptions.RestoreMainWindowPlacement
+            Options.SaturdayIsWorkday = updatedOptions.SaturdayIsWorkday
+            Options.SundayIsWorkday = updatedOptions.SundayIsWorkday
+            Options.BookedDateRangeUnit = updatedOptions.BookedDateRangeUnit
+            Options.BookedDateRangeCount = updatedOptions.BookedDateRangeCount
+            TimeCollection.ApplyOptions(Options)
+        End Sub
+
+        Public Sub UpdateRecordingClock(nowValue As DateTime)
+            TaskManagement.UpdateRecordingClock(nowValue)
         End Sub
 
         Private Sub ShowExportPeriodDialog()
@@ -239,6 +285,18 @@ Namespace ViewModels
             RaiseEvent DialogRequested(Me, New DialogRequestedEventArgs(New DialogShellViewModel(title, heading, leadText, details)))
         End Sub
 
+        Private Sub OnTaskListEditRequested(sender As Object, e As TaskListEditRequestEventArgs)
+            RaiseEvent TaskListEditRequested(Me, e)
+        End Sub
+
+        Private Sub OnTimeEntryEditRequested(sender As Object, e As TimeEntryEditRequestEventArgs)
+            RaiseEvent TimeEntryEditRequested(Me, e)
+        End Sub
+
+        Private Sub OnTimeEntryCreated(sender As Object, completeTask As Boolean)
+            TaskManagement.StopRecordingAfterTimeEntry(If(TaskManagement.CompleteRecordingOnNextTimeEntry, True, completeTask))
+        End Sub
+
         Private Sub OnTimeCollectionPropertyChanged(sender As Object, e As PropertyChangedEventArgs)
             Select Case e.PropertyName
                 Case NameOf(TimeCollectionViewModel.BookedTime), NameOf(TimeCollectionViewModel.WorkBreakTime), NameOf(TimeCollectionViewModel.RemainingTime), NameOf(TimeCollectionViewModel.DaySummary)
@@ -247,6 +305,16 @@ Namespace ViewModels
                     OnPropertyChanged(NameOf(CenterPanelSummary))
                 Case NameOf(TimeCollectionViewModel.Heading)
                     OnPropertyChanged(NameOf(CenterPanelTitle))
+            End Select
+        End Sub
+
+        Private Sub OnTaskManagementPropertyChanged(sender As Object, e As PropertyChangedEventArgs)
+            Select Case e.PropertyName
+                Case NameOf(TaskManagementViewModel.IsTaskRecording), NameOf(TaskManagementViewModel.RecordingStatusText)
+                    OnPropertyChanged(NameOf(IsTaskRecording))
+                    OnPropertyChanged(NameOf(RecordingStatusText))
+                Case NameOf(TaskManagementViewModel.TaskPanelSummary)
+                    OnPropertyChanged(NameOf(TaskPanelSummary))
             End Select
         End Sub
     End Class

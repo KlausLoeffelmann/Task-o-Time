@@ -26,5 +26,77 @@ namespace TaskOTime.App.Properties
                 return defaultInstance;
             }
         }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("True")]
+        public bool RestoreMainWindowPlacement
+        {
+            get { return ((bool)(this["RestoreMainWindowPlacement"])); }
+            set { this["RestoreMainWindowPlacement"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("NaN")]
+        public double MainWindowLeft
+        {
+            get { return ((double)(this["MainWindowLeft"])); }
+            set { this["MainWindowLeft"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("NaN")]
+        public double MainWindowTop
+        {
+            get { return ((double)(this["MainWindowTop"])); }
+            set { this["MainWindowTop"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1120")]
+        public double MainWindowWidth
+        {
+            get { return ((double)(this["MainWindowWidth"])); }
+            set { this["MainWindowWidth"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("760")]
+        public double MainWindowHeight
+        {
+            get { return ((double)(this["MainWindowHeight"])); }
+            set { this["MainWindowHeight"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool SaturdayIsWorkday
+        {
+            get { return ((bool)(this["SaturdayIsWorkday"])); }
+            set { this["SaturdayIsWorkday"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("False")]
+        public bool SundayIsWorkday
+        {
+            get { return ((bool)(this["SundayIsWorkday"])); }
+            set { this["SundayIsWorkday"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("14")]
+        public int BookedDateRangeCount
+        {
+            get { return ((int)(this["BookedDateRangeCount"])); }
+            set { this["BookedDateRangeCount"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("Tage")]
+        public string BookedDateRangeUnit
+        {
+            get { return ((string)(this["BookedDateRangeUnit"])); }
+            set { this["BookedDateRangeUnit"] = value; }
+        }
     }
 }
