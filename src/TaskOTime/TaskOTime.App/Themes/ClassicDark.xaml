@@ -11,8 +11,8 @@
     <Color x:Key="ListItemForegroundColor">#FFF4F6F8</Color>
     <Color x:Key="MutedForegroundColor">#FFCBD2D8</Color>
     <Color x:Key="MenuForegroundColor">#FFF3F7FA</Color>
-    <Color x:Key="MenuPopupBackgroundColor">#FF252A30</Color>
-    <Color x:Key="CommandBackgroundColor">#FF343A41</Color>
+    <Color x:Key="MenuPopupBackgroundColor">#FF050505</Color>
+    <Color x:Key="CommandBackgroundColor">#FF050505</Color>
     <Color x:Key="AccentColor">#FF7EA6C8</Color>
 
     <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{StaticResource WindowBackgroundColor}" />
@@ -51,6 +51,15 @@
         <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
     </Style>
 
+    <Style TargetType="{x:Type TextBox}">
+        <Setter Property="Background" Value="{StaticResource ListItemBackgroundBrush}" />
+        <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
+        <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
+        <Setter Property="CaretBrush" Value="{StaticResource MenuForegroundBrush}" />
+        <Setter Property="MinWidth" Value="72" />
+        <Setter Property="Padding" Value="4,2" />
+    </Style>
+
     <Style x:Key="ClassicToolBarStyle" TargetType="{x:Type ToolBar}">
         <Setter Property="Background" Value="{StaticResource CommandBackgroundBrush}" />
         <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
@@ -62,6 +71,7 @@
         <Setter Property="Background" Value="{StaticResource ListItemBackgroundBrush}" />
         <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
         <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{StaticResource MenuForegroundBrush}" />
         <Setter Property="Padding" Value="9,4" />
         <Setter Property="Margin" Value="0,0,6,0" />
     </Style>

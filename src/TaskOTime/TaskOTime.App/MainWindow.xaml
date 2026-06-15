@@ -33,11 +33,13 @@
         <Style TargetType="{x:Type Menu}">
             <Setter Property="Background" Value="{StaticResource CommandBackgroundBrush}" />
             <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource MenuForegroundBrush}" />
         </Style>
 
         <Style TargetType="{x:Type MenuItem}">
             <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
             <Setter Property="Background" Value="{StaticResource MenuPopupBackgroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{StaticResource MenuForegroundBrush}" />
             <Setter Property="Padding" Value="10,4" />
         </Style>
 
@@ -70,8 +72,8 @@
         </DataTemplate>
 
         <Style x:Key="TaskCardMutedTextStyle" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
-            <Setter Property="Opacity" Value="0.72" />
+            <Setter Property="Foreground" Value="{StaticResource ListItemForegroundBrush}" />
+            <Setter Property="Opacity" Value="0.82" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
@@ -236,7 +238,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="BookedDateTemplate">
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}"
+            <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                        Margin="0,0,0,4"
                        FontWeight="SemiBold"
                        Text="{Binding DisplayText}" />
@@ -292,7 +294,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="18"
                                    FontWeight="SemiBold"
                                    Text="{Binding EntryTimeText}" />
@@ -307,10 +309,10 @@
                             Margin="0,2,8,2" />
 
                     <StackPanel Grid.Column="2">
-                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontWeight="SemiBold"
                                    Text="{Binding Title}" />
-                        <TextBlock Style="{StaticResource ContentTextStyle}"
+                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    Margin="0,2,0,4"
                                    Text="{Binding Description}" />
                         <TextBlock Foreground="{Binding MarkerAccent}"
@@ -320,20 +322,20 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="3" HorizontalAlignment="Right">
-                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontWeight="SemiBold"
                                    HorizontalAlignment="Right"
                                    Text="{Binding DurationToNextText}" />
-                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
                                    Text="bis nächster" />
-                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
                                    Margin="0,6,0,0"
                                    Text="seit vorheriger" />
-                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
                                    Text="{Binding DurationFromPreviousText}" />
@@ -457,24 +459,24 @@
         <ToolBarTray Grid.Row="1" Background="{StaticResource CommandBackgroundBrush}">
             <ToolBar Style="{StaticResource ClassicToolBarStyle}">
                 <Button Command="{Binding TaskManagement.NewTaskCommand}" ToolTip="Neue Aufgabe">
-                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource NewTaskButtonText}" /></StackPanel>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button Command="{Binding TaskManagement.EditTaskCommand}" ToolTip="Aufgabe bearbeiten">
-                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource EditTaskButtonText}" /></StackPanel>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Separator />
                 <Button Command="{Binding TaskManagement.NewTaskListCommand}" ToolTip="Neue Aufgabenliste">
-                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource NewTaskListButtonText}" /></StackPanel>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button Command="{Binding TaskManagement.EditTaskListCommand}" ToolTip="Aufgabenliste bearbeiten">
-                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource EditTaskListButtonText}" /></StackPanel>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Separator />
                 <Button Command="{Binding TaskManagement.StartTaskCommand}" ToolTip="Aufgabe beginnen">
-                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource StartTaskButtonText}" /></StackPanel>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button Command="{Binding TimeCollection.CheckOutCommand}" ToolTip="Ausbuchen">
-                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource CheckOutButtonText}" /></StackPanel>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <StackPanel Orientation="Horizontal"
                             Margin="2,0,4,0"
@@ -483,25 +485,27 @@
                                Foreground="{StaticResource MenuForegroundBrush}"
                                Margin="0,0,4,0"
                                Text="Start" />
-                    <TextBox Width="48"
+                    <TextBox MinWidth="72"
+                             Width="72"
                              Margin="0,0,4,0"
                              Text="{Binding ManualCompletionStartText, UpdateSourceTrigger=PropertyChanged}" />
                     <TextBlock VerticalAlignment="Center"
                                Foreground="{StaticResource MenuForegroundBrush}"
                                Margin="0,0,4,0"
                                Text="Dauer" />
-                    <TextBox Width="56"
+                    <TextBox MinWidth="72"
+                             Width="72"
                              Margin="0,0,4,0"
                              Text="{Binding ManualCompletionDurationText, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
                 <Button Command="{Binding TaskManagement.CompleteTaskCommand}" ToolTip="Aufgabe erledigt">
-                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource CompleteTaskButtonText}" /></StackPanel>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button Command="{Binding TimeCollection.InsertWorkBreakCommand}" ToolTip="Pause">
-                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource PauseButtonText}" /></StackPanel>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button Command="{Binding TimeCollection.InsertDownTimeCommand}" ToolTip="Ausfallzeit">
-                    <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource DownTimeButtonText}" /></StackPanel>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
             </ToolBar>
             <ToolBar Style="{StaticResource ClassicToolBarStyle}" HorizontalAlignment="Right">
@@ -551,10 +555,14 @@
                                 Margin="0,0,0,10"
                                 Orientation="Horizontal">
                         <Button Command="{Binding TodayCommand}"
-                                Content="{StaticResource TodayButtonText}" />
+                                ToolTip="{StaticResource TodayButtonText}">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                        </Button>
                         <Button Command="{Binding YesterdayCommand}"
-                                Content="{StaticResource YesterdayButtonText}"
-                                Margin="0" />
+                                Margin="0"
+                                ToolTip="{StaticResource YesterdayButtonText}">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                        </Button>
                     </StackPanel>
 
                     <Calendar Grid.Row="2"
@@ -630,16 +638,26 @@
 
                         <WrapPanel Grid.Row="3" Margin="0,0,0,10">
                             <Button Command="{Binding TimeCollection.AddCommand}"
-                                    Content="{StaticResource AddTimeEntryButtonText}" />
+                                    ToolTip="{StaticResource AddTimeEntryButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                            </Button>
                             <Button Command="{Binding TimeCollection.EditCommand}"
-                                    Content="{StaticResource EditTimeEntryButtonText}" />
+                                    ToolTip="{StaticResource EditTimeEntryButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                            </Button>
                             <Button Command="{Binding TimeCollection.DeleteCommand}"
-                                    Content="{StaticResource DeleteTimeEntryButtonText}" />
+                                    ToolTip="{StaticResource DeleteTimeEntryButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                            </Button>
                             <Button Command="{Binding TimeCollection.InsertWorkBreakCommand}"
-                                    Content="{StaticResource InsertWorkBreakButtonText}" />
+                                    ToolTip="{StaticResource InsertWorkBreakButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                            </Button>
                             <Button Command="{Binding TimeCollection.InsertStopMarkCommand}"
-                                    Content="{StaticResource InsertStopMarkButtonText}"
-                                    Margin="0" />
+                                    Margin="0"
+                                    ToolTip="{StaticResource InsertStopMarkButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                            </Button>
                         </WrapPanel>
 
                         <ListBox Grid.Row="4"
