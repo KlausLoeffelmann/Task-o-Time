@@ -30,12 +30,14 @@ namespace TaskOTime.DataLayer
                 {
                     var now = DateTimeOffset.Now;
                     var catalog = new DemoTextCatalog(options.Text);
+                    SystemTimeMarkerSeed.EnsureLookupItems(context);
                     var tenants = CreateTenants(context, options.Tenants, now, catalog);
                     var users = CreateUsers(context, tenants, options.Users, now);
                     var projects = CreateProjects(context, tenants, users, options.Projects, now, catalog);
                     var assignments = CreateProjectUserAssignments(context, users, projects, options.ProjectAssignments, now);
                     var symbols = CreateSymbols(context, projects);
                     var categories = CreateCategories(context, users, symbols, options.Categories, catalog);
+                    SystemTimeMarkerSeed.EnsureCategories(context, SelectSystemMarkerOwner(users).IdUser, symbols.First().IdCategorySymbol);
                     var lists = CreateTaskLists(context, users, projects, symbols, options.Lists, catalog);
                     var tags = CreateTags(context, users, options.Tasks.Total, catalog);
                     var tasks = CreateTasks(context, users, projects, lists, symbols, tags, options.Tasks, now, catalog);
@@ -123,6 +125,14 @@ namespace TaskOTime.DataLayer
             }
 
             return users;
+        }
+
+        private static User SelectSystemMarkerOwner(IReadOnlyList<User> users)
+        {
+            return users
+                .OrderByDescending(user => user.IsAdmin)
+                .ThenBy(user => user.UserIdent, StringComparer.OrdinalIgnoreCase)
+                .First();
         }
 
         private static List<Project> CreateProjects(TaskOTimeContext context, IReadOnlyList<Tenant> tenants, IReadOnlyList<User> users, int count, DateTimeOffset now, DemoTextCatalog catalog)

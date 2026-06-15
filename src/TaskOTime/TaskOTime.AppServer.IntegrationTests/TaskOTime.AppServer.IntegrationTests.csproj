@@ -29,7 +29,22 @@
     <Compile Include="..\TaskOTime.AppServer\Services\TimeBookingService.cs" Link="AppServer\Services\TimeBookingService.cs" />
     <Compile Include="..\TaskOTime.AppServer\Security\*.cs" LinkBase="AppServer\Security" />
     <Compile Include="..\TaskOTime.AppServer\TimeBooking\*.cs" LinkBase="AppServer\TimeBooking" />
+    <Compile Include="..\TaskOTime.DataLayer\Model\TaskOTime.Context.cs" Link="DataLayer\Model\TaskOTime.Context.cs" />
     <Compile Include="..\TaskOTime.DataLayer\SystemTimeMarkerSeed.cs" Link="DataLayer\SystemTimeMarkerSeed.cs" />
+    <Compile Include="..\TaskOTime.DataLayer\TaskOTimeContext.partial.cs" Link="DataLayer\TaskOTimeContext.partial.cs" />
+    <Compile Include="..\TaskOTime.DataLayer\TaskOTimeContextFactory.cs" Link="DataLayer\TaskOTimeContextFactory.cs" />
   </ItemGroup>
+
+  <ItemGroup>
+    <EntityDeploy Include="..\TaskOTime.DataLayer\Model\TaskOTime.edmx" Link="Model\TaskOTime.edmx" />
+    <None Include="..\TaskOTime.DataLayer\DbGenerationScript.sql" Link="DbGenerationScript.sql" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <Target Name="CopyDataLayerMetadata" AfterTargets="Build">
+    <ItemGroup>
+      <TaskOTimeDataLayerMetadata Include="..\TaskOTime.DataLayer\bin\$(Configuration)\Model\TaskOTime.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(TaskOTimeDataLayerMetadata)" DestinationFolder="$(TargetDir)Model\" SkipUnchangedFiles="true" />
+  </Target>
 
 </Project>

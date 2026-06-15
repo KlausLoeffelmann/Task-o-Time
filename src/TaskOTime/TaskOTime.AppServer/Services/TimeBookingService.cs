@@ -363,6 +363,7 @@ namespace TaskOTime.AppServer.Services
                 {
                     var now = DateTimeOffset.UtcNow;
                     var options = new TimeBookingOptions();
+                    SystemTimeMarkerSeed.EnsureCategories(context, access.Value.BookingUser.IdUser);
                     var userTimeItems = LoadUserTimeItems(context, request.AccessContext, access.Value.IsAdmin, includeDeletedItems: false, options: options);
                     TimeBookingChangeSet changeSet;
                     DateTime bookingDate;
@@ -665,13 +666,15 @@ namespace TaskOTime.AppServer.Services
             bool includeDeletedItems,
             TimeBookingOptions options)
         {
+            var startDate = bookingDate.Date;
+            var endDate = startDate.AddDays(1);
             var query = from item in context.TimeItem
                         join project in context.Project on item.IdProject equals project.IdProject
                         where item.IdUser == accessContext.IdBookingUser &&
                               item.EventTypeInfo == options.TimeEventType &&
                               item.BookingDate.HasValue &&
-                              item.BookingDate.Value >= bookingDate.Date &&
-                              item.BookingDate.Value < bookingDate.Date.AddDays(1) &&
+                              item.BookingDate.Value >= startDate &&
+                              item.BookingDate.Value < endDate &&
                               (includeDeletedItems || !item.IsItemDeleted) &&
                               project.IsActive &&
                               !project.IsDeleted &&

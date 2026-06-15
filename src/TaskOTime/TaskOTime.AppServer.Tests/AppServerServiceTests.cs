@@ -180,6 +180,44 @@ namespace TaskOTime.AppServer.Tests
             Assert.AreEqual(2, line.BookingCount);
         }
 
+        [TestMethod]
+        public void TimeBooking_InsertSystemMarkers_SeedsStableMarkerCategories()
+        {
+            var context = CreateTenantContext();
+            AddProjectWithAssignment(context, RegularUserId, canBookTime: true);
+            context.Category.Add(new Category
+            {
+                IdCategory = CategoryId,
+                IdUser = RegularUserId,
+                CategoryName = "Development"
+            });
+            context.TimeItem.Add(CreateTimeItem(10, TimeSpan.FromMinutes(30)));
+            var service = new TimeBookingService(() => context, new Pbkdf2PasswordHasher());
+            var accessContext = CreateAccessContext(RegularUserId, RegularUserId);
+
+            var breakResult = service.InsertWorkBreak(new InsertSystemTimeMarkerRequest
+            {
+                AccessContext = accessContext,
+                MarkerTime = WorkDayStart.AddMinutes(45)
+            });
+            var stopResult = service.InsertStopMark(new InsertSystemTimeMarkerRequest
+            {
+                AccessContext = accessContext,
+                MarkerTime = WorkDayStart.AddMinutes(60)
+            });
+
+            Assert.IsTrue(breakResult.Success, breakResult.ErrorMessage);
+            Assert.IsTrue(stopResult.Success, stopResult.ErrorMessage);
+            Assert.AreEqual(SystemTimeMarkerIds.WorkBreakCategoryId, breakResult.Value.AffectedItem.IdCategory);
+            Assert.AreEqual(SystemTimeMarkerKind.WorkBreak, breakResult.Value.AffectedItem.MarkerKind);
+            Assert.AreEqual(SystemTimeMarkerIds.StopMarkCategoryId, stopResult.Value.AffectedItem.IdCategory);
+            Assert.AreEqual(SystemTimeMarkerKind.StopMark, stopResult.Value.AffectedItem.MarkerKind);
+            Assert.IsTrue(SystemTimeMarkerSeed.HasSeededLookupItems(context));
+            Assert.IsTrue(SystemTimeMarkerSeed.HasSeededCategories(context));
+            Assert.AreEqual(1, context.Category.Count(category => category.IdCategory == SystemTimeMarkerIds.WorkBreakCategoryId));
+            Assert.AreEqual(1, context.Category.Count(category => category.IdCategory == SystemTimeMarkerIds.StopMarkCategoryId));
+        }
+
         private static TaskOTimeContext CreateTenantContext()
         {
             var context = new TaskOTimeContext();
