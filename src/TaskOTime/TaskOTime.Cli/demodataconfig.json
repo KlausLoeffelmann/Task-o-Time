@@ -40,12 +40,12 @@
     }
   ],
   "categories": 20,
-  "lists": 4,
+  "lists": 6,
   "tasks": {
     "open": 15,
     "closed": 20
   },
-  "timeItems": 100,
+  "timeItems": 180,
   "projectAssignments": {
     "mode": "Deterministic",
     "usersPerProject": 2,

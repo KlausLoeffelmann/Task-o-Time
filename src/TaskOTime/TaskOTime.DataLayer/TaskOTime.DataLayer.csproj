@@ -39,6 +39,7 @@
   <ItemGroup>
     <Compile Include="DemoDataGenerator.cs" />
     <Compile Include="DemoDataOptions.cs" />
+    <Compile Include="DemoDataSmokeReport.cs" />
     <Compile Include="DemoTextCatalog.cs" />
     <Compile Include="DisconnectedEntityExtensions.cs" />
     <Compile Include="Model\TaskOTime.Context.cs">

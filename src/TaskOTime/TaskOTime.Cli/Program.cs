@@ -53,8 +53,15 @@ namespace TaskOTime.Cli
             if (options.CreateDemoData)
             {
                 var demoOptions = DemoDataConfigLoader.Load(options.DemoDataConfigPath);
-                new DemoDataGenerator().CreateDemoData(demoOptions);
-                Console.WriteLine("Created demo data.");
+                var report = ExecuteWithCliDirectory(() => new DemoDataGenerator().CreateDemoData(demoOptions));
+                Console.WriteLine("Created demo data. " + report.ToSummaryString());
+            }
+
+            if (options.ValidateDemoData)
+            {
+                var report = ExecuteWithCliDirectory(DemoDataSmokeReport.Collect);
+                report.Validate();
+                Console.WriteLine("Demo data smoke validation passed. " + report.ToSummaryString());
             }
 
             if (options.ExportMode != ExportMode.None)
@@ -92,11 +99,26 @@ namespace TaskOTime.Cli
             throw new FileNotFoundException("DbGenerationScript.sql was not found next to the CLI executable or in the source tree.", baseDirectoryScript);
         }
 
+        private static T ExecuteWithCliDirectory<T>(Func<T> action)
+        {
+            var originalDirectory = Environment.CurrentDirectory;
+            try
+            {
+                Environment.CurrentDirectory = AppDomain.CurrentDomain.BaseDirectory;
+                return action();
+            }
+            finally
+            {
+                Environment.CurrentDirectory = originalDirectory;
+            }
+        }
+
         private static void WriteUsage()
         {
             Console.WriteLine("TaskOTime.Cli");
             Console.WriteLine("  --new");
             Console.WriteLine("  --createDemoData[:demodataconfig.json]");
+            Console.WriteLine("  --validateDemoData");
             Console.WriteLine("  --export:all");
             Console.WriteLine("  --export:tables table1, table2, table3");
             Console.WriteLine("  --backup:\"path-and-filename.bak\"");
@@ -122,6 +144,7 @@ namespace TaskOTime.Cli
             public bool ShowHelp { get; private set; }
             public bool ResetDatabase { get; private set; }
             public bool CreateDemoData { get; private set; }
+            public bool ValidateDemoData { get; private set; }
             public string DemoDataConfigPath { get; private set; }
             public ExportMode ExportMode { get; private set; }
             public IReadOnlyList<string> ExportTables { get; private set; }
@@ -160,6 +183,10 @@ namespace TaskOTime.Cli
                         {
                             options.DemoDataConfigPath = ReadOptionalFollowingValue(args, ref i);
                         }
+                    }
+                    else if (IsOption(arg, "--validateDemoData"))
+                    {
+                        options.ValidateDemoData = true;
                     }
                     else if (StartsWithOption(arg, "--backup"))
                     {

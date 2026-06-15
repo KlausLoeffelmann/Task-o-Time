@@ -9,7 +9,7 @@ namespace TaskOTime.DataLayer
 {
     public sealed class DemoDataGenerator
     {
-        public void CreateDemoData(DemoDataOptions options)
+        public DemoDataSmokeReport CreateDemoData(DemoDataOptions options)
         {
             if (options == null)
             {
@@ -33,13 +33,13 @@ namespace TaskOTime.DataLayer
                     var tenants = CreateTenants(context, options.Tenants, now, catalog);
                     var users = CreateUsers(context, tenants, options.Users, now);
                     var projects = CreateProjects(context, tenants, users, options.Projects, now, catalog);
-                    CreateProjectUserAssignments(context, users, projects, options.ProjectAssignments, now);
+                    var assignments = CreateProjectUserAssignments(context, users, projects, options.ProjectAssignments, now);
                     var symbols = CreateSymbols(context, projects);
                     var categories = CreateCategories(context, users, symbols, options.Categories, catalog);
                     var lists = CreateTaskLists(context, users, projects, symbols, options.Lists, catalog);
                     var tags = CreateTags(context, users, options.Tasks.Total, catalog);
                     var tasks = CreateTasks(context, users, projects, lists, symbols, tags, options.Tasks, now, catalog);
-                    CreateTimeItems(context, users, projects, categories, tasks, options.TimeItems, now, catalog);
+                    CreateTimeItems(context, users, projects, assignments, categories, tasks, options.TimeItems, now, catalog);
                     CreateNotes(context, users, projects, tasks, tags, now, catalog);
                     CreateWebLinks(context, users, projects, tags, now, catalog);
                     CreateSharableProjects(context, users, projects, categories, now);
@@ -47,7 +47,10 @@ namespace TaskOTime.DataLayer
                     CreateLogItems(context, users, now, catalog);
 
                     context.SaveChanges();
+                    var report = DemoDataSmokeReport.Collect(context);
+                    report.Validate();
                     transaction.Commit();
+                    return report;
                 }
             }
         }
@@ -162,8 +165,9 @@ namespace TaskOTime.DataLayer
             return projects;
         }
 
-        private static void CreateProjectUserAssignments(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, DemoProjectAssignmentOptions options, DateTimeOffset now)
+        private static List<ProjectUserAssignment> CreateProjectUserAssignments(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, DemoProjectAssignmentOptions options, DateTimeOffset now)
         {
+            var assignments = new List<ProjectUserAssignment>();
             var random = new Random(options.Seed);
             var overrides = (options.Projects ?? new List<DemoProjectAssignmentOverride>())
                 .ToDictionary(p => p.ProjectNumber, p => p.Users, EqualityComparer<int>.Default);
@@ -178,7 +182,7 @@ namespace TaskOTime.DataLayer
 
                 foreach (var user in assignedUsers)
                 {
-                    context.ProjectUserAssignment.Add(new ProjectUserAssignment
+                    var assignment = new ProjectUserAssignment
                     {
                         IdProjectUserAssignment = Guid.NewGuid(),
                         IdProject = project.IdProject,
@@ -195,10 +199,15 @@ namespace TaskOTime.DataLayer
                         DateCreated = now,
                         DateModified = now,
                         ExternalId = "demo-project-assignment-" + (displayOrder + 1)
-                    });
+                    };
+
+                    context.ProjectUserAssignment.Add(assignment);
+                    assignments.Add(assignment);
                     displayOrder++;
                 }
             }
+
+            return assignments;
         }
 
         private static IReadOnlyList<User> SelectAssignedUsers(Project project, int projectIndex, IReadOnlyList<User> tenantUsers, DemoProjectAssignmentOptions options, IDictionary<int, List<string>> overrides, Random random)
@@ -415,37 +424,77 @@ namespace TaskOTime.DataLayer
             return tasks;
         }
 
-        private static void CreateTimeItems(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<Category> categories, IReadOnlyList<TaskItem> tasks, int count, DateTimeOffset now, DemoTextCatalog catalog)
+        private static void CreateTimeItems(
+            TaskOTimeContext context,
+            IReadOnlyList<User> users,
+            IReadOnlyList<Project> projects,
+            IReadOnlyList<ProjectUserAssignment> assignments,
+            IReadOnlyList<Category> categories,
+            IReadOnlyList<TaskItem> tasks,
+            int count,
+            DateTimeOffset now,
+            DemoTextCatalog catalog)
         {
+            var projectById = projects.ToDictionary(project => project.IdProject);
+            var userById = users.ToDictionary(user => user.IdUser);
+            var categoriesByUser = categories
+                .GroupBy(category => category.IdUser)
+                .ToDictionary(group => group.Key, group => group.OrderBy(category => category.DisplayOrder).ToList());
+            var tasksByProject = tasks
+                .GroupBy(task => task.IdProject)
+                .ToDictionary(group => group.Key, group => group.OrderBy(task => task.DateCreated).ThenBy(task => task.TaskItemName).ToList());
+            var bookableAssignments = assignments
+                .Where(assignment => assignment.CanBookTime && assignment.IsActive && !assignment.IsDeleted)
+                .OrderBy(assignment => projectById[assignment.IdProject].ProjectNumber)
+                .ThenBy(assignment => userById[assignment.IdUser].UserIdent, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (bookableAssignments.Count == 0)
+            {
+                throw new InvalidOperationException("Demo time bookings require at least one active project assignment with booking permission.");
+            }
+
             for (var i = 0; i < count; i++)
             {
-                var task = tasks[i % tasks.Count];
+                var assignment = bookableAssignments[i % bookableAssignments.Count];
+                var project = projectById[assignment.IdProject];
+                var user = userById[assignment.IdUser];
+                var cycle = i / bookableAssignments.Count;
+                var bookingDate = DateTime.Today.AddDays(-(cycle % 3));
+                var projectTasks = tasksByProject.TryGetValue(project.IdProject, out var matchingTasks) && matchingTasks.Count > 0
+                    ? matchingTasks
+                    : tasks.ToList();
+                var task = projectTasks[cycle % projectTasks.Count];
+                var userCategories = categoriesByUser.TryGetValue(user.IdUser, out var matchingCategories) && matchingCategories.Count > 0
+                    ? matchingCategories
+                    : categories.ToList();
+                var category = userCategories[(cycle + i) % userCategories.Count];
                 var duration = TimeSpan.FromMinutes(15 + (i % 8) * 15);
                 var item = new TimeItem
                 {
                     IdTimeItem = Guid.NewGuid(),
-                    IdUser = task.IdUser,
-                    IdProject = task.IdProject,
+                    IdUser = user.IdUser,
+                    IdProject = project.IdProject,
                     IdTask = task.IdTaskItem,
-                    IdCategory = categories[i % categories.Count].IdCategory,
+                    IdCategory = category.IdCategory,
                     ShortTitle = catalog.TimeShortTitle(i),
                     Description = catalog.TimeDescription(i),
-                    EventTime = now.AddHours(-i),
-                    BookingDate = DateTime.Today.AddDays(-(i % 30)),
+                    EventTime = new DateTimeOffset(bookingDate).AddHours(8 + (cycle % 9)).AddMinutes((i % 4) * 15),
+                    BookingDate = bookingDate,
                     EventInfo = catalog.EventInfo(i),
-                    EventTypeInfo = i % 3,
+                    EventTypeInfo = 1,
                     DurationToNext = duration,
                     DurationTicksToNext = duration.Ticks,
                     Scope = 0,
-                    IsItemCompleted = i % 4 != 0,
+                    IsItemCompleted = true,
                     IsItemDeleted = false,
                     IsStartAction = i % 2 == 0,
                     IsEndAction = i % 2 != 0,
                     Value = (decimal)duration.TotalHours,
                     Priority = i % 4,
                     MachineID = Environment.MachineName,
-                    DateItemFinished = i % 4 != 0 ? now.AddHours(-i).Add(duration) : (DateTimeOffset?)null,
-                    DateCreated = now.AddDays(-(i % 30)),
+                    DateItemFinished = new DateTimeOffset(bookingDate).AddHours(8 + (cycle % 9)).AddMinutes((i % 4) * 15).Add(duration),
+                    DateCreated = now.AddDays(-(cycle % 7)),
                     DateModified = now,
                     SyncId = Guid.NewGuid(),
                     SyncStatus = 0,

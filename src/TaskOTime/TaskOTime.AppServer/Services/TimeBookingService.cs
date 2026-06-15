@@ -670,7 +670,8 @@ namespace TaskOTime.AppServer.Services
                         where item.IdUser == accessContext.IdBookingUser &&
                               item.EventTypeInfo == options.TimeEventType &&
                               item.BookingDate.HasValue &&
-                              DbFunctions.TruncateTime(item.BookingDate.Value) == bookingDate.Date &&
+                              item.BookingDate.Value >= bookingDate.Date &&
+                              item.BookingDate.Value < bookingDate.Date.AddDays(1) &&
                               (includeDeletedItems || !item.IsItemDeleted) &&
                               project.IsActive &&
                               !project.IsDeleted &&
