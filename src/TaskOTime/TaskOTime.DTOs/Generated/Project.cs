@@ -19,6 +19,7 @@ namespace TaskOTime.DTOs
         {
             this.CategorySymbol = new HashSet<CategorySymbol>();
             this.Note = new HashSet<Note>();
+            this.ProjectUserAssignment = new HashSet<ProjectUserAssignment>();
             this.SharableProject = new HashSet<SharableProject>();
             this.TaskItem = new HashSet<TaskItem>();
             this.TaskList = new HashSet<TaskList>();
@@ -27,6 +28,7 @@ namespace TaskOTime.DTOs
         }
     
         public System.Guid IdProject { get; set; }
+        public System.Guid IdTenant { get; set; }
         public System.Guid IdUser { get; set; }
         public Nullable<System.Guid> IdSymbol { get; set; }
         public string ProjectName { get; set; }
@@ -54,7 +56,10 @@ namespace TaskOTime.DTOs
         public CategorySymbol CategorySymbol1 { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public ICollection<Note> Note { get; set; }
+        public Tenant Tenant { get; set; }
         public User User { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public ICollection<ProjectUserAssignment> ProjectUserAssignment { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public ICollection<SharableProject> SharableProject { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]

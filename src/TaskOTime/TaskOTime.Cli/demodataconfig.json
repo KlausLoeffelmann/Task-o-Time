@@ -1,20 +1,71 @@
 {
-  "tenants": 1,
-  "projects": 5,
+  "tenants": 2,
+  "projects": 6,
   "users": [
     {
-      "handle": "Admin",
+      "handle": "AdminDE",
       "password": "P@$$w0rd",
-      "firstName": "John",
-      "lastName": "Doe",
-      "email": "john@doe.de"
+      "firstName": "Anna",
+      "lastName": "Schneider",
+      "email": "anna.schneider@example.invalid",
+      "isAdmin": true,
+      "tenantIndex": 1
+    },
+    {
+      "handle": "LisaDE",
+      "password": "P@$$w0rd",
+      "firstName": "Lisa",
+      "lastName": "Weber",
+      "email": "lisa.weber@example.invalid",
+      "isAdmin": false,
+      "tenantIndex": 1
+    },
+    {
+      "handle": "AdminNL",
+      "password": "P@$$w0rd",
+      "firstName": "Sanne",
+      "lastName": "Jansen",
+      "email": "sanne.jansen@example.invalid",
+      "isAdmin": true,
+      "tenantIndex": 2
+    },
+    {
+      "handle": "DaanNL",
+      "password": "P@$$w0rd",
+      "firstName": "Daan",
+      "lastName": "Bakker",
+      "email": "daan.bakker@example.invalid",
+      "isAdmin": false,
+      "tenantIndex": 2
     }
   ],
   "categories": 20,
-  "lists": 4,
+  "lists": 6,
   "tasks": {
     "open": 15,
     "closed": 20
   },
-  "timeItems": 100
+  "timeItems": 180,
+  "projectAssignments": {
+    "mode": "Deterministic",
+    "usersPerProject": 2,
+    "seed": 20240614,
+    "includeAdmins": true,
+    "projects": [
+      {
+        "projectNumber": 1,
+        "users": [ "AdminDE", "LisaDE" ]
+      },
+      {
+        "projectNumber": 2,
+        "users": [ "AdminNL", "DaanNL" ]
+      }
+    ]
+  },
+  "text": {
+    "seed": 20240614,
+    "style": "Mixed",
+    "germanWeight": 1,
+    "dutchWeight": 1
+  }
 }

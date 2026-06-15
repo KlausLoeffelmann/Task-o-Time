@@ -2,13 +2,14 @@ using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
+using System.Security.Cryptography;
 using TaskOTime.DTOs;
 
 namespace TaskOTime.DataLayer
 {
     public sealed class DemoDataGenerator
     {
-        public void CreateDemoData(DemoDataOptions options)
+        public DemoDataSmokeReport CreateDemoData(DemoDataOptions options)
         {
             if (options == null)
             {
@@ -28,40 +29,84 @@ namespace TaskOTime.DataLayer
                 using (var transaction = context.Database.BeginTransaction())
                 {
                     var now = DateTimeOffset.Now;
-                    var users = CreateUsers(context, options.Users, now);
-                    var projects = CreateProjects(context, users, options.Projects, now);
+                    var catalog = new DemoTextCatalog(options.Text);
+                    var tenants = CreateTenants(context, options.Tenants, now, catalog);
+                    var users = CreateUsers(context, tenants, options.Users, now);
+                    var projects = CreateProjects(context, tenants, users, options.Projects, now, catalog);
+                    var assignments = CreateProjectUserAssignments(context, users, projects, options.ProjectAssignments, now);
                     var symbols = CreateSymbols(context, projects);
-                    var categories = CreateCategories(context, users, symbols, options.Categories);
-                    var lists = CreateTaskLists(context, users, projects, symbols, options.Lists);
-                    var tags = CreateTags(context, users, options.Tasks.Total);
-                    var tasks = CreateTasks(context, users, projects, lists, symbols, tags, options.Tasks, now);
-                    CreateTimeItems(context, users, projects, categories, tasks, options.TimeItems, now);
-                    CreateNotes(context, users, projects, tasks, tags, now);
-                    CreateWebLinks(context, users, projects, tags, now);
+                    var categories = CreateCategories(context, users, symbols, options.Categories, catalog);
+                    var lists = CreateTaskLists(context, users, projects, symbols, options.Lists, catalog);
+                    var tags = CreateTags(context, users, options.Tasks.Total, catalog);
+                    var tasks = CreateTasks(context, users, projects, lists, symbols, tags, options.Tasks, now, catalog);
+                    CreateTimeItems(context, users, projects, assignments, categories, tasks, options.TimeItems, now, catalog);
+                    CreateNotes(context, users, projects, tasks, tags, now, catalog);
+                    CreateWebLinks(context, users, projects, tags, now, catalog);
                     CreateSharableProjects(context, users, projects, categories, now);
-                    CreateTenantLeads(context, users, options.Tenants, now);
-                    CreateLogItems(context, users, now);
+                    CreateTenantLeads(context, users, options.Tenants, now, catalog);
+                    CreateLogItems(context, users, now, catalog);
 
                     context.SaveChanges();
+                    var report = DemoDataSmokeReport.Collect(context);
+                    report.Validate();
                     transaction.Commit();
+                    return report;
                 }
             }
         }
 
-        private static List<User> CreateUsers(TaskOTimeContext context, IEnumerable<DemoUserOptions> userOptions, DateTimeOffset now)
+        private static List<Tenant> CreateTenants(TaskOTimeContext context, int count, DateTimeOffset now, DemoTextCatalog catalog)
+        {
+            var tenants = new List<Tenant>();
+            for (var i = 0; i < count; i++)
+            {
+                var tenant = new Tenant
+                {
+                    IdTenant = Guid.NewGuid(),
+                    TenantName = catalog.TenantName(i),
+                    TenantIdentifier = "DEMO-TENANT-" + (i + 1).ToString("000"),
+                    Description = catalog.TenantDescription(i),
+                    IsActive = true,
+                    IsDeleted = false,
+                    DateCreated = now,
+                    DateModified = now,
+                    ExternalId = "demo-tenant-" + i
+                };
+
+                context.Tenant.Add(tenant);
+                tenants.Add(tenant);
+            }
+
+            return tenants;
+        }
+
+        private static List<User> CreateUsers(TaskOTimeContext context, IReadOnlyList<Tenant> tenants, IEnumerable<DemoUserOptions> userOptions, DateTimeOffset now)
         {
             var users = new List<User>();
             var index = 0;
             foreach (var userOption in userOptions)
             {
+                var tenantNumber = userOption.TenantIndex ?? ((index % tenants.Count) + 1);
+                var tenant = tenants[tenantNumber - 1];
+                var salt = CreateSalt();
                 var user = new User
                 {
                     IdUser = Guid.NewGuid(),
+                    IdTenant = tenant.IdTenant,
                     UserIdent = userOption.Handle,
                     FirstName = userOption.FirstName,
                     LastName = userOption.LastName,
                     EMail = userOption.Email,
-                    IsAdmin = index == 0,
+                    IsAdmin = userOption.IsAdmin,
+                    IsActive = true,
+                    IsDeleted = false,
+                    MustChangePassword = true,
+                    PasswordSalt = salt,
+                    PasswordHash = HashPassword(userOption.Password, salt),
+                    PasswordChangedAt = null,
+                    PreliminaryPasswordExpiresAt = now.AddDays(14),
+                    FailedLoginCount = 0,
+                    LockoutUntil = null,
                     EmojiIndex = index,
                     MaxProjects = 50,
                     LastLogin = now,
@@ -80,20 +125,25 @@ namespace TaskOTime.DataLayer
             return users;
         }
 
-        private static List<Project> CreateProjects(TaskOTimeContext context, IReadOnlyList<User> users, int count, DateTimeOffset now)
+        private static List<Project> CreateProjects(TaskOTimeContext context, IReadOnlyList<Tenant> tenants, IReadOnlyList<User> users, int count, DateTimeOffset now, DemoTextCatalog catalog)
         {
             var projects = new List<Project>();
             for (var i = 0; i < count; i++)
             {
-                var user = users[i % users.Count];
+                var tenant = tenants[i % tenants.Count];
+                var tenantUsers = users.Where(u => u.IdTenant == tenant.IdTenant)
+                    .OrderBy(u => u.UserIdent, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var user = tenantUsers.FirstOrDefault(u => u.IsAdmin) ?? tenantUsers.First();
                 var project = new Project
                 {
                     IdProject = Guid.NewGuid(),
+                    IdTenant = tenant.IdTenant,
                     IdUser = user.IdUser,
-                    ProjectName = "Demo Project " + (i + 1),
+                    ProjectName = catalog.ProjectName(i),
                     ProjectType = i % 3,
                     ProjectNumber = 1000 + i,
-                    ProjectDescription = "Generated demo project " + (i + 1),
+                    ProjectDescription = catalog.ProjectDescription(i),
                     ProjectIdentifier = "DEMO-" + (i + 1).ToString("000"),
                     ProjectSymbolChar = "P",
                     ProjectSymbolColor = i % 12,
@@ -113,6 +163,126 @@ namespace TaskOTime.DataLayer
             }
 
             return projects;
+        }
+
+        private static List<ProjectUserAssignment> CreateProjectUserAssignments(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, DemoProjectAssignmentOptions options, DateTimeOffset now)
+        {
+            var assignments = new List<ProjectUserAssignment>();
+            var random = new Random(options.Seed);
+            var overrides = (options.Projects ?? new List<DemoProjectAssignmentOverride>())
+                .ToDictionary(p => p.ProjectNumber, p => p.Users, EqualityComparer<int>.Default);
+            var displayOrder = 0;
+            for (var projectIndex = 0; projectIndex < projects.Count; projectIndex++)
+            {
+                var project = projects[projectIndex];
+                var tenantUsers = users.Where(u => u.IdTenant == project.IdTenant)
+                    .OrderBy(u => u.UserIdent, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+                var assignedUsers = SelectAssignedUsers(project, projectIndex, tenantUsers, options, overrides, random);
+
+                foreach (var user in assignedUsers)
+                {
+                    var assignment = new ProjectUserAssignment
+                    {
+                        IdProjectUserAssignment = Guid.NewGuid(),
+                        IdProject = project.IdProject,
+                        IdUser = user.IdUser,
+                        IdAssignedByUser = project.IdUser,
+                        AssignmentRole = user.IsAdmin ? 1 : 0,
+                        CanBookTime = true,
+                        CanManageTasks = user.IsAdmin,
+                        CanManageProject = user.IdUser == project.IdUser || user.IsAdmin,
+                        DisplayOrder = displayOrder,
+                        IsActive = true,
+                        IsDeleted = false,
+                        DateAssigned = now,
+                        DateCreated = now,
+                        DateModified = now,
+                        ExternalId = "demo-project-assignment-" + (displayOrder + 1)
+                    };
+
+                    context.ProjectUserAssignment.Add(assignment);
+                    assignments.Add(assignment);
+                    displayOrder++;
+                }
+            }
+
+            return assignments;
+        }
+
+        private static IReadOnlyList<User> SelectAssignedUsers(Project project, int projectIndex, IReadOnlyList<User> tenantUsers, DemoProjectAssignmentOptions options, IDictionary<int, List<string>> overrides, Random random)
+        {
+            if (tenantUsers.Count == 0)
+            {
+                throw new InvalidOperationException("Project " + project.ProjectName + " has no users in its tenant.");
+            }
+
+            var assignedUsers = new List<User>();
+            AddAssignmentUser(assignedUsers, tenantUsers.First(u => u.IdUser == project.IdUser));
+            if (options.IncludeAdmins)
+            {
+                foreach (var admin in tenantUsers.Where(u => u.IsAdmin))
+                {
+                    AddAssignmentUser(assignedUsers, admin);
+                }
+            }
+
+            var projectNumber = projectIndex + 1;
+            if (overrides.TryGetValue(projectNumber, out var handles))
+            {
+                foreach (var handle in handles)
+                {
+                    var user = tenantUsers.FirstOrDefault(u => string.Equals(u.UserIdent, handle, StringComparison.OrdinalIgnoreCase));
+                    if (user == null)
+                    {
+                        throw new InvalidOperationException("Project " + projectNumber + " assignment references a user from another tenant: " + handle);
+                    }
+
+                    AddAssignmentUser(assignedUsers, user);
+                }
+            }
+            else if (options.IsAllTenantUsers)
+            {
+                foreach (var user in tenantUsers)
+                {
+                    AddAssignmentUser(assignedUsers, user);
+                }
+            }
+            else if (options.IsPerProject)
+            {
+                return assignedUsers;
+            }
+            else
+            {
+                var candidates = options.IsRandom ? Shuffle(tenantUsers, random) : Rotate(tenantUsers, projectIndex);
+                foreach (var user in candidates.Take(options.UsersPerProject))
+                {
+                    AddAssignmentUser(assignedUsers, user);
+                }
+            }
+
+            return assignedUsers;
+        }
+
+        private static IReadOnlyList<User> Rotate(IReadOnlyList<User> users, int offset)
+        {
+            return users.Skip(offset % users.Count).Concat(users.Take(offset % users.Count)).ToList();
+        }
+
+        private static IReadOnlyList<User> Shuffle(IReadOnlyList<User> users, Random random)
+        {
+            return users.Select(user => new { User = user, Sort = random.Next() })
+                .OrderBy(item => item.Sort)
+                .Select(item => item.User)
+                .ToList();
+        }
+
+        private static void AddAssignmentUser(ICollection<User> assignedUsers, User user)
+        {
+            if (!assignedUsers.Any(u => u.IdUser == user.IdUser))
+            {
+                assignedUsers.Add(user);
+            }
         }
 
         private static List<CategorySymbol> CreateSymbols(TaskOTimeContext context, IReadOnlyList<Project> projects)
@@ -136,7 +306,7 @@ namespace TaskOTime.DataLayer
             return symbols;
         }
 
-        private static List<Category> CreateCategories(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<CategorySymbol> symbols, int count)
+        private static List<Category> CreateCategories(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<CategorySymbol> symbols, int count, DemoTextCatalog catalog)
         {
             var categories = new List<Category>();
             for (var i = 0; i < count; i++)
@@ -147,7 +317,7 @@ namespace TaskOTime.DataLayer
                     IdCategory = Guid.NewGuid(),
                     IdUser = user.IdUser,
                     IdSymbol = symbols[i % symbols.Count].IdCategorySymbol,
-                    CategoryName = "Category " + (i + 1),
+                    CategoryName = catalog.TagName(i),
                     DisplayOrder = i,
                     IsPublic = i % 4 == 0
                 };
@@ -159,7 +329,7 @@ namespace TaskOTime.DataLayer
             return categories;
         }
 
-        private static List<TaskList> CreateTaskLists(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<CategorySymbol> symbols, int count)
+        private static List<TaskList> CreateTaskLists(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<CategorySymbol> symbols, int count, DemoTextCatalog catalog)
         {
             var lists = new List<TaskList>();
             for (var i = 0; i < count; i++)
@@ -171,7 +341,7 @@ namespace TaskOTime.DataLayer
                     IdProject = project.IdProject,
                     IdUser = project.IdUser,
                     IdSymbol = symbols[i % symbols.Count].IdCategorySymbol,
-                    TaskListName = "List " + (i + 1),
+                    TaskListName = catalog.TaskListName(i),
                     DisplayOrder = i,
                     IsPublic = i % 2 == 0
                 };
@@ -183,7 +353,7 @@ namespace TaskOTime.DataLayer
             return lists;
         }
 
-        private static List<Tag> CreateTags(TaskOTimeContext context, IReadOnlyList<User> users, int taskCount)
+        private static List<Tag> CreateTags(TaskOTimeContext context, IReadOnlyList<User> users, int taskCount, DemoTextCatalog catalog)
         {
             var tagCount = Math.Max(6, Math.Min(24, taskCount / 5));
             var tags = new List<Tag>();
@@ -194,8 +364,8 @@ namespace TaskOTime.DataLayer
                 {
                     IdTag = Guid.NewGuid(),
                     IdUser = user.IdUser,
-                    Tag1 = "demo-tag-" + (i + 1),
-                    Description = "Generated demo tag " + (i + 1),
+                    Tag1 = catalog.TagName(i),
+                    Description = catalog.TagDescription(i),
                     DateCreated = DateTimeOffset.Now,
                     DateModified = DateTimeOffset.Now
                 };
@@ -207,7 +377,7 @@ namespace TaskOTime.DataLayer
             return tags;
         }
 
-        private static List<TaskItem> CreateTasks(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<TaskList> lists, IReadOnlyList<CategorySymbol> symbols, IReadOnlyList<Tag> tags, DemoTaskOptions options, DateTimeOffset now)
+        private static List<TaskItem> CreateTasks(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<TaskList> lists, IReadOnlyList<CategorySymbol> symbols, IReadOnlyList<Tag> tags, DemoTaskOptions options, DateTimeOffset now, DemoTextCatalog catalog)
         {
             var tasks = new List<TaskItem>();
             for (var i = 0; i < options.Total; i++)
@@ -221,9 +391,9 @@ namespace TaskOTime.DataLayer
                     IdProject = list.IdProject,
                     IdTaskList = list.IdTaskList,
                     IdSymbol = symbols[i % symbols.Count].IdCategorySymbol,
-                    TaskItemName = (isCompleted ? "Closed" : "Open") + " Demo Task " + (i + 1),
-                    TaskItemDescription = "Generated task for demo data.",
-                    QuickInfo = "Demo task " + (i + 1),
+                    TaskItemName = catalog.TaskName(i, isCompleted),
+                    TaskItemDescription = catalog.TaskDescription(i),
+                    QuickInfo = catalog.TaskQuickInfo(i),
                     DueDate = now.AddDays((i % 14) - 3),
                     TaskHoursBudget = 1 + (i % 8),
                     Priority = i % 4,
@@ -254,37 +424,77 @@ namespace TaskOTime.DataLayer
             return tasks;
         }
 
-        private static void CreateTimeItems(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<Category> categories, IReadOnlyList<TaskItem> tasks, int count, DateTimeOffset now)
+        private static void CreateTimeItems(
+            TaskOTimeContext context,
+            IReadOnlyList<User> users,
+            IReadOnlyList<Project> projects,
+            IReadOnlyList<ProjectUserAssignment> assignments,
+            IReadOnlyList<Category> categories,
+            IReadOnlyList<TaskItem> tasks,
+            int count,
+            DateTimeOffset now,
+            DemoTextCatalog catalog)
         {
+            var projectById = projects.ToDictionary(project => project.IdProject);
+            var userById = users.ToDictionary(user => user.IdUser);
+            var categoriesByUser = categories
+                .GroupBy(category => category.IdUser)
+                .ToDictionary(group => group.Key, group => group.OrderBy(category => category.DisplayOrder).ToList());
+            var tasksByProject = tasks
+                .GroupBy(task => task.IdProject)
+                .ToDictionary(group => group.Key, group => group.OrderBy(task => task.DateCreated).ThenBy(task => task.TaskItemName).ToList());
+            var bookableAssignments = assignments
+                .Where(assignment => assignment.CanBookTime && assignment.IsActive && !assignment.IsDeleted)
+                .OrderBy(assignment => projectById[assignment.IdProject].ProjectNumber)
+                .ThenBy(assignment => userById[assignment.IdUser].UserIdent, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (bookableAssignments.Count == 0)
+            {
+                throw new InvalidOperationException("Demo time bookings require at least one active project assignment with booking permission.");
+            }
+
             for (var i = 0; i < count; i++)
             {
-                var task = tasks[i % tasks.Count];
+                var assignment = bookableAssignments[i % bookableAssignments.Count];
+                var project = projectById[assignment.IdProject];
+                var user = userById[assignment.IdUser];
+                var cycle = i / bookableAssignments.Count;
+                var bookingDate = DateTime.Today.AddDays(-(cycle % 3));
+                var projectTasks = tasksByProject.TryGetValue(project.IdProject, out var matchingTasks) && matchingTasks.Count > 0
+                    ? matchingTasks
+                    : tasks.ToList();
+                var task = projectTasks[cycle % projectTasks.Count];
+                var userCategories = categoriesByUser.TryGetValue(user.IdUser, out var matchingCategories) && matchingCategories.Count > 0
+                    ? matchingCategories
+                    : categories.ToList();
+                var category = userCategories[(cycle + i) % userCategories.Count];
                 var duration = TimeSpan.FromMinutes(15 + (i % 8) * 15);
                 var item = new TimeItem
                 {
                     IdTimeItem = Guid.NewGuid(),
-                    IdUser = task.IdUser,
-                    IdProject = task.IdProject,
+                    IdUser = user.IdUser,
+                    IdProject = project.IdProject,
                     IdTask = task.IdTaskItem,
-                    IdCategory = categories[i % categories.Count].IdCategory,
-                    ShortTitle = "Time " + (i + 1),
-                    Description = "Generated demo time item.",
-                    EventTime = now.AddHours(-i),
-                    BookingDate = DateTime.Today.AddDays(-(i % 30)),
-                    EventInfo = "Demo booking",
-                    EventTypeInfo = i % 3,
+                    IdCategory = category.IdCategory,
+                    ShortTitle = catalog.TimeShortTitle(i),
+                    Description = catalog.TimeDescription(i),
+                    EventTime = new DateTimeOffset(bookingDate).AddHours(8 + (cycle % 9)).AddMinutes((i % 4) * 15),
+                    BookingDate = bookingDate,
+                    EventInfo = catalog.EventInfo(i),
+                    EventTypeInfo = 1,
                     DurationToNext = duration,
                     DurationTicksToNext = duration.Ticks,
                     Scope = 0,
-                    IsItemCompleted = i % 4 != 0,
+                    IsItemCompleted = true,
                     IsItemDeleted = false,
                     IsStartAction = i % 2 == 0,
                     IsEndAction = i % 2 != 0,
                     Value = (decimal)duration.TotalHours,
                     Priority = i % 4,
                     MachineID = Environment.MachineName,
-                    DateItemFinished = i % 4 != 0 ? now.AddHours(-i).Add(duration) : (DateTimeOffset?)null,
-                    DateCreated = now.AddDays(-(i % 30)),
+                    DateItemFinished = new DateTimeOffset(bookingDate).AddHours(8 + (cycle % 9)).AddMinutes((i % 4) * 15).Add(duration),
+                    DateCreated = now.AddDays(-(cycle % 7)),
                     DateModified = now,
                     SyncId = Guid.NewGuid(),
                     SyncStatus = 0,
@@ -295,7 +505,7 @@ namespace TaskOTime.DataLayer
             }
         }
 
-        private static void CreateNotes(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<TaskItem> tasks, IReadOnlyList<Tag> tags, DateTimeOffset now)
+        private static void CreateNotes(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<TaskItem> tasks, IReadOnlyList<Tag> tags, DateTimeOffset now, DemoTextCatalog catalog)
         {
             var count = Math.Max(6, tasks.Count / 4);
             for (var i = 0; i < count; i++)
@@ -308,7 +518,7 @@ namespace TaskOTime.DataLayer
                     IdProject = task.IdProject,
                     IdTask = task.IdTaskItem,
                     NoteMnemonic = "NOTE-" + (i + 1).ToString("000"),
-                    Note1 = "Generated note " + (i + 1),
+                    Note1 = catalog.NoteText(i),
                     DateCreated = now.AddDays(-(i % 10)),
                     DateModified = now,
                     SyncId = Guid.NewGuid(),
@@ -320,7 +530,7 @@ namespace TaskOTime.DataLayer
             }
         }
 
-        private static void CreateWebLinks(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<Tag> tags, DateTimeOffset now)
+        private static void CreateWebLinks(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<Tag> tags, DateTimeOffset now, DemoTextCatalog catalog)
         {
             var count = Math.Max(4, projects.Count * 2);
             for (var i = 0; i < count; i++)
@@ -332,7 +542,7 @@ namespace TaskOTime.DataLayer
                     IdProject = projects[i % projects.Count].IdProject,
                     Link = "https://example.invalid/taskotime/demo/" + (i + 1),
                     Domain = "example.invalid",
-                    Description = "Generated demo link " + (i + 1),
+                    Description = catalog.WebLinkDescription(i),
                     DateCreated = now.AddDays(-(i % 12)),
                     DateModified = now,
                     SyncId = Guid.NewGuid(),
@@ -353,7 +563,13 @@ namespace TaskOTime.DataLayer
 
             for (var i = 0; i < projects.Count; i++)
             {
-                var sharedUser = users[(i + 1) % users.Count];
+                var tenantUsers = users.Where(u => u.IdTenant == projects[i].IdTenant && u.IdUser != projects[i].IdUser).ToList();
+                if (tenantUsers.Count == 0)
+                {
+                    continue;
+                }
+
+                var sharedUser = tenantUsers[i % tenantUsers.Count];
                 var sharable = new SharableProject
                 {
                     IdSharableProject = Guid.NewGuid(),
@@ -385,7 +601,7 @@ namespace TaskOTime.DataLayer
             }
         }
 
-        private static void CreateTenantLeads(TaskOTimeContext context, IReadOnlyList<User> users, int count, DateTimeOffset now)
+        private static void CreateTenantLeads(TaskOTimeContext context, IReadOnlyList<User> users, int count, DateTimeOffset now, DemoTextCatalog catalog)
         {
             for (var i = 0; i < count; i++)
             {
@@ -393,10 +609,11 @@ namespace TaskOTime.DataLayer
                 {
                     IdTenantLead = Guid.NewGuid(),
                     IdAssignedToUser = users[i % users.Count].IdUser,
-                    TenantLeadName = "Demo Tenant " + (i + 1),
-                    FirstName = "Tenant",
-                    LastName = "Lead " + (i + 1),
+                    TenantLeadName = catalog.TenantLeadName(i),
+                    FirstName = catalog.TenantLeadFirstName(i),
+                    LastName = catalog.TenantLeadLastName(i),
                     EMail = "tenant" + (i + 1) + "@example.invalid",
+                    Notes = catalog.TenantLeadNotes(i),
                     IsConverted = false,
                     IsDeleted = false,
                     DateCreated = now,
@@ -405,7 +622,7 @@ namespace TaskOTime.DataLayer
             }
         }
 
-        private static void CreateLogItems(TaskOTimeContext context, IReadOnlyList<User> users, DateTimeOffset now)
+        private static void CreateLogItems(TaskOTimeContext context, IReadOnlyList<User> users, DateTimeOffset now, DemoTextCatalog catalog)
         {
             for (var i = 0; i < users.Count * 3; i++)
             {
@@ -414,9 +631,29 @@ namespace TaskOTime.DataLayer
                     IdLogItem = Guid.NewGuid(),
                     IdUser = users[i % users.Count].IdUser,
                     Category = i % 3,
-                    Message = "Generated demo activity " + (i + 1),
+                    Message = catalog.LogMessage(i),
                     LocalLogTime = now.AddMinutes(-i * 15)
                 });
+            }
+        }
+
+        private static string CreateSalt()
+        {
+            var bytes = new byte[16];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(bytes);
+            }
+
+            return Convert.ToBase64String(bytes);
+        }
+
+        private static string HashPassword(string password, string salt)
+        {
+            var saltBytes = Convert.FromBase64String(salt);
+            using (var deriveBytes = new Rfc2898DeriveBytes(password, saltBytes, 10000))
+            {
+                return Convert.ToBase64String(deriveBytes.GetBytes(32));
             }
         }
     }

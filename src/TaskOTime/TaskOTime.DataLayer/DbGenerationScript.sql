@@ -41,11 +41,13 @@ WHERE OBJECT_SCHEMA_NAME(parent_object_id) = N'dbo'
       N'Note',
       N'NoteTag',
       N'Project',
+      N'ProjectUserAssignment',
       N'SharableProject',
       N'Tag',
       N'TaskItem',
       N'TaskItemTag',
       N'TaskList',
+      N'Tenant',
       N'TenantLead',
       N'TimeItem',
       N'User',
@@ -65,6 +67,7 @@ IF OBJECT_ID(N'[dbo].[WebLink]', N'U') IS NOT NULL DROP TABLE [dbo].[WebLink];
 IF OBJECT_ID(N'[dbo].[Note]', N'U') IS NOT NULL DROP TABLE [dbo].[Note];
 IF OBJECT_ID(N'[dbo].[TaskItem]', N'U') IS NOT NULL DROP TABLE [dbo].[TaskItem];
 IF OBJECT_ID(N'[dbo].[TaskList]', N'U') IS NOT NULL DROP TABLE [dbo].[TaskList];
+IF OBJECT_ID(N'[dbo].[ProjectUserAssignment]', N'U') IS NOT NULL DROP TABLE [dbo].[ProjectUserAssignment];
 IF OBJECT_ID(N'[dbo].[SharableProject]', N'U') IS NOT NULL DROP TABLE [dbo].[SharableProject];
 IF OBJECT_ID(N'[dbo].[Category]', N'U') IS NOT NULL DROP TABLE [dbo].[Category];
 IF OBJECT_ID(N'[dbo].[CategorySymbol]', N'U') IS NOT NULL DROP TABLE [dbo].[CategorySymbol];
@@ -74,6 +77,7 @@ IF OBJECT_ID(N'[dbo].[LogItem]', N'U') IS NOT NULL DROP TABLE [dbo].[LogItem];
 IF OBJECT_ID(N'[dbo].[TenantLead]', N'U') IS NOT NULL DROP TABLE [dbo].[TenantLead];
 IF OBJECT_ID(N'[dbo].[LookupItem]', N'U') IS NOT NULL DROP TABLE [dbo].[LookupItem];
 IF OBJECT_ID(N'[dbo].[User]', N'U') IS NOT NULL DROP TABLE [dbo].[User];
+IF OBJECT_ID(N'[dbo].[Tenant]', N'U') IS NOT NULL DROP TABLE [dbo].[Tenant];
 IF OBJECT_ID(N'[dbo].[GuidReservation]', N'U') IS NOT NULL DROP TABLE [dbo].[GuidReservation];
 GO
 
@@ -92,10 +96,31 @@ CREATE TABLE [dbo].[GuidReservation]
 );
 GO
 
+CREATE TABLE [dbo].[Tenant]
+(
+    [IdTenant] uniqueidentifier NOT NULL
+        CONSTRAINT [DF_Tenant_IdTenant] DEFAULT NEWSEQUENTIALID(),
+    [TenantName] nvarchar(200) NOT NULL,
+    [TenantIdentifier] nvarchar(100) NULL,
+    [Description] nvarchar(2000) NULL,
+    [IsActive] bit NOT NULL
+        CONSTRAINT [DF_Tenant_IsActive] DEFAULT (1),
+    [IsDeleted] bit NOT NULL
+        CONSTRAINT [DF_Tenant_IsDeleted] DEFAULT (0),
+    [DateCreated] datetimeoffset(7) NOT NULL
+        CONSTRAINT [DF_Tenant_DateCreated] DEFAULT SYSDATETIMEOFFSET(),
+    [DateModified] datetimeoffset(7) NOT NULL
+        CONSTRAINT [DF_Tenant_DateModified] DEFAULT SYSDATETIMEOFFSET(),
+    [ExternalId] nvarchar(128) NULL,
+    CONSTRAINT [PK_Tenant] PRIMARY KEY CLUSTERED ([IdTenant] ASC)
+);
+GO
+
 CREATE TABLE [dbo].[User]
 (
     [IdUser] uniqueidentifier NOT NULL
         CONSTRAINT [DF_User_IdUser] DEFAULT NEWSEQUENTIALID(),
+    [IdTenant] uniqueidentifier NOT NULL,
     [UserIdent] nvarchar(200) NOT NULL,
     [FirstName] nvarchar(100) NULL,
     [MiddleName] nvarchar(100) NULL,
@@ -103,6 +128,19 @@ CREATE TABLE [dbo].[User]
     [EMail] nvarchar(100) NOT NULL,
     [IsAdmin] bit NOT NULL
         CONSTRAINT [DF_User_IsAdmin] DEFAULT (0),
+    [IsActive] bit NOT NULL
+        CONSTRAINT [DF_User_IsActive] DEFAULT (1),
+    [IsDeleted] bit NOT NULL
+        CONSTRAINT [DF_User_IsDeleted] DEFAULT (0),
+    [MustChangePassword] bit NOT NULL
+        CONSTRAINT [DF_User_MustChangePassword] DEFAULT (0),
+    [PasswordHash] nvarchar(512) NULL,
+    [PasswordSalt] nvarchar(256) NULL,
+    [PasswordChangedAt] datetimeoffset(7) NULL,
+    [PreliminaryPasswordExpiresAt] datetimeoffset(7) NULL,
+    [FailedLoginCount] int NOT NULL
+        CONSTRAINT [DF_User_FailedLoginCount] DEFAULT (0),
+    [LockoutUntil] datetimeoffset(7) NULL,
     [EmojiIndex] int NULL,
     [MaxProjects] int NULL,
     [LastLogin] datetimeoffset(7) NOT NULL
@@ -115,6 +153,8 @@ CREATE TABLE [dbo].[User]
         CONSTRAINT [DF_User_SyncId] DEFAULT NEWSEQUENTIALID(),
     [SyncStatus] int NOT NULL
         CONSTRAINT [DF_User_SyncStatus] DEFAULT (0),
+    [DateDeactivated] datetimeoffset(7) NULL,
+    [DateDeleted] datetimeoffset(7) NULL,
     [ExternalId] nvarchar(128) NULL,
     CONSTRAINT [PK_User] PRIMARY KEY CLUSTERED ([IdUser] ASC)
 );
@@ -186,6 +226,7 @@ CREATE TABLE [dbo].[Project]
 (
     [IdProject] uniqueidentifier NOT NULL
         CONSTRAINT [DF_Project_IdProject] DEFAULT NEWSEQUENTIALID(),
+    [IdTenant] uniqueidentifier NOT NULL,
     [IdUser] uniqueidentifier NOT NULL,
     [IdSymbol] uniqueidentifier NULL,
     [ProjectName] nvarchar(200) NOT NULL,
@@ -218,6 +259,39 @@ CREATE TABLE [dbo].[Project]
         CONSTRAINT [DF_Project_SyncStatus] DEFAULT (0),
     [ExternalId] nvarchar(128) NULL,
     CONSTRAINT [PK_Project] PRIMARY KEY CLUSTERED ([IdProject] ASC)
+);
+GO
+
+CREATE TABLE [dbo].[ProjectUserAssignment]
+(
+    [IdProjectUserAssignment] uniqueidentifier NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_IdProjectUserAssignment] DEFAULT NEWSEQUENTIALID(),
+    [IdProject] uniqueidentifier NOT NULL,
+    [IdUser] uniqueidentifier NOT NULL,
+    [IdAssignedByUser] uniqueidentifier NULL,
+    [AssignmentRole] int NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_AssignmentRole] DEFAULT (0),
+    [CanBookTime] bit NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_CanBookTime] DEFAULT (1),
+    [CanManageTasks] bit NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_CanManageTasks] DEFAULT (0),
+    [CanManageProject] bit NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_CanManageProject] DEFAULT (0),
+    [DisplayOrder] int NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_DisplayOrder] DEFAULT (0),
+    [IsActive] bit NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_IsActive] DEFAULT (1),
+    [IsDeleted] bit NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_IsDeleted] DEFAULT (0),
+    [DateAssigned] datetimeoffset(7) NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_DateAssigned] DEFAULT SYSDATETIMEOFFSET(),
+    [DateRemoved] datetimeoffset(7) NULL,
+    [DateCreated] datetimeoffset(7) NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_DateCreated] DEFAULT SYSDATETIMEOFFSET(),
+    [DateModified] datetimeoffset(7) NOT NULL
+        CONSTRAINT [DF_ProjectUserAssignment_DateModified] DEFAULT SYSDATETIMEOFFSET(),
+    [ExternalId] nvarchar(128) NULL,
+    CONSTRAINT [PK_ProjectUserAssignment] PRIMARY KEY CLUSTERED ([IdProjectUserAssignment] ASC)
 );
 GO
 
@@ -507,8 +581,14 @@ GO
 ALTER TABLE [dbo].[TenantLead] ADD CONSTRAINT [FK_TenantLead_User_IdAssignedToUser]
     FOREIGN KEY ([IdAssignedToUser]) REFERENCES [dbo].[User] ([IdUser]) ON DELETE NO ACTION;
 
+ALTER TABLE [dbo].[User] ADD CONSTRAINT [FK_User_Tenant_IdTenant]
+    FOREIGN KEY ([IdTenant]) REFERENCES [dbo].[Tenant] ([IdTenant]) ON DELETE NO ACTION;
+
 ALTER TABLE [dbo].[CategorySymbol] ADD CONSTRAINT [FK_CategorySymbol_Project_IdProject]
     FOREIGN KEY ([IdProject]) REFERENCES [dbo].[Project] ([IdProject]) ON DELETE NO ACTION;
+
+ALTER TABLE [dbo].[Project] ADD CONSTRAINT [FK_Project_Tenant_IdTenant]
+    FOREIGN KEY ([IdTenant]) REFERENCES [dbo].[Tenant] ([IdTenant]) ON DELETE NO ACTION;
 
 ALTER TABLE [dbo].[Project] ADD CONSTRAINT [FK_Project_User_IdUser]
     FOREIGN KEY ([IdUser]) REFERENCES [dbo].[User] ([IdUser]) ON DELETE NO ACTION;
@@ -530,6 +610,15 @@ ALTER TABLE [dbo].[SharableProject] ADD CONSTRAINT [FK_SharableProject_User_IdUs
 
 ALTER TABLE [dbo].[SharableProject] ADD CONSTRAINT [FK_SharableProject_Category_IdDefaultCategory]
     FOREIGN KEY ([IdDefaultCategory]) REFERENCES [dbo].[Category] ([IdCategory]) ON DELETE NO ACTION;
+
+ALTER TABLE [dbo].[ProjectUserAssignment] ADD CONSTRAINT [FK_ProjectUserAssignment_Project_IdProject]
+    FOREIGN KEY ([IdProject]) REFERENCES [dbo].[Project] ([IdProject]) ON DELETE NO ACTION;
+
+ALTER TABLE [dbo].[ProjectUserAssignment] ADD CONSTRAINT [FK_ProjectUserAssignment_User_IdUser]
+    FOREIGN KEY ([IdUser]) REFERENCES [dbo].[User] ([IdUser]) ON DELETE NO ACTION;
+
+ALTER TABLE [dbo].[ProjectUserAssignment] ADD CONSTRAINT [FK_ProjectUserAssignment_User_IdAssignedByUser]
+    FOREIGN KEY ([IdAssignedByUser]) REFERENCES [dbo].[User] ([IdUser]) ON DELETE NO ACTION;
 
 ALTER TABLE [dbo].[TaskList] ADD CONSTRAINT [FK_TaskList_Project_IdProject]
     FOREIGN KEY ([IdProject]) REFERENCES [dbo].[Project] ([IdProject]) ON DELETE NO ACTION;
@@ -627,7 +716,11 @@ GO
 
 CREATE UNIQUE INDEX [UX_User_UserIdent] ON [dbo].[User] ([UserIdent]);
 CREATE UNIQUE INDEX [UX_User_EMail] ON [dbo].[User] ([EMail]);
+CREATE INDEX [IX_User_IdTenant] ON [dbo].[User] ([IdTenant]);
 CREATE INDEX [IX_User_LastName] ON [dbo].[User] ([LastName]);
+
+CREATE UNIQUE INDEX [UX_Tenant_TenantName] ON [dbo].[Tenant] ([TenantName]);
+CREATE INDEX [IX_Tenant_TenantIdentifier] ON [dbo].[Tenant] ([TenantIdentifier]);
 
 CREATE INDEX [IX_GuidReservation_EntityName_IsConsumed] ON [dbo].[GuidReservation] ([EntityName], [IsConsumed]);
 CREATE INDEX [IX_GuidReservation_ReservedAt] ON [dbo].[GuidReservation] ([ReservedAt]);
@@ -645,12 +738,18 @@ CREATE UNIQUE INDEX [UX_Category_IdUser_CategoryName] ON [dbo].[Category] ([IdUs
 CREATE INDEX [IX_Category_IdSymbol] ON [dbo].[Category] ([IdSymbol]);
 
 CREATE INDEX [IX_Project_IdUser] ON [dbo].[Project] ([IdUser]);
+CREATE INDEX [IX_Project_IdTenant] ON [dbo].[Project] ([IdTenant]);
 CREATE INDEX [IX_Project_IdSymbol] ON [dbo].[Project] ([IdSymbol]);
 CREATE INDEX [IX_Project_ProjectIdentifier] ON [dbo].[Project] ([ProjectIdentifier]);
 
 CREATE UNIQUE INDEX [UX_SharableProject_IdProject_IdUser] ON [dbo].[SharableProject] ([IdProject], [IdUser]);
 CREATE INDEX [IX_SharableProject_IdUser] ON [dbo].[SharableProject] ([IdUser]);
 CREATE INDEX [IX_SharableProject_IdDefaultCategory] ON [dbo].[SharableProject] ([IdDefaultCategory]);
+
+CREATE UNIQUE INDEX [UX_ProjectUserAssignment_IdProject_IdUser] ON [dbo].[ProjectUserAssignment] ([IdProject], [IdUser]);
+CREATE INDEX [IX_ProjectUserAssignment_IdUser] ON [dbo].[ProjectUserAssignment] ([IdUser]);
+CREATE INDEX [IX_ProjectUserAssignment_IdAssignedByUser] ON [dbo].[ProjectUserAssignment] ([IdAssignedByUser]);
+CREATE INDEX [IX_ProjectUserAssignment_IsActive_IsDeleted] ON [dbo].[ProjectUserAssignment] ([IsActive], [IsDeleted]);
 
 CREATE UNIQUE INDEX [UX_TaskList_IdProject_TaskListName] ON [dbo].[TaskList] ([IdProject], [TaskListName]);
 CREATE INDEX [IX_TaskList_IdUser] ON [dbo].[TaskList] ([IdUser]);

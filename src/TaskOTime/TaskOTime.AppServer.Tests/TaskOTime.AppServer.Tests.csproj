@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net461</TargetFramework>
+    <LangVersion>10</LangVersion>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="EntityFramework" Version="6.5.1" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TaskOTime.DTOs\TaskOTime.DTOs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\TaskOTime.AppServer\Models\*.cs" LinkBase="AppServer\Models" />
+    <Compile Include="..\TaskOTime.AppServer\Services\AdminMasterDataService.cs" Link="AppServer\Services\AdminMasterDataService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\AnalysisService.cs" Link="AppServer\Services\AnalysisService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\ApplicationServiceBase.cs" Link="AppServer\Services\ApplicationServiceBase.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\IAdminMasterDataService.cs" Link="AppServer\Services\IAdminMasterDataService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\IAnalysisService.cs" Link="AppServer\Services\IAnalysisService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\ITimeBookingService.cs" Link="AppServer\Services\ITimeBookingService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\TimeBookingService.cs" Link="AppServer\Services\TimeBookingService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Security\*.cs" LinkBase="AppServer\Security" />
+    <Compile Include="..\TaskOTime.AppServer\TimeBooking\*.cs" LinkBase="AppServer\TimeBooking" />
+  </ItemGroup>
+
+</Project>

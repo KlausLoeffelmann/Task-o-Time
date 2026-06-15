@@ -21,6 +21,8 @@ namespace TaskOTime.DTOs
             this.LogItem = new HashSet<LogItem>();
             this.Note = new HashSet<Note>();
             this.Project = new HashSet<Project>();
+            this.ProjectUserAssignment = new HashSet<ProjectUserAssignment>();
+            this.ProjectUserAssignment1 = new HashSet<ProjectUserAssignment>();
             this.SharableProject = new HashSet<SharableProject>();
             this.Tag = new HashSet<Tag>();
             this.TaskItem = new HashSet<TaskItem>();
@@ -33,12 +35,22 @@ namespace TaskOTime.DTOs
         }
     
         public System.Guid IdUser { get; set; }
+        public System.Guid IdTenant { get; set; }
         public string UserIdent { get; set; }
         public string FirstName { get; set; }
         public string MiddleName { get; set; }
         public string LastName { get; set; }
         public string EMail { get; set; }
         public bool IsAdmin { get; set; }
+        public bool IsActive { get; set; }
+        public bool IsDeleted { get; set; }
+        public bool MustChangePassword { get; set; }
+        public string PasswordHash { get; set; }
+        public string PasswordSalt { get; set; }
+        public Nullable<System.DateTimeOffset> PasswordChangedAt { get; set; }
+        public Nullable<System.DateTimeOffset> PreliminaryPasswordExpiresAt { get; set; }
+        public int FailedLoginCount { get; set; }
+        public Nullable<System.DateTimeOffset> LockoutUntil { get; set; }
         public Nullable<int> EmojiIndex { get; set; }
         public Nullable<int> MaxProjects { get; set; }
         public System.DateTimeOffset LastLogin { get; set; }
@@ -46,6 +58,8 @@ namespace TaskOTime.DTOs
         public System.DateTimeOffset DateModified { get; set; }
         public System.Guid SyncId { get; set; }
         public int SyncStatus { get; set; }
+        public Nullable<System.DateTimeOffset> DateDeactivated { get; set; }
+        public Nullable<System.DateTimeOffset> DateDeleted { get; set; }
         public string ExternalId { get; set; }
     
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
@@ -57,6 +71,10 @@ namespace TaskOTime.DTOs
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public ICollection<Project> Project { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public ICollection<ProjectUserAssignment> ProjectUserAssignment { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
+        public ICollection<ProjectUserAssignment> ProjectUserAssignment1 { get; set; }
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public ICollection<SharableProject> SharableProject { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public ICollection<Tag> Tag { get; set; }
@@ -64,6 +82,7 @@ namespace TaskOTime.DTOs
         public ICollection<TaskItem> TaskItem { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public ICollection<TaskList> TaskList { get; set; }
+        public Tenant Tenant { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
         public ICollection<TenantLead> TenantLead { get; set; }
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2227:CollectionPropertiesShouldBeReadOnly")]
