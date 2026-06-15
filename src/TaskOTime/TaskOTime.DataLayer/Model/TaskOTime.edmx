@@ -1,0 +1,2299 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Edmx Version="3.0" xmlns="http://schemas.microsoft.com/ado/2009/11/edmx">
+  <Runtime>
+    <ConceptualModels>
+      <Schema Namespace="TaskOTimeModel" Alias="Self" p1:UseStrongSpatialTypes="false" xmlns:annotation="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns:p1="http://schemas.microsoft.com/ado/2009/02/edm/annotation" xmlns="http://schemas.microsoft.com/ado/2009/11/edm">
+        <EntityContainer Name="TaskOTimeContext" p1:LazyLoadingEnabled="true">
+          <EntitySet Name="Category" EntityType="TaskOTimeModel.Category" />
+          <EntitySet Name="CategorySymbol" EntityType="TaskOTimeModel.CategorySymbol" />
+          <EntitySet Name="GuidReservation" EntityType="TaskOTimeModel.GuidReservation" />
+          <EntitySet Name="LogItem" EntityType="TaskOTimeModel.LogItem" />
+          <EntitySet Name="LookupItem" EntityType="TaskOTimeModel.LookupItem" />
+          <EntitySet Name="Note" EntityType="TaskOTimeModel.Note" />
+          <EntitySet Name="Project" EntityType="TaskOTimeModel.Project" />
+          <EntitySet Name="SharableProject" EntityType="TaskOTimeModel.SharableProject" />
+          <EntitySet Name="Tag" EntityType="TaskOTimeModel.Tag" />
+          <EntitySet Name="TaskItem" EntityType="TaskOTimeModel.TaskItem" />
+          <EntitySet Name="TaskList" EntityType="TaskOTimeModel.TaskList" />
+          <EntitySet Name="TenantLead" EntityType="TaskOTimeModel.TenantLead" />
+          <EntitySet Name="TimeItem" EntityType="TaskOTimeModel.TimeItem" />
+          <EntitySet Name="User" EntityType="TaskOTimeModel.User" />
+          <EntitySet Name="WebLink" EntityType="TaskOTimeModel.WebLink" />
+          <AssociationSet Name="FK_Category_CategorySymbol_IdSymbol" Association="TaskOTimeModel.FK_Category_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="Category" EntitySet="Category" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Category_User_IdUser" Association="TaskOTimeModel.FK_Category_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="Category" EntitySet="Category" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharableProject_Category_IdDefaultCategory" Association="TaskOTimeModel.FK_SharableProject_Category_IdDefaultCategory">
+            <End Role="Category" EntitySet="Category" />
+            <End Role="SharableProject" EntitySet="SharableProject" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_Category_IdCategory" Association="TaskOTimeModel.FK_TimeItem_Category_IdCategory">
+            <End Role="Category" EntitySet="Category" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_CategorySymbol_Project_IdProject" Association="TaskOTimeModel.FK_CategorySymbol_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Note_CategorySymbol_IdSymbol" Association="TaskOTimeModel.FK_Note_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="Note" EntitySet="Note" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Project_CategorySymbol_IdSymbol" Association="TaskOTimeModel.FK_Project_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="Project" EntitySet="Project" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItem_CategorySymbol_IdSymbol" Association="TaskOTimeModel.FK_TaskItem_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="TaskItem" EntitySet="TaskItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskList_CategorySymbol_IdSymbol" Association="TaskOTimeModel.FK_TaskList_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="TaskList" EntitySet="TaskList" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WebLink_CategorySymbol_IdSymbol" Association="TaskOTimeModel.FK_WebLink_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="WebLink" EntitySet="WebLink" />
+          </AssociationSet>
+          <AssociationSet Name="FK_LogItem_User_IdUser" Association="TaskOTimeModel.FK_LogItem_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="LogItem" EntitySet="LogItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Note_Project_IdProject" Association="TaskOTimeModel.FK_Note_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="Note" EntitySet="Note" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Note_TaskItem_IdTask" Association="TaskOTimeModel.FK_Note_TaskItem_IdTask">
+            <End Role="TaskItem" EntitySet="TaskItem" />
+            <End Role="Note" EntitySet="Note" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Note_User_IdUser" Association="TaskOTimeModel.FK_Note_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="Note" EntitySet="Note" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Project_User_IdUser" Association="TaskOTimeModel.FK_Project_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="Project" EntitySet="Project" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharableProject_Project_IdProject" Association="TaskOTimeModel.FK_SharableProject_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="SharableProject" EntitySet="SharableProject" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItem_Project_IdProject" Association="TaskOTimeModel.FK_TaskItem_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="TaskItem" EntitySet="TaskItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskList_Project_IdProject" Association="TaskOTimeModel.FK_TaskList_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="TaskList" EntitySet="TaskList" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_Project_IdProject" Association="TaskOTimeModel.FK_TimeItem_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WebLink_Project_IdProject" Association="TaskOTimeModel.FK_WebLink_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="WebLink" EntitySet="WebLink" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharableProject_User_IdUser" Association="TaskOTimeModel.FK_SharableProject_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="SharableProject" EntitySet="SharableProject" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Tag_User_IdUser" Association="TaskOTimeModel.FK_Tag_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="Tag" EntitySet="Tag" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItem_TaskList_IdTaskList" Association="TaskOTimeModel.FK_TaskItem_TaskList_IdTaskList">
+            <End Role="TaskList" EntitySet="TaskList" />
+            <End Role="TaskItem" EntitySet="TaskItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItem_User_IdUser" Association="TaskOTimeModel.FK_TaskItem_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TaskItem" EntitySet="TaskItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_TaskItem_IdTask" Association="TaskOTimeModel.FK_TimeItem_TaskItem_IdTask">
+            <End Role="TaskItem" EntitySet="TaskItem" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskList_User_IdUser" Association="TaskOTimeModel.FK_TaskList_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TaskList" EntitySet="TaskList" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TenantLead_User_IdAssignedToUser" Association="TaskOTimeModel.FK_TenantLead_User_IdAssignedToUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TenantLead" EntitySet="TenantLead" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_TimeItem_IdNextItem" Association="TaskOTimeModel.FK_TimeItem_TimeItem_IdNextItem">
+            <End Role="TimeItem" EntitySet="TimeItem" />
+            <End Role="TimeItem1" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_TimeItem_IdParentItem" Association="TaskOTimeModel.FK_TimeItem_TimeItem_IdParentItem">
+            <End Role="TimeItem" EntitySet="TimeItem" />
+            <End Role="TimeItem1" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_TimeItem_IdPreviousItem" Association="TaskOTimeModel.FK_TimeItem_TimeItem_IdPreviousItem">
+            <End Role="TimeItem" EntitySet="TimeItem" />
+            <End Role="TimeItem1" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_User_IdItemAssignedToUser" Association="TaskOTimeModel.FK_TimeItem_User_IdItemAssignedToUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_User_IdUser" Association="TaskOTimeModel.FK_TimeItem_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_User_IdUserItemFrom" Association="TaskOTimeModel.FK_TimeItem_User_IdUserItemFrom">
+            <End Role="User" EntitySet="User" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WebLink_User_IdUser" Association="TaskOTimeModel.FK_WebLink_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="WebLink" EntitySet="WebLink" />
+          </AssociationSet>
+          <AssociationSet Name="NoteTag" Association="TaskOTimeModel.NoteTag">
+            <End Role="Note" EntitySet="Note" />
+            <End Role="Tag" EntitySet="Tag" />
+          </AssociationSet>
+          <AssociationSet Name="TaskItemTag" Association="TaskOTimeModel.TaskItemTag">
+            <End Role="Tag" EntitySet="Tag" />
+            <End Role="TaskItem" EntitySet="TaskItem" />
+          </AssociationSet>
+          <AssociationSet Name="WebLinkTag" Association="TaskOTimeModel.WebLinkTag">
+            <End Role="Tag" EntitySet="Tag" />
+            <End Role="WebLink" EntitySet="WebLink" />
+          </AssociationSet>
+        </EntityContainer>
+        <EntityType Name="Category">
+          <Key>
+            <PropertyRef Name="IdCategory" />
+          </Key>
+          <Property Name="IdCategory" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="IdSymbol" Type="Guid" />
+          <Property Name="CategoryName" Type="String" Nullable="false" MaxLength="50" Unicode="true" FixedLength="false" />
+          <Property Name="CategoryDescription" Type="String" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="DisplayOrder" Type="Int32" Nullable="false" />
+          <Property Name="IsPublic" Type="Boolean" Nullable="false" />
+          <NavigationProperty Name="CategorySymbol" Relationship="TaskOTimeModel.FK_Category_CategorySymbol_IdSymbol" FromRole="Category" ToRole="CategorySymbol" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_Category_User_IdUser" FromRole="Category" ToRole="User" />
+          <NavigationProperty Name="SharableProject" Relationship="TaskOTimeModel.FK_SharableProject_Category_IdDefaultCategory" FromRole="Category" ToRole="SharableProject" />
+          <NavigationProperty Name="TimeItem" Relationship="TaskOTimeModel.FK_TimeItem_Category_IdCategory" FromRole="Category" ToRole="TimeItem" />
+        </EntityType>
+        <EntityType Name="CategorySymbol">
+          <Key>
+            <PropertyRef Name="IdCategorySymbol" />
+          </Key>
+          <Property Name="IdCategorySymbol" Type="Guid" Nullable="false" />
+          <Property Name="IdProject" Type="Guid" />
+          <Property Name="SymbolName" Type="String" Nullable="false" MaxLength="50" Unicode="true" FixedLength="false" />
+          <Property Name="SymbolDescription" Type="String" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="SymbolChar" Type="String" Nullable="false" MaxLength="4" Unicode="true" FixedLength="false" />
+          <Property Name="FontName" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="FontSize" Type="Single" />
+          <Property Name="SymbolOffsetX" Type="Single" />
+          <Property Name="SymbolOffsetY" Type="Single" />
+          <Property Name="SymbolColor" Type="Int32" Nullable="false" />
+          <NavigationProperty Name="Category" Relationship="TaskOTimeModel.FK_Category_CategorySymbol_IdSymbol" FromRole="CategorySymbol" ToRole="Category" />
+          <NavigationProperty Name="Project" Relationship="TaskOTimeModel.FK_CategorySymbol_Project_IdProject" FromRole="CategorySymbol" ToRole="Project" />
+          <NavigationProperty Name="Note" Relationship="TaskOTimeModel.FK_Note_CategorySymbol_IdSymbol" FromRole="CategorySymbol" ToRole="Note" />
+          <NavigationProperty Name="Project1" Relationship="TaskOTimeModel.FK_Project_CategorySymbol_IdSymbol" FromRole="CategorySymbol" ToRole="Project" />
+          <NavigationProperty Name="TaskItem" Relationship="TaskOTimeModel.FK_TaskItem_CategorySymbol_IdSymbol" FromRole="CategorySymbol" ToRole="TaskItem" />
+          <NavigationProperty Name="TaskList" Relationship="TaskOTimeModel.FK_TaskList_CategorySymbol_IdSymbol" FromRole="CategorySymbol" ToRole="TaskList" />
+          <NavigationProperty Name="WebLink" Relationship="TaskOTimeModel.FK_WebLink_CategorySymbol_IdSymbol" FromRole="CategorySymbol" ToRole="WebLink" />
+        </EntityType>
+        <EntityType Name="GuidReservation">
+          <Key>
+            <PropertyRef Name="IdGuidReservation" />
+          </Key>
+          <Property Name="IdGuidReservation" Type="Guid" Nullable="false" />
+          <Property Name="EntityName" Type="String" Nullable="false" MaxLength="128" Unicode="true" FixedLength="false" />
+          <Property Name="ReservedAt" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="ReservedBy" Type="String" MaxLength="128" Unicode="true" FixedLength="false" />
+          <Property Name="ConsumedAt" Type="DateTimeOffset" />
+          <Property Name="IsConsumed" Type="Boolean" Nullable="false" />
+        </EntityType>
+        <EntityType Name="LogItem">
+          <Key>
+            <PropertyRef Name="IdLogItem" />
+          </Key>
+          <Property Name="IdLogItem" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="Category" Type="Int32" Nullable="false" />
+          <Property Name="LocalLogTime" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="Message" Type="String" Nullable="false" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_LogItem_User_IdUser" FromRole="LogItem" ToRole="User" />
+        </EntityType>
+        <EntityType Name="LookupItem">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="Guid" Nullable="false" />
+          <Property Name="Key" Type="String" Nullable="false" MaxLength="128" Unicode="true" FixedLength="false" />
+          <Property Name="IdForeign" Type="String" MaxLength="64" Unicode="true" FixedLength="false" />
+          <Property Name="StringValue" Type="String" MaxLength="Max" Unicode="true" FixedLength="false" />
+          <Property Name="BlobReference" Type="String" MaxLength="64" Unicode="true" FixedLength="false" />
+          <Property Name="IntegerValue" Type="Int64" />
+          <Property Name="DateValue" Type="DateTimeOffset" />
+          <Property Name="DecimalValue" Type="Decimal" Precision="18" Scale="4" />
+        </EntityType>
+        <EntityType Name="Note">
+          <Key>
+            <PropertyRef Name="IdNote" />
+          </Key>
+          <Property Name="IdNote" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="IdProject" Type="Guid" />
+          <Property Name="IdTask" Type="Guid" />
+          <Property Name="IdSymbol" Type="Guid" />
+          <Property Name="NoteMnemonic" Type="String" Nullable="false" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="Note1" Type="String" Nullable="false" MaxLength="4000" Unicode="true" FixedLength="false" />
+          <Property Name="DateCreated" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateModified" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="SyncId" Type="Guid" Nullable="false" />
+          <Property Name="SyncStatus" Type="Int32" Nullable="false" />
+          <Property Name="ExternalId" Type="String" MaxLength="128" Unicode="true" FixedLength="false" />
+          <NavigationProperty Name="CategorySymbol" Relationship="TaskOTimeModel.FK_Note_CategorySymbol_IdSymbol" FromRole="Note" ToRole="CategorySymbol" />
+          <NavigationProperty Name="Project" Relationship="TaskOTimeModel.FK_Note_Project_IdProject" FromRole="Note" ToRole="Project" />
+          <NavigationProperty Name="TaskItem" Relationship="TaskOTimeModel.FK_Note_TaskItem_IdTask" FromRole="Note" ToRole="TaskItem" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_Note_User_IdUser" FromRole="Note" ToRole="User" />
+          <NavigationProperty Name="Tag" Relationship="TaskOTimeModel.NoteTag" FromRole="Note" ToRole="Tag" />
+        </EntityType>
+        <EntityType Name="Project">
+          <Key>
+            <PropertyRef Name="IdProject" />
+          </Key>
+          <Property Name="IdProject" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="IdSymbol" Type="Guid" />
+          <Property Name="ProjectName" Type="String" Nullable="false" MaxLength="200" Unicode="true" FixedLength="false" />
+          <Property Name="ProjectType" Type="Int32" Nullable="false" />
+          <Property Name="ProjectNumber" Type="Int32" />
+          <Property Name="ProjectDescription" Type="String" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="ProjectIdentifier" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="ProjectSymbolChar" Type="String" MaxLength="4" Unicode="true" FixedLength="false" />
+          <Property Name="ProjectSymbolColor" Type="Int32" Nullable="false" />
+          <Property Name="ProjectSymbolUrl" Type="String" MaxLength="255" Unicode="true" FixedLength="false" />
+          <Property Name="StartOfProject" Type="DateTimeOffset" />
+          <Property Name="EndOfProject" Type="DateTimeOffset" />
+          <Property Name="IsActive" Type="Boolean" Nullable="false" />
+          <Property Name="IsDeleted" Type="Boolean" Nullable="false" />
+          <Property Name="Scope" Type="Int32" Nullable="false" />
+          <Property Name="IsSystem" Type="Boolean" Nullable="false" />
+          <Property Name="DateCreated" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateModified" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="SyncId" Type="Guid" Nullable="false" />
+          <Property Name="SyncStatus" Type="Int32" Nullable="false" />
+          <Property Name="ExternalId" Type="String" MaxLength="128" Unicode="true" FixedLength="false" />
+          <NavigationProperty Name="CategorySymbol" Relationship="TaskOTimeModel.FK_CategorySymbol_Project_IdProject" FromRole="Project" ToRole="CategorySymbol" />
+          <NavigationProperty Name="CategorySymbol1" Relationship="TaskOTimeModel.FK_Project_CategorySymbol_IdSymbol" FromRole="Project" ToRole="CategorySymbol" />
+          <NavigationProperty Name="Note" Relationship="TaskOTimeModel.FK_Note_Project_IdProject" FromRole="Project" ToRole="Note" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_Project_User_IdUser" FromRole="Project" ToRole="User" />
+          <NavigationProperty Name="SharableProject" Relationship="TaskOTimeModel.FK_SharableProject_Project_IdProject" FromRole="Project" ToRole="SharableProject" />
+          <NavigationProperty Name="TaskItem" Relationship="TaskOTimeModel.FK_TaskItem_Project_IdProject" FromRole="Project" ToRole="TaskItem" />
+          <NavigationProperty Name="TaskList" Relationship="TaskOTimeModel.FK_TaskList_Project_IdProject" FromRole="Project" ToRole="TaskList" />
+          <NavigationProperty Name="TimeItem" Relationship="TaskOTimeModel.FK_TimeItem_Project_IdProject" FromRole="Project" ToRole="TimeItem" />
+          <NavigationProperty Name="WebLink" Relationship="TaskOTimeModel.FK_WebLink_Project_IdProject" FromRole="Project" ToRole="WebLink" />
+        </EntityType>
+        <EntityType Name="SharableProject">
+          <Key>
+            <PropertyRef Name="IdSharableProject" />
+          </Key>
+          <Property Name="IdSharableProject" Type="Guid" Nullable="false" />
+          <Property Name="IdProject" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="IdDefaultCategory" Type="Guid" Nullable="false" />
+          <Property Name="ProjectSymbolColor" Type="Int32" Nullable="false" />
+          <Property Name="InvitationMessage" Type="String" MaxLength="512" Unicode="true" FixedLength="false" />
+          <Property Name="DateInvitationSent" Type="DateTimeOffset" />
+          <Property Name="DateInvitationAccepted" Type="DateTimeOffset" />
+          <Property Name="FirstUsed" Type="DateTimeOffset" />
+          <Property Name="IsValid" Type="Boolean" Nullable="false" />
+          <Property Name="IsActive" Type="Boolean" Nullable="false" />
+          <Property Name="IsDeleted" Type="Boolean" Nullable="false" />
+          <Property Name="CurrentRelationStatus" Type="Int32" Nullable="false" />
+          <Property Name="ProjectLocationNameSharedUser" Type="String" MaxLength="200" Unicode="true" FixedLength="false" />
+          <Property Name="StartOfProjectSharedUser" Type="DateTimeOffset" />
+          <Property Name="EndOfProjectSharedUser" Type="DateTimeOffset" />
+          <Property Name="IsTasksCoOwner" Type="Boolean" Nullable="false" />
+          <Property Name="IsCoOwner" Type="Boolean" Nullable="false" />
+          <Property Name="AllowOthersToSeeMyTasksAndTimes" Type="Boolean" Nullable="false" />
+          <Property Name="AllowOthersToAssignTasksToMe" Type="Boolean" Nullable="false" />
+          <Property Name="AllowOthersToDoMyReporting" Type="Boolean" Nullable="false" />
+          <Property Name="AllowCoOwnerToDoMyReporting" Type="Boolean" Nullable="false" />
+          <Property Name="AllowCoOwnerToEditMyTimes" Type="Boolean" Nullable="false" />
+          <Property Name="AllowGeoFencingForTimeRecordings" Type="Boolean" Nullable="false" />
+          <Property Name="AllowGeoFencingForTasks" Type="Boolean" Nullable="false" />
+          <Property Name="MetaInfo" Type="String" MaxLength="4000" Unicode="true" FixedLength="false" />
+          <Property Name="DateCreated" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateModified" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="SyncId" Type="Guid" Nullable="false" />
+          <Property Name="SyncStatus" Type="Int32" Nullable="false" />
+          <Property Name="ExternalId" Type="String" MaxLength="128" Unicode="true" FixedLength="false" />
+          <NavigationProperty Name="Category" Relationship="TaskOTimeModel.FK_SharableProject_Category_IdDefaultCategory" FromRole="SharableProject" ToRole="Category" />
+          <NavigationProperty Name="Project" Relationship="TaskOTimeModel.FK_SharableProject_Project_IdProject" FromRole="SharableProject" ToRole="Project" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_SharableProject_User_IdUser" FromRole="SharableProject" ToRole="User" />
+        </EntityType>
+        <EntityType Name="Tag">
+          <Key>
+            <PropertyRef Name="IdTag" />
+          </Key>
+          <Property Name="IdTag" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="Tag1" Type="String" Nullable="false" MaxLength="30" Unicode="true" FixedLength="false" />
+          <Property Name="Description" Type="String" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="DateCreated" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateModified" Type="DateTimeOffset" Nullable="false" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_Tag_User_IdUser" FromRole="Tag" ToRole="User" />
+          <NavigationProperty Name="Note" Relationship="TaskOTimeModel.NoteTag" FromRole="Tag" ToRole="Note" />
+          <NavigationProperty Name="TaskItem" Relationship="TaskOTimeModel.TaskItemTag" FromRole="Tag" ToRole="TaskItem" />
+          <NavigationProperty Name="WebLink" Relationship="TaskOTimeModel.WebLinkTag" FromRole="Tag" ToRole="WebLink" />
+        </EntityType>
+        <EntityType Name="TaskItem">
+          <Key>
+            <PropertyRef Name="IdTaskItem" />
+          </Key>
+          <Property Name="IdTaskItem" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="IdProject" Type="Guid" Nullable="false" />
+          <Property Name="IdTaskList" Type="Guid" />
+          <Property Name="IdSymbol" Type="Guid" />
+          <Property Name="TaskItemName" Type="String" Nullable="false" MaxLength="200" Unicode="true" FixedLength="false" />
+          <Property Name="TaskItemDescription" Type="String" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="QuickInfo" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="DueDate" Type="DateTimeOffset" />
+          <Property Name="TaskHoursBudget" Type="Int32" />
+          <Property Name="Priority" Type="Int32" Nullable="false" />
+          <Property Name="IsPrivateTask" Type="Boolean" Nullable="false" />
+          <Property Name="Scope" Type="Int32" Nullable="false" />
+          <Property Name="IsActive" Type="Boolean" Nullable="false" />
+          <Property Name="IsCompleted" Type="Boolean" Nullable="false" />
+          <Property Name="DateCompleted" Type="DateTimeOffset" />
+          <Property Name="IsDeleted" Type="Boolean" Nullable="false" />
+          <Property Name="IsForeign" Type="Boolean" Nullable="false" />
+          <Property Name="DateCreated" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateModified" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="SyncId" Type="Guid" Nullable="false" />
+          <Property Name="SyncStatus" Type="Int32" Nullable="false" />
+          <Property Name="ExternalId" Type="String" MaxLength="128" Unicode="true" FixedLength="false" />
+          <NavigationProperty Name="CategorySymbol" Relationship="TaskOTimeModel.FK_TaskItem_CategorySymbol_IdSymbol" FromRole="TaskItem" ToRole="CategorySymbol" />
+          <NavigationProperty Name="Note" Relationship="TaskOTimeModel.FK_Note_TaskItem_IdTask" FromRole="TaskItem" ToRole="Note" />
+          <NavigationProperty Name="Project" Relationship="TaskOTimeModel.FK_TaskItem_Project_IdProject" FromRole="TaskItem" ToRole="Project" />
+          <NavigationProperty Name="TaskList" Relationship="TaskOTimeModel.FK_TaskItem_TaskList_IdTaskList" FromRole="TaskItem" ToRole="TaskList" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_TaskItem_User_IdUser" FromRole="TaskItem" ToRole="User" />
+          <NavigationProperty Name="TimeItem" Relationship="TaskOTimeModel.FK_TimeItem_TaskItem_IdTask" FromRole="TaskItem" ToRole="TimeItem" />
+          <NavigationProperty Name="Tag" Relationship="TaskOTimeModel.TaskItemTag" FromRole="TaskItem" ToRole="Tag" />
+        </EntityType>
+        <EntityType Name="TaskList">
+          <Key>
+            <PropertyRef Name="IdTaskList" />
+          </Key>
+          <Property Name="IdTaskList" Type="Guid" Nullable="false" />
+          <Property Name="IdProject" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="IdSymbol" Type="Guid" />
+          <Property Name="TaskListName" Type="String" Nullable="false" MaxLength="50" Unicode="true" FixedLength="false" />
+          <Property Name="TaskListDescription" Type="String" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="DisplayOrder" Type="Int32" Nullable="false" />
+          <Property Name="IsPublic" Type="Boolean" Nullable="false" />
+          <NavigationProperty Name="CategorySymbol" Relationship="TaskOTimeModel.FK_TaskList_CategorySymbol_IdSymbol" FromRole="TaskList" ToRole="CategorySymbol" />
+          <NavigationProperty Name="Project" Relationship="TaskOTimeModel.FK_TaskList_Project_IdProject" FromRole="TaskList" ToRole="Project" />
+          <NavigationProperty Name="TaskItem" Relationship="TaskOTimeModel.FK_TaskItem_TaskList_IdTaskList" FromRole="TaskList" ToRole="TaskItem" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_TaskList_User_IdUser" FromRole="TaskList" ToRole="User" />
+        </EntityType>
+        <EntityType Name="TenantLead">
+          <Key>
+            <PropertyRef Name="IdTenantLead" />
+          </Key>
+          <Property Name="IdTenantLead" Type="Guid" Nullable="false" />
+          <Property Name="IdAssignedToUser" Type="Guid" />
+          <Property Name="TenantLeadName" Type="String" Nullable="false" MaxLength="200" Unicode="true" FixedLength="false" />
+          <Property Name="OrganizationName" Type="String" MaxLength="200" Unicode="true" FixedLength="false" />
+          <Property Name="FirstName" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="LastName" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="EMail" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="Phone" Type="String" MaxLength="50" Unicode="true" FixedLength="false" />
+          <Property Name="LeadSource" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="LeadStatus" Type="String" MaxLength="50" Unicode="true" FixedLength="false" />
+          <Property Name="Notes" Type="String" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="DateFirstContact" Type="DateTimeOffset" />
+          <Property Name="DateLastContact" Type="DateTimeOffset" />
+          <Property Name="DateConverted" Type="DateTimeOffset" />
+          <Property Name="IsConverted" Type="Boolean" Nullable="false" />
+          <Property Name="IsDeleted" Type="Boolean" Nullable="false" />
+          <Property Name="DateCreated" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateModified" Type="DateTimeOffset" Nullable="false" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_TenantLead_User_IdAssignedToUser" FromRole="TenantLead" ToRole="User" />
+        </EntityType>
+        <EntityType Name="TimeItem">
+          <Key>
+            <PropertyRef Name="IdTimeItem" />
+          </Key>
+          <Property Name="IdTimeItem" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="IdProject" Type="Guid" Nullable="false" />
+          <Property Name="IdNextItem" Type="Guid" />
+          <Property Name="IdPreviousItem" Type="Guid" />
+          <Property Name="IdTask" Type="Guid" />
+          <Property Name="IdCategory" Type="Guid" Nullable="false" />
+          <Property Name="ShortTitle" Type="String" MaxLength="255" Unicode="true" FixedLength="false" />
+          <Property Name="Description" Type="String" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="EventTime" Type="DateTimeOffset" />
+          <Property Name="BookingDate" Type="DateTime" />
+          <Property Name="EventInfo" Type="String" MaxLength="512" Unicode="true" FixedLength="false" />
+          <Property Name="EventTypeInfo" Type="Int32" Nullable="false" />
+          <Property Name="DurationToNext" Type="Time" />
+          <Property Name="DurationTicksToNext" Type="Int64" />
+          <Property Name="DurationToPrevious" Type="Time" />
+          <Property Name="DurationTicksToPrevious" Type="Int64" />
+          <Property Name="IdParentItem" Type="Guid" />
+          <Property Name="Scope" Type="Int32" Nullable="false" />
+          <Property Name="IsItemCompleted" Type="Boolean" Nullable="false" />
+          <Property Name="IsItemDeleted" Type="Boolean" Nullable="false" />
+          <Property Name="IsStartAction" Type="Boolean" Nullable="false" />
+          <Property Name="IsEndAction" Type="Boolean" Nullable="false" />
+          <Property Name="Value" Type="Decimal" Precision="18" Scale="4" />
+          <Property Name="Priority" Type="Int32" Nullable="false" />
+          <Property Name="DateItemAcceptedOrRejected" Type="DateTimeOffset" />
+          <Property Name="MachineID" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="IdItemAssignedToUser" Type="Guid" />
+          <Property Name="IdUserItemFrom" Type="Guid" />
+          <Property Name="DateItemFinished" Type="DateTimeOffset" />
+          <Property Name="DateCreated" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateModified" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="SyncId" Type="Guid" Nullable="false" />
+          <Property Name="SyncStatus" Type="Int32" Nullable="false" />
+          <Property Name="ExternalId" Type="String" MaxLength="128" Unicode="true" FixedLength="false" />
+          <NavigationProperty Name="Category" Relationship="TaskOTimeModel.FK_TimeItem_Category_IdCategory" FromRole="TimeItem" ToRole="Category" />
+          <NavigationProperty Name="Project" Relationship="TaskOTimeModel.FK_TimeItem_Project_IdProject" FromRole="TimeItem" ToRole="Project" />
+          <NavigationProperty Name="TaskItem" Relationship="TaskOTimeModel.FK_TimeItem_TaskItem_IdTask" FromRole="TimeItem" ToRole="TaskItem" />
+          <NavigationProperty Name="TimeItem1" Relationship="TaskOTimeModel.FK_TimeItem_TimeItem_IdNextItem" FromRole="TimeItem" ToRole="TimeItem1" />
+          <NavigationProperty Name="TimeItem2" Relationship="TaskOTimeModel.FK_TimeItem_TimeItem_IdNextItem" FromRole="TimeItem1" ToRole="TimeItem" />
+          <NavigationProperty Name="TimeItem11" Relationship="TaskOTimeModel.FK_TimeItem_TimeItem_IdParentItem" FromRole="TimeItem" ToRole="TimeItem1" />
+          <NavigationProperty Name="TimeItem3" Relationship="TaskOTimeModel.FK_TimeItem_TimeItem_IdParentItem" FromRole="TimeItem1" ToRole="TimeItem" />
+          <NavigationProperty Name="TimeItem12" Relationship="TaskOTimeModel.FK_TimeItem_TimeItem_IdPreviousItem" FromRole="TimeItem" ToRole="TimeItem1" />
+          <NavigationProperty Name="TimeItem4" Relationship="TaskOTimeModel.FK_TimeItem_TimeItem_IdPreviousItem" FromRole="TimeItem1" ToRole="TimeItem" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_TimeItem_User_IdItemAssignedToUser" FromRole="TimeItem" ToRole="User" />
+          <NavigationProperty Name="User1" Relationship="TaskOTimeModel.FK_TimeItem_User_IdUser" FromRole="TimeItem" ToRole="User" />
+          <NavigationProperty Name="User2" Relationship="TaskOTimeModel.FK_TimeItem_User_IdUserItemFrom" FromRole="TimeItem" ToRole="User" />
+        </EntityType>
+        <EntityType Name="User">
+          <Key>
+            <PropertyRef Name="IdUser" />
+          </Key>
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="UserIdent" Type="String" Nullable="false" MaxLength="200" Unicode="true" FixedLength="false" />
+          <Property Name="FirstName" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="MiddleName" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="LastName" Type="String" Nullable="false" MaxLength="200" Unicode="true" FixedLength="false" />
+          <Property Name="EMail" Type="String" Nullable="false" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="IsAdmin" Type="Boolean" Nullable="false" />
+          <Property Name="EmojiIndex" Type="Int32" />
+          <Property Name="MaxProjects" Type="Int32" />
+          <Property Name="LastLogin" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateCreated" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateModified" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="SyncId" Type="Guid" Nullable="false" />
+          <Property Name="SyncStatus" Type="Int32" Nullable="false" />
+          <Property Name="ExternalId" Type="String" MaxLength="128" Unicode="true" FixedLength="false" />
+          <NavigationProperty Name="Category" Relationship="TaskOTimeModel.FK_Category_User_IdUser" FromRole="User" ToRole="Category" />
+          <NavigationProperty Name="LogItem" Relationship="TaskOTimeModel.FK_LogItem_User_IdUser" FromRole="User" ToRole="LogItem" />
+          <NavigationProperty Name="Note" Relationship="TaskOTimeModel.FK_Note_User_IdUser" FromRole="User" ToRole="Note" />
+          <NavigationProperty Name="Project" Relationship="TaskOTimeModel.FK_Project_User_IdUser" FromRole="User" ToRole="Project" />
+          <NavigationProperty Name="SharableProject" Relationship="TaskOTimeModel.FK_SharableProject_User_IdUser" FromRole="User" ToRole="SharableProject" />
+          <NavigationProperty Name="Tag" Relationship="TaskOTimeModel.FK_Tag_User_IdUser" FromRole="User" ToRole="Tag" />
+          <NavigationProperty Name="TaskItem" Relationship="TaskOTimeModel.FK_TaskItem_User_IdUser" FromRole="User" ToRole="TaskItem" />
+          <NavigationProperty Name="TaskList" Relationship="TaskOTimeModel.FK_TaskList_User_IdUser" FromRole="User" ToRole="TaskList" />
+          <NavigationProperty Name="TenantLead" Relationship="TaskOTimeModel.FK_TenantLead_User_IdAssignedToUser" FromRole="User" ToRole="TenantLead" />
+          <NavigationProperty Name="TimeItem" Relationship="TaskOTimeModel.FK_TimeItem_User_IdItemAssignedToUser" FromRole="User" ToRole="TimeItem" />
+          <NavigationProperty Name="TimeItem1" Relationship="TaskOTimeModel.FK_TimeItem_User_IdUser" FromRole="User" ToRole="TimeItem" />
+          <NavigationProperty Name="TimeItem2" Relationship="TaskOTimeModel.FK_TimeItem_User_IdUserItemFrom" FromRole="User" ToRole="TimeItem" />
+          <NavigationProperty Name="WebLink" Relationship="TaskOTimeModel.FK_WebLink_User_IdUser" FromRole="User" ToRole="WebLink" />
+        </EntityType>
+        <EntityType Name="WebLink">
+          <Key>
+            <PropertyRef Name="IdWebLink" />
+          </Key>
+          <Property Name="IdWebLink" Type="Guid" Nullable="false" />
+          <Property Name="IdUser" Type="Guid" Nullable="false" />
+          <Property Name="IdProject" Type="Guid" />
+          <Property Name="IdSymbol" Type="Guid" />
+          <Property Name="Link" Type="String" Nullable="false" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="Domain" Type="String" Nullable="false" MaxLength="200" Unicode="true" FixedLength="false" />
+          <Property Name="Title" Type="String" MaxLength="100" Unicode="true" FixedLength="false" />
+          <Property Name="Description" Type="String" MaxLength="2000" Unicode="true" FixedLength="false" />
+          <Property Name="DateCreated" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="DateModified" Type="DateTimeOffset" Nullable="false" />
+          <Property Name="SyncId" Type="Guid" Nullable="false" />
+          <Property Name="SyncStatus" Type="Int32" Nullable="false" />
+          <Property Name="ExternalId" Type="String" MaxLength="128" Unicode="true" FixedLength="false" />
+          <NavigationProperty Name="CategorySymbol" Relationship="TaskOTimeModel.FK_WebLink_CategorySymbol_IdSymbol" FromRole="WebLink" ToRole="CategorySymbol" />
+          <NavigationProperty Name="Project" Relationship="TaskOTimeModel.FK_WebLink_Project_IdProject" FromRole="WebLink" ToRole="Project" />
+          <NavigationProperty Name="User" Relationship="TaskOTimeModel.FK_WebLink_User_IdUser" FromRole="WebLink" ToRole="User" />
+          <NavigationProperty Name="Tag" Relationship="TaskOTimeModel.WebLinkTag" FromRole="WebLink" ToRole="Tag" />
+        </EntityType>
+        <Association Name="FK_Category_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.CategorySymbol" Multiplicity="0..1" />
+          <End Role="Category" Type="TaskOTimeModel.Category" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="Category">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Category_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="Category" Type="TaskOTimeModel.Category" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="Category">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharableProject_Category_IdDefaultCategory">
+          <End Role="Category" Type="TaskOTimeModel.Category" Multiplicity="1" />
+          <End Role="SharableProject" Type="TaskOTimeModel.SharableProject" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Category">
+              <PropertyRef Name="IdCategory" />
+            </Principal>
+            <Dependent Role="SharableProject">
+              <PropertyRef Name="IdDefaultCategory" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_Category_IdCategory">
+          <End Role="Category" Type="TaskOTimeModel.Category" Multiplicity="1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Category">
+              <PropertyRef Name="IdCategory" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdCategory" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_CategorySymbol_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Project" Multiplicity="0..1" />
+          <End Role="CategorySymbol" Type="TaskOTimeModel.CategorySymbol" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="CategorySymbol">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Note_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.CategorySymbol" Multiplicity="0..1" />
+          <End Role="Note" Type="TaskOTimeModel.Note" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="Note">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Project_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.CategorySymbol" Multiplicity="0..1" />
+          <End Role="Project" Type="TaskOTimeModel.Project" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="Project">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItem_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.CategorySymbol" Multiplicity="0..1" />
+          <End Role="TaskItem" Type="TaskOTimeModel.TaskItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="TaskItem">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskList_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.CategorySymbol" Multiplicity="0..1" />
+          <End Role="TaskList" Type="TaskOTimeModel.TaskList" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="TaskList">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WebLink_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.CategorySymbol" Multiplicity="0..1" />
+          <End Role="WebLink" Type="TaskOTimeModel.WebLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="WebLink">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_LogItem_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="LogItem" Type="TaskOTimeModel.LogItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="LogItem">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Note_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Project" Multiplicity="0..1" />
+          <End Role="Note" Type="TaskOTimeModel.Note" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="Note">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Note_TaskItem_IdTask">
+          <End Role="TaskItem" Type="TaskOTimeModel.TaskItem" Multiplicity="0..1" />
+          <End Role="Note" Type="TaskOTimeModel.Note" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TaskItem">
+              <PropertyRef Name="IdTaskItem" />
+            </Principal>
+            <Dependent Role="Note">
+              <PropertyRef Name="IdTask" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Note_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="Note" Type="TaskOTimeModel.Note" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="Note">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Project_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="Project" Type="TaskOTimeModel.Project" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="Project">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharableProject_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Project" Multiplicity="1" />
+          <End Role="SharableProject" Type="TaskOTimeModel.SharableProject" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="SharableProject">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItem_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Project" Multiplicity="1" />
+          <End Role="TaskItem" Type="TaskOTimeModel.TaskItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="TaskItem">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskList_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Project" Multiplicity="1" />
+          <End Role="TaskList" Type="TaskOTimeModel.TaskList" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="TaskList">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Project" Multiplicity="1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WebLink_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Project" Multiplicity="0..1" />
+          <End Role="WebLink" Type="TaskOTimeModel.WebLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="WebLink">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharableProject_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="SharableProject" Type="TaskOTimeModel.SharableProject" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="SharableProject">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Tag_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="Tag" Type="TaskOTimeModel.Tag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="Tag">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItem_TaskList_IdTaskList">
+          <End Role="TaskList" Type="TaskOTimeModel.TaskList" Multiplicity="0..1" />
+          <End Role="TaskItem" Type="TaskOTimeModel.TaskItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TaskList">
+              <PropertyRef Name="IdTaskList" />
+            </Principal>
+            <Dependent Role="TaskItem">
+              <PropertyRef Name="IdTaskList" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItem_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="TaskItem" Type="TaskOTimeModel.TaskItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TaskItem">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_TaskItem_IdTask">
+          <End Role="TaskItem" Type="TaskOTimeModel.TaskItem" Multiplicity="0..1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TaskItem">
+              <PropertyRef Name="IdTaskItem" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdTask" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskList_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="TaskList" Type="TaskOTimeModel.TaskList" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TaskList">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TenantLead_User_IdAssignedToUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="0..1" />
+          <End Role="TenantLead" Type="TaskOTimeModel.TenantLead" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TenantLead">
+              <PropertyRef Name="IdAssignedToUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_TimeItem_IdNextItem">
+          <End Role="TimeItem" Type="TaskOTimeModel.TimeItem" Multiplicity="0..1" />
+          <End Role="TimeItem1" Type="TaskOTimeModel.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TimeItem">
+              <PropertyRef Name="IdTimeItem" />
+            </Principal>
+            <Dependent Role="TimeItem1">
+              <PropertyRef Name="IdNextItem" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_TimeItem_IdParentItem">
+          <End Role="TimeItem" Type="TaskOTimeModel.TimeItem" Multiplicity="0..1" />
+          <End Role="TimeItem1" Type="TaskOTimeModel.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TimeItem">
+              <PropertyRef Name="IdTimeItem" />
+            </Principal>
+            <Dependent Role="TimeItem1">
+              <PropertyRef Name="IdParentItem" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_TimeItem_IdPreviousItem">
+          <End Role="TimeItem" Type="TaskOTimeModel.TimeItem" Multiplicity="0..1" />
+          <End Role="TimeItem1" Type="TaskOTimeModel.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TimeItem">
+              <PropertyRef Name="IdTimeItem" />
+            </Principal>
+            <Dependent Role="TimeItem1">
+              <PropertyRef Name="IdPreviousItem" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_User_IdItemAssignedToUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="0..1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdItemAssignedToUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_User_IdUserItemFrom">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="0..1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdUserItemFrom" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WebLink_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.User" Multiplicity="1" />
+          <End Role="WebLink" Type="TaskOTimeModel.WebLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="WebLink">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="NoteTag">
+          <End Role="Note" Type="TaskOTimeModel.Note" Multiplicity="*" />
+          <End Role="Tag" Type="TaskOTimeModel.Tag" Multiplicity="*" />
+        </Association>
+        <Association Name="TaskItemTag">
+          <End Role="Tag" Type="TaskOTimeModel.Tag" Multiplicity="*" />
+          <End Role="TaskItem" Type="TaskOTimeModel.TaskItem" Multiplicity="*" />
+        </Association>
+        <Association Name="WebLinkTag">
+          <End Role="Tag" Type="TaskOTimeModel.Tag" Multiplicity="*" />
+          <End Role="WebLink" Type="TaskOTimeModel.WebLink" Multiplicity="*" />
+        </Association>
+      </Schema>
+    </ConceptualModels>
+    <StorageModels>
+      <Schema Namespace="TaskOTimeModel.Store" Alias="Self" Provider="System.Data.SqlClient" ProviderManifestToken="2008" xmlns:store="http://schemas.microsoft.com/ado/2007/12/edm/EntityStoreSchemaGenerator" xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl">
+        <EntityContainer Name="TaskOTimeModelStoreContainer">
+          <EntitySet Name="Category" EntityType="TaskOTimeModel.Store.Category" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="CategorySymbol" EntityType="TaskOTimeModel.Store.CategorySymbol" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="GuidReservation" EntityType="TaskOTimeModel.Store.GuidReservation" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="LogItem" EntityType="TaskOTimeModel.Store.LogItem" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="LookupItem" EntityType="TaskOTimeModel.Store.LookupItem" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="Note" EntityType="TaskOTimeModel.Store.Note" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="NoteTag" EntityType="TaskOTimeModel.Store.NoteTag" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="Project" EntityType="TaskOTimeModel.Store.Project" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="SharableProject" EntityType="TaskOTimeModel.Store.SharableProject" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="Tag" EntityType="TaskOTimeModel.Store.Tag" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="TaskItem" EntityType="TaskOTimeModel.Store.TaskItem" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="TaskItemTag" EntityType="TaskOTimeModel.Store.TaskItemTag" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="TaskList" EntityType="TaskOTimeModel.Store.TaskList" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="TenantLead" EntityType="TaskOTimeModel.Store.TenantLead" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="TimeItem" EntityType="TaskOTimeModel.Store.TimeItem" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="User" EntityType="TaskOTimeModel.Store.User" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="WebLink" EntityType="TaskOTimeModel.Store.WebLink" store:Type="Tables" Schema="dbo" />
+          <EntitySet Name="WebLinkTag" EntityType="TaskOTimeModel.Store.WebLinkTag" store:Type="Tables" Schema="dbo" />
+          <AssociationSet Name="FK_Category_CategorySymbol_IdSymbol" Association="TaskOTimeModel.Store.FK_Category_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="Category" EntitySet="Category" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Category_User_IdUser" Association="TaskOTimeModel.Store.FK_Category_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="Category" EntitySet="Category" />
+          </AssociationSet>
+          <AssociationSet Name="FK_CategorySymbol_Project_IdProject" Association="TaskOTimeModel.Store.FK_CategorySymbol_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+          </AssociationSet>
+          <AssociationSet Name="FK_LogItem_User_IdUser" Association="TaskOTimeModel.Store.FK_LogItem_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="LogItem" EntitySet="LogItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Note_CategorySymbol_IdSymbol" Association="TaskOTimeModel.Store.FK_Note_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="Note" EntitySet="Note" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Note_Project_IdProject" Association="TaskOTimeModel.Store.FK_Note_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="Note" EntitySet="Note" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Note_TaskItem_IdTask" Association="TaskOTimeModel.Store.FK_Note_TaskItem_IdTask">
+            <End Role="TaskItem" EntitySet="TaskItem" />
+            <End Role="Note" EntitySet="Note" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Note_User_IdUser" Association="TaskOTimeModel.Store.FK_Note_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="Note" EntitySet="Note" />
+          </AssociationSet>
+          <AssociationSet Name="FK_NoteTag_Note_IdNote" Association="TaskOTimeModel.Store.FK_NoteTag_Note_IdNote">
+            <End Role="Note" EntitySet="Note" />
+            <End Role="NoteTag" EntitySet="NoteTag" />
+          </AssociationSet>
+          <AssociationSet Name="FK_NoteTag_Tag_IdTag" Association="TaskOTimeModel.Store.FK_NoteTag_Tag_IdTag">
+            <End Role="Tag" EntitySet="Tag" />
+            <End Role="NoteTag" EntitySet="NoteTag" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Project_CategorySymbol_IdSymbol" Association="TaskOTimeModel.Store.FK_Project_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="Project" EntitySet="Project" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Project_User_IdUser" Association="TaskOTimeModel.Store.FK_Project_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="Project" EntitySet="Project" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharableProject_Category_IdDefaultCategory" Association="TaskOTimeModel.Store.FK_SharableProject_Category_IdDefaultCategory">
+            <End Role="Category" EntitySet="Category" />
+            <End Role="SharableProject" EntitySet="SharableProject" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharableProject_Project_IdProject" Association="TaskOTimeModel.Store.FK_SharableProject_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="SharableProject" EntitySet="SharableProject" />
+          </AssociationSet>
+          <AssociationSet Name="FK_SharableProject_User_IdUser" Association="TaskOTimeModel.Store.FK_SharableProject_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="SharableProject" EntitySet="SharableProject" />
+          </AssociationSet>
+          <AssociationSet Name="FK_Tag_User_IdUser" Association="TaskOTimeModel.Store.FK_Tag_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="Tag" EntitySet="Tag" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItem_CategorySymbol_IdSymbol" Association="TaskOTimeModel.Store.FK_TaskItem_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="TaskItem" EntitySet="TaskItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItem_Project_IdProject" Association="TaskOTimeModel.Store.FK_TaskItem_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="TaskItem" EntitySet="TaskItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItem_TaskList_IdTaskList" Association="TaskOTimeModel.Store.FK_TaskItem_TaskList_IdTaskList">
+            <End Role="TaskList" EntitySet="TaskList" />
+            <End Role="TaskItem" EntitySet="TaskItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItem_User_IdUser" Association="TaskOTimeModel.Store.FK_TaskItem_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TaskItem" EntitySet="TaskItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItemTag_Tag_IdTag" Association="TaskOTimeModel.Store.FK_TaskItemTag_Tag_IdTag">
+            <End Role="Tag" EntitySet="Tag" />
+            <End Role="TaskItemTag" EntitySet="TaskItemTag" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskItemTag_TaskItem_IdTaskItem" Association="TaskOTimeModel.Store.FK_TaskItemTag_TaskItem_IdTaskItem">
+            <End Role="TaskItem" EntitySet="TaskItem" />
+            <End Role="TaskItemTag" EntitySet="TaskItemTag" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskList_CategorySymbol_IdSymbol" Association="TaskOTimeModel.Store.FK_TaskList_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="TaskList" EntitySet="TaskList" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskList_Project_IdProject" Association="TaskOTimeModel.Store.FK_TaskList_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="TaskList" EntitySet="TaskList" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TaskList_User_IdUser" Association="TaskOTimeModel.Store.FK_TaskList_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TaskList" EntitySet="TaskList" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TenantLead_User_IdAssignedToUser" Association="TaskOTimeModel.Store.FK_TenantLead_User_IdAssignedToUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TenantLead" EntitySet="TenantLead" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_Category_IdCategory" Association="TaskOTimeModel.Store.FK_TimeItem_Category_IdCategory">
+            <End Role="Category" EntitySet="Category" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_Project_IdProject" Association="TaskOTimeModel.Store.FK_TimeItem_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_TaskItem_IdTask" Association="TaskOTimeModel.Store.FK_TimeItem_TaskItem_IdTask">
+            <End Role="TaskItem" EntitySet="TaskItem" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_TimeItem_IdNextItem" Association="TaskOTimeModel.Store.FK_TimeItem_TimeItem_IdNextItem">
+            <End Role="TimeItem" EntitySet="TimeItem" />
+            <End Role="TimeItem1" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_TimeItem_IdParentItem" Association="TaskOTimeModel.Store.FK_TimeItem_TimeItem_IdParentItem">
+            <End Role="TimeItem" EntitySet="TimeItem" />
+            <End Role="TimeItem1" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_TimeItem_IdPreviousItem" Association="TaskOTimeModel.Store.FK_TimeItem_TimeItem_IdPreviousItem">
+            <End Role="TimeItem" EntitySet="TimeItem" />
+            <End Role="TimeItem1" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_User_IdItemAssignedToUser" Association="TaskOTimeModel.Store.FK_TimeItem_User_IdItemAssignedToUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_User_IdUser" Association="TaskOTimeModel.Store.FK_TimeItem_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_TimeItem_User_IdUserItemFrom" Association="TaskOTimeModel.Store.FK_TimeItem_User_IdUserItemFrom">
+            <End Role="User" EntitySet="User" />
+            <End Role="TimeItem" EntitySet="TimeItem" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WebLink_CategorySymbol_IdSymbol" Association="TaskOTimeModel.Store.FK_WebLink_CategorySymbol_IdSymbol">
+            <End Role="CategorySymbol" EntitySet="CategorySymbol" />
+            <End Role="WebLink" EntitySet="WebLink" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WebLink_Project_IdProject" Association="TaskOTimeModel.Store.FK_WebLink_Project_IdProject">
+            <End Role="Project" EntitySet="Project" />
+            <End Role="WebLink" EntitySet="WebLink" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WebLink_User_IdUser" Association="TaskOTimeModel.Store.FK_WebLink_User_IdUser">
+            <End Role="User" EntitySet="User" />
+            <End Role="WebLink" EntitySet="WebLink" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WebLinkTag_Tag_IdTag" Association="TaskOTimeModel.Store.FK_WebLinkTag_Tag_IdTag">
+            <End Role="Tag" EntitySet="Tag" />
+            <End Role="WebLinkTag" EntitySet="WebLinkTag" />
+          </AssociationSet>
+          <AssociationSet Name="FK_WebLinkTag_WebLink_IdWebLink" Association="TaskOTimeModel.Store.FK_WebLinkTag_WebLink_IdWebLink">
+            <End Role="WebLink" EntitySet="WebLink" />
+            <End Role="WebLinkTag" EntitySet="WebLinkTag" />
+          </AssociationSet>
+        </EntityContainer>
+        <EntityType Name="Category">
+          <Key>
+            <PropertyRef Name="IdCategory" />
+          </Key>
+          <Property Name="IdCategory" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdSymbol" Type="uniqueidentifier" />
+          <Property Name="CategoryName" Type="nvarchar" Nullable="false" MaxLength="50" />
+          <Property Name="CategoryDescription" Type="nvarchar" MaxLength="2000" />
+          <Property Name="DisplayOrder" Type="int" Nullable="false" />
+          <Property Name="IsPublic" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="CategorySymbol">
+          <Key>
+            <PropertyRef Name="IdCategorySymbol" />
+          </Key>
+          <Property Name="IdCategorySymbol" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdProject" Type="uniqueidentifier" />
+          <Property Name="SymbolName" Type="nvarchar" Nullable="false" MaxLength="50" />
+          <Property Name="SymbolDescription" Type="nvarchar" MaxLength="2000" />
+          <Property Name="SymbolChar" Type="nvarchar" Nullable="false" MaxLength="4" />
+          <Property Name="FontName" Type="nvarchar" MaxLength="100" />
+          <Property Name="FontSize" Type="real" />
+          <Property Name="SymbolOffsetX" Type="real" />
+          <Property Name="SymbolOffsetY" Type="real" />
+          <Property Name="SymbolColor" Type="int" Nullable="false" />
+        </EntityType>
+        <EntityType Name="GuidReservation">
+          <Key>
+            <PropertyRef Name="IdGuidReservation" />
+          </Key>
+          <Property Name="IdGuidReservation" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="EntityName" Type="nvarchar" Nullable="false" MaxLength="128" />
+          <Property Name="ReservedAt" Type="datetimeoffset" Nullable="false" />
+          <Property Name="ReservedBy" Type="nvarchar" MaxLength="128" />
+          <Property Name="ConsumedAt" Type="datetimeoffset" />
+          <Property Name="IsConsumed" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="LogItem">
+          <Key>
+            <PropertyRef Name="IdLogItem" />
+          </Key>
+          <Property Name="IdLogItem" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="Category" Type="int" Nullable="false" />
+          <Property Name="LocalLogTime" Type="datetimeoffset" Nullable="false" />
+          <Property Name="Message" Type="nvarchar" Nullable="false" MaxLength="2000" />
+        </EntityType>
+        <EntityType Name="LookupItem">
+          <Key>
+            <PropertyRef Name="Id" />
+          </Key>
+          <Property Name="Id" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="Key" Type="nvarchar" Nullable="false" MaxLength="128" />
+          <Property Name="IdForeign" Type="nvarchar" MaxLength="64" />
+          <Property Name="StringValue" Type="nvarchar(max)" />
+          <Property Name="BlobReference" Type="nvarchar" MaxLength="64" />
+          <Property Name="IntegerValue" Type="bigint" />
+          <Property Name="DateValue" Type="datetimeoffset" />
+          <Property Name="DecimalValue" Type="decimal" Scale="4" />
+        </EntityType>
+        <EntityType Name="Note">
+          <Key>
+            <PropertyRef Name="IdNote" />
+          </Key>
+          <Property Name="IdNote" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdProject" Type="uniqueidentifier" />
+          <Property Name="IdTask" Type="uniqueidentifier" />
+          <Property Name="IdSymbol" Type="uniqueidentifier" />
+          <Property Name="NoteMnemonic" Type="nvarchar" Nullable="false" MaxLength="100" />
+          <Property Name="Note" Type="nvarchar" Nullable="false" />
+          <Property Name="DateCreated" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateModified" Type="datetimeoffset" Nullable="false" />
+          <Property Name="SyncId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="SyncStatus" Type="int" Nullable="false" />
+          <Property Name="ExternalId" Type="nvarchar" MaxLength="128" />
+        </EntityType>
+        <EntityType Name="NoteTag">
+          <Key>
+            <PropertyRef Name="IdNote" />
+            <PropertyRef Name="IdTag" />
+          </Key>
+          <Property Name="IdNote" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdTag" Type="uniqueidentifier" Nullable="false" />
+        </EntityType>
+        <EntityType Name="Project">
+          <Key>
+            <PropertyRef Name="IdProject" />
+          </Key>
+          <Property Name="IdProject" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdSymbol" Type="uniqueidentifier" />
+          <Property Name="ProjectName" Type="nvarchar" Nullable="false" MaxLength="200" />
+          <Property Name="ProjectType" Type="int" Nullable="false" />
+          <Property Name="ProjectNumber" Type="int" />
+          <Property Name="ProjectDescription" Type="nvarchar" MaxLength="2000" />
+          <Property Name="ProjectIdentifier" Type="nvarchar" MaxLength="100" />
+          <Property Name="ProjectSymbolChar" Type="nvarchar" MaxLength="4" />
+          <Property Name="ProjectSymbolColor" Type="int" Nullable="false" />
+          <Property Name="ProjectSymbolUrl" Type="nvarchar" MaxLength="255" />
+          <Property Name="StartOfProject" Type="datetimeoffset" />
+          <Property Name="EndOfProject" Type="datetimeoffset" />
+          <Property Name="IsActive" Type="bit" Nullable="false" />
+          <Property Name="IsDeleted" Type="bit" Nullable="false" />
+          <Property Name="Scope" Type="int" Nullable="false" />
+          <Property Name="IsSystem" Type="bit" Nullable="false" />
+          <Property Name="DateCreated" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateModified" Type="datetimeoffset" Nullable="false" />
+          <Property Name="SyncId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="SyncStatus" Type="int" Nullable="false" />
+          <Property Name="ExternalId" Type="nvarchar" MaxLength="128" />
+        </EntityType>
+        <EntityType Name="SharableProject">
+          <Key>
+            <PropertyRef Name="IdSharableProject" />
+          </Key>
+          <Property Name="IdSharableProject" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdProject" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdDefaultCategory" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="ProjectSymbolColor" Type="int" Nullable="false" />
+          <Property Name="InvitationMessage" Type="nvarchar" MaxLength="512" />
+          <Property Name="DateInvitationSent" Type="datetimeoffset" />
+          <Property Name="DateInvitationAccepted" Type="datetimeoffset" />
+          <Property Name="FirstUsed" Type="datetimeoffset" />
+          <Property Name="IsValid" Type="bit" Nullable="false" />
+          <Property Name="IsActive" Type="bit" Nullable="false" />
+          <Property Name="IsDeleted" Type="bit" Nullable="false" />
+          <Property Name="CurrentRelationStatus" Type="int" Nullable="false" />
+          <Property Name="ProjectLocationNameSharedUser" Type="nvarchar" MaxLength="200" />
+          <Property Name="StartOfProjectSharedUser" Type="datetimeoffset" />
+          <Property Name="EndOfProjectSharedUser" Type="datetimeoffset" />
+          <Property Name="IsTasksCoOwner" Type="bit" Nullable="false" />
+          <Property Name="IsCoOwner" Type="bit" Nullable="false" />
+          <Property Name="AllowOthersToSeeMyTasksAndTimes" Type="bit" Nullable="false" />
+          <Property Name="AllowOthersToAssignTasksToMe" Type="bit" Nullable="false" />
+          <Property Name="AllowOthersToDoMyReporting" Type="bit" Nullable="false" />
+          <Property Name="AllowCoOwnerToDoMyReporting" Type="bit" Nullable="false" />
+          <Property Name="AllowCoOwnerToEditMyTimes" Type="bit" Nullable="false" />
+          <Property Name="AllowGeoFencingForTimeRecordings" Type="bit" Nullable="false" />
+          <Property Name="AllowGeoFencingForTasks" Type="bit" Nullable="false" />
+          <Property Name="MetaInfo" Type="nvarchar" />
+          <Property Name="DateCreated" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateModified" Type="datetimeoffset" Nullable="false" />
+          <Property Name="SyncId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="SyncStatus" Type="int" Nullable="false" />
+          <Property Name="ExternalId" Type="nvarchar" MaxLength="128" />
+        </EntityType>
+        <EntityType Name="Tag">
+          <Key>
+            <PropertyRef Name="IdTag" />
+          </Key>
+          <Property Name="IdTag" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="Tag" Type="nvarchar" Nullable="false" MaxLength="30" />
+          <Property Name="Description" Type="nvarchar" MaxLength="2000" />
+          <Property Name="DateCreated" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateModified" Type="datetimeoffset" Nullable="false" />
+        </EntityType>
+        <EntityType Name="TaskItem">
+          <Key>
+            <PropertyRef Name="IdTaskItem" />
+          </Key>
+          <Property Name="IdTaskItem" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdProject" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdTaskList" Type="uniqueidentifier" />
+          <Property Name="IdSymbol" Type="uniqueidentifier" />
+          <Property Name="TaskItemName" Type="nvarchar" Nullable="false" MaxLength="200" />
+          <Property Name="TaskItemDescription" Type="nvarchar" MaxLength="2000" />
+          <Property Name="QuickInfo" Type="nvarchar" MaxLength="100" />
+          <Property Name="DueDate" Type="datetimeoffset" />
+          <Property Name="TaskHoursBudget" Type="int" />
+          <Property Name="Priority" Type="int" Nullable="false" />
+          <Property Name="IsPrivateTask" Type="bit" Nullable="false" />
+          <Property Name="Scope" Type="int" Nullable="false" />
+          <Property Name="IsActive" Type="bit" Nullable="false" />
+          <Property Name="IsCompleted" Type="bit" Nullable="false" />
+          <Property Name="DateCompleted" Type="datetimeoffset" />
+          <Property Name="IsDeleted" Type="bit" Nullable="false" />
+          <Property Name="IsForeign" Type="bit" Nullable="false" />
+          <Property Name="DateCreated" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateModified" Type="datetimeoffset" Nullable="false" />
+          <Property Name="SyncId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="SyncStatus" Type="int" Nullable="false" />
+          <Property Name="ExternalId" Type="nvarchar" MaxLength="128" />
+        </EntityType>
+        <EntityType Name="TaskItemTag">
+          <Key>
+            <PropertyRef Name="IdTaskItem" />
+            <PropertyRef Name="IdTag" />
+          </Key>
+          <Property Name="IdTaskItem" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdTag" Type="uniqueidentifier" Nullable="false" />
+        </EntityType>
+        <EntityType Name="TaskList">
+          <Key>
+            <PropertyRef Name="IdTaskList" />
+          </Key>
+          <Property Name="IdTaskList" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdProject" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdSymbol" Type="uniqueidentifier" />
+          <Property Name="TaskListName" Type="nvarchar" Nullable="false" MaxLength="50" />
+          <Property Name="TaskListDescription" Type="nvarchar" MaxLength="2000" />
+          <Property Name="DisplayOrder" Type="int" Nullable="false" />
+          <Property Name="IsPublic" Type="bit" Nullable="false" />
+        </EntityType>
+        <EntityType Name="TenantLead">
+          <Key>
+            <PropertyRef Name="IdTenantLead" />
+          </Key>
+          <Property Name="IdTenantLead" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdAssignedToUser" Type="uniqueidentifier" />
+          <Property Name="TenantLeadName" Type="nvarchar" Nullable="false" MaxLength="200" />
+          <Property Name="OrganizationName" Type="nvarchar" MaxLength="200" />
+          <Property Name="FirstName" Type="nvarchar" MaxLength="100" />
+          <Property Name="LastName" Type="nvarchar" MaxLength="100" />
+          <Property Name="EMail" Type="nvarchar" MaxLength="100" />
+          <Property Name="Phone" Type="nvarchar" MaxLength="50" />
+          <Property Name="LeadSource" Type="nvarchar" MaxLength="100" />
+          <Property Name="LeadStatus" Type="nvarchar" MaxLength="50" />
+          <Property Name="Notes" Type="nvarchar" MaxLength="2000" />
+          <Property Name="DateFirstContact" Type="datetimeoffset" />
+          <Property Name="DateLastContact" Type="datetimeoffset" />
+          <Property Name="DateConverted" Type="datetimeoffset" />
+          <Property Name="IsConverted" Type="bit" Nullable="false" />
+          <Property Name="IsDeleted" Type="bit" Nullable="false" />
+          <Property Name="DateCreated" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateModified" Type="datetimeoffset" Nullable="false" />
+        </EntityType>
+        <EntityType Name="TimeItem">
+          <Key>
+            <PropertyRef Name="IdTimeItem" />
+          </Key>
+          <Property Name="IdTimeItem" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdProject" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdNextItem" Type="uniqueidentifier" />
+          <Property Name="IdPreviousItem" Type="uniqueidentifier" />
+          <Property Name="IdTask" Type="uniqueidentifier" />
+          <Property Name="IdCategory" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="ShortTitle" Type="nvarchar" MaxLength="255" />
+          <Property Name="Description" Type="nvarchar" MaxLength="2000" />
+          <Property Name="EventTime" Type="datetimeoffset" />
+          <Property Name="BookingDate" Type="datetime2" />
+          <Property Name="EventInfo" Type="nvarchar" MaxLength="512" />
+          <Property Name="EventTypeInfo" Type="int" Nullable="false" />
+          <Property Name="DurationToNext" Type="time" />
+          <Property Name="DurationTicksToNext" Type="bigint" />
+          <Property Name="DurationToPrevious" Type="time" />
+          <Property Name="DurationTicksToPrevious" Type="bigint" />
+          <Property Name="IdParentItem" Type="uniqueidentifier" />
+          <Property Name="Scope" Type="int" Nullable="false" />
+          <Property Name="IsItemCompleted" Type="bit" Nullable="false" />
+          <Property Name="IsItemDeleted" Type="bit" Nullable="false" />
+          <Property Name="IsStartAction" Type="bit" Nullable="false" />
+          <Property Name="IsEndAction" Type="bit" Nullable="false" />
+          <Property Name="Value" Type="decimal" Scale="4" />
+          <Property Name="Priority" Type="int" Nullable="false" />
+          <Property Name="DateItemAcceptedOrRejected" Type="datetimeoffset" />
+          <Property Name="MachineID" Type="nvarchar" MaxLength="100" />
+          <Property Name="IdItemAssignedToUser" Type="uniqueidentifier" />
+          <Property Name="IdUserItemFrom" Type="uniqueidentifier" />
+          <Property Name="DateItemFinished" Type="datetimeoffset" />
+          <Property Name="DateCreated" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateModified" Type="datetimeoffset" Nullable="false" />
+          <Property Name="SyncId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="SyncStatus" Type="int" Nullable="false" />
+          <Property Name="ExternalId" Type="nvarchar" MaxLength="128" />
+        </EntityType>
+        <EntityType Name="User">
+          <Key>
+            <PropertyRef Name="IdUser" />
+          </Key>
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="UserIdent" Type="nvarchar" Nullable="false" MaxLength="200" />
+          <Property Name="FirstName" Type="nvarchar" MaxLength="100" />
+          <Property Name="MiddleName" Type="nvarchar" MaxLength="100" />
+          <Property Name="LastName" Type="nvarchar" Nullable="false" MaxLength="200" />
+          <Property Name="EMail" Type="nvarchar" Nullable="false" MaxLength="100" />
+          <Property Name="IsAdmin" Type="bit" Nullable="false" />
+          <Property Name="EmojiIndex" Type="int" />
+          <Property Name="MaxProjects" Type="int" />
+          <Property Name="LastLogin" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateCreated" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateModified" Type="datetimeoffset" Nullable="false" />
+          <Property Name="SyncId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="SyncStatus" Type="int" Nullable="false" />
+          <Property Name="ExternalId" Type="nvarchar" MaxLength="128" />
+        </EntityType>
+        <EntityType Name="WebLink">
+          <Key>
+            <PropertyRef Name="IdWebLink" />
+          </Key>
+          <Property Name="IdWebLink" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdUser" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdProject" Type="uniqueidentifier" />
+          <Property Name="IdSymbol" Type="uniqueidentifier" />
+          <Property Name="Link" Type="nvarchar" Nullable="false" MaxLength="2000" />
+          <Property Name="Domain" Type="nvarchar" Nullable="false" MaxLength="200" />
+          <Property Name="Title" Type="nvarchar" MaxLength="100" />
+          <Property Name="Description" Type="nvarchar" MaxLength="2000" />
+          <Property Name="DateCreated" Type="datetimeoffset" Nullable="false" />
+          <Property Name="DateModified" Type="datetimeoffset" Nullable="false" />
+          <Property Name="SyncId" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="SyncStatus" Type="int" Nullable="false" />
+          <Property Name="ExternalId" Type="nvarchar" MaxLength="128" />
+        </EntityType>
+        <EntityType Name="WebLinkTag">
+          <Key>
+            <PropertyRef Name="IdWebLink" />
+            <PropertyRef Name="IdTag" />
+          </Key>
+          <Property Name="IdWebLink" Type="uniqueidentifier" Nullable="false" />
+          <Property Name="IdTag" Type="uniqueidentifier" Nullable="false" />
+        </EntityType>
+        <Association Name="FK_Category_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.Store.CategorySymbol" Multiplicity="0..1" />
+          <End Role="Category" Type="TaskOTimeModel.Store.Category" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="Category">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Category_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="Category" Type="TaskOTimeModel.Store.Category" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="Category">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_CategorySymbol_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Store.Project" Multiplicity="0..1" />
+          <End Role="CategorySymbol" Type="TaskOTimeModel.Store.CategorySymbol" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="CategorySymbol">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_LogItem_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="LogItem" Type="TaskOTimeModel.Store.LogItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="LogItem">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Note_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.Store.CategorySymbol" Multiplicity="0..1" />
+          <End Role="Note" Type="TaskOTimeModel.Store.Note" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="Note">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Note_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Store.Project" Multiplicity="0..1" />
+          <End Role="Note" Type="TaskOTimeModel.Store.Note" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="Note">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Note_TaskItem_IdTask">
+          <End Role="TaskItem" Type="TaskOTimeModel.Store.TaskItem" Multiplicity="0..1" />
+          <End Role="Note" Type="TaskOTimeModel.Store.Note" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TaskItem">
+              <PropertyRef Name="IdTaskItem" />
+            </Principal>
+            <Dependent Role="Note">
+              <PropertyRef Name="IdTask" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Note_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="Note" Type="TaskOTimeModel.Store.Note" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="Note">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_NoteTag_Note_IdNote">
+          <End Role="Note" Type="TaskOTimeModel.Store.Note" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="NoteTag" Type="TaskOTimeModel.Store.NoteTag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Note">
+              <PropertyRef Name="IdNote" />
+            </Principal>
+            <Dependent Role="NoteTag">
+              <PropertyRef Name="IdNote" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_NoteTag_Tag_IdTag">
+          <End Role="Tag" Type="TaskOTimeModel.Store.Tag" Multiplicity="1" />
+          <End Role="NoteTag" Type="TaskOTimeModel.Store.NoteTag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Tag">
+              <PropertyRef Name="IdTag" />
+            </Principal>
+            <Dependent Role="NoteTag">
+              <PropertyRef Name="IdTag" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Project_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.Store.CategorySymbol" Multiplicity="0..1" />
+          <End Role="Project" Type="TaskOTimeModel.Store.Project" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="Project">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Project_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="Project" Type="TaskOTimeModel.Store.Project" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="Project">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharableProject_Category_IdDefaultCategory">
+          <End Role="Category" Type="TaskOTimeModel.Store.Category" Multiplicity="1" />
+          <End Role="SharableProject" Type="TaskOTimeModel.Store.SharableProject" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Category">
+              <PropertyRef Name="IdCategory" />
+            </Principal>
+            <Dependent Role="SharableProject">
+              <PropertyRef Name="IdDefaultCategory" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharableProject_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Store.Project" Multiplicity="1" />
+          <End Role="SharableProject" Type="TaskOTimeModel.Store.SharableProject" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="SharableProject">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_SharableProject_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="SharableProject" Type="TaskOTimeModel.Store.SharableProject" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="SharableProject">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_Tag_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="Tag" Type="TaskOTimeModel.Store.Tag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="Tag">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItem_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.Store.CategorySymbol" Multiplicity="0..1" />
+          <End Role="TaskItem" Type="TaskOTimeModel.Store.TaskItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="TaskItem">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItem_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Store.Project" Multiplicity="1" />
+          <End Role="TaskItem" Type="TaskOTimeModel.Store.TaskItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="TaskItem">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItem_TaskList_IdTaskList">
+          <End Role="TaskList" Type="TaskOTimeModel.Store.TaskList" Multiplicity="0..1" />
+          <End Role="TaskItem" Type="TaskOTimeModel.Store.TaskItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TaskList">
+              <PropertyRef Name="IdTaskList" />
+            </Principal>
+            <Dependent Role="TaskItem">
+              <PropertyRef Name="IdTaskList" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItem_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="TaskItem" Type="TaskOTimeModel.Store.TaskItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TaskItem">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItemTag_Tag_IdTag">
+          <End Role="Tag" Type="TaskOTimeModel.Store.Tag" Multiplicity="1" />
+          <End Role="TaskItemTag" Type="TaskOTimeModel.Store.TaskItemTag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Tag">
+              <PropertyRef Name="IdTag" />
+            </Principal>
+            <Dependent Role="TaskItemTag">
+              <PropertyRef Name="IdTag" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskItemTag_TaskItem_IdTaskItem">
+          <End Role="TaskItem" Type="TaskOTimeModel.Store.TaskItem" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="TaskItemTag" Type="TaskOTimeModel.Store.TaskItemTag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TaskItem">
+              <PropertyRef Name="IdTaskItem" />
+            </Principal>
+            <Dependent Role="TaskItemTag">
+              <PropertyRef Name="IdTaskItem" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskList_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.Store.CategorySymbol" Multiplicity="0..1" />
+          <End Role="TaskList" Type="TaskOTimeModel.Store.TaskList" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="TaskList">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskList_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Store.Project" Multiplicity="1" />
+          <End Role="TaskList" Type="TaskOTimeModel.Store.TaskList" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="TaskList">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TaskList_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="TaskList" Type="TaskOTimeModel.Store.TaskList" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TaskList">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TenantLead_User_IdAssignedToUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="0..1" />
+          <End Role="TenantLead" Type="TaskOTimeModel.Store.TenantLead" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TenantLead">
+              <PropertyRef Name="IdAssignedToUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_Category_IdCategory">
+          <End Role="Category" Type="TaskOTimeModel.Store.Category" Multiplicity="1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Category">
+              <PropertyRef Name="IdCategory" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdCategory" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Store.Project" Multiplicity="1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_TaskItem_IdTask">
+          <End Role="TaskItem" Type="TaskOTimeModel.Store.TaskItem" Multiplicity="0..1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TaskItem">
+              <PropertyRef Name="IdTaskItem" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdTask" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_TimeItem_IdNextItem">
+          <End Role="TimeItem" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="0..1" />
+          <End Role="TimeItem1" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TimeItem">
+              <PropertyRef Name="IdTimeItem" />
+            </Principal>
+            <Dependent Role="TimeItem1">
+              <PropertyRef Name="IdNextItem" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_TimeItem_IdParentItem">
+          <End Role="TimeItem" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="0..1" />
+          <End Role="TimeItem1" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TimeItem">
+              <PropertyRef Name="IdTimeItem" />
+            </Principal>
+            <Dependent Role="TimeItem1">
+              <PropertyRef Name="IdParentItem" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_TimeItem_IdPreviousItem">
+          <End Role="TimeItem" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="0..1" />
+          <End Role="TimeItem1" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="TimeItem">
+              <PropertyRef Name="IdTimeItem" />
+            </Principal>
+            <Dependent Role="TimeItem1">
+              <PropertyRef Name="IdPreviousItem" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_User_IdItemAssignedToUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="0..1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdItemAssignedToUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_TimeItem_User_IdUserItemFrom">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="0..1" />
+          <End Role="TimeItem" Type="TaskOTimeModel.Store.TimeItem" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="TimeItem">
+              <PropertyRef Name="IdUserItemFrom" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WebLink_CategorySymbol_IdSymbol">
+          <End Role="CategorySymbol" Type="TaskOTimeModel.Store.CategorySymbol" Multiplicity="0..1" />
+          <End Role="WebLink" Type="TaskOTimeModel.Store.WebLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="CategorySymbol">
+              <PropertyRef Name="IdCategorySymbol" />
+            </Principal>
+            <Dependent Role="WebLink">
+              <PropertyRef Name="IdSymbol" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WebLink_Project_IdProject">
+          <End Role="Project" Type="TaskOTimeModel.Store.Project" Multiplicity="0..1" />
+          <End Role="WebLink" Type="TaskOTimeModel.Store.WebLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Project">
+              <PropertyRef Name="IdProject" />
+            </Principal>
+            <Dependent Role="WebLink">
+              <PropertyRef Name="IdProject" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WebLink_User_IdUser">
+          <End Role="User" Type="TaskOTimeModel.Store.User" Multiplicity="1" />
+          <End Role="WebLink" Type="TaskOTimeModel.Store.WebLink" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="User">
+              <PropertyRef Name="IdUser" />
+            </Principal>
+            <Dependent Role="WebLink">
+              <PropertyRef Name="IdUser" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WebLinkTag_Tag_IdTag">
+          <End Role="Tag" Type="TaskOTimeModel.Store.Tag" Multiplicity="1" />
+          <End Role="WebLinkTag" Type="TaskOTimeModel.Store.WebLinkTag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="Tag">
+              <PropertyRef Name="IdTag" />
+            </Principal>
+            <Dependent Role="WebLinkTag">
+              <PropertyRef Name="IdTag" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Association Name="FK_WebLinkTag_WebLink_IdWebLink">
+          <End Role="WebLink" Type="TaskOTimeModel.Store.WebLink" Multiplicity="1">
+            <OnDelete Action="Cascade" />
+          </End>
+          <End Role="WebLinkTag" Type="TaskOTimeModel.Store.WebLinkTag" Multiplicity="*" />
+          <ReferentialConstraint>
+            <Principal Role="WebLink">
+              <PropertyRef Name="IdWebLink" />
+            </Principal>
+            <Dependent Role="WebLinkTag">
+              <PropertyRef Name="IdWebLink" />
+            </Dependent>
+          </ReferentialConstraint>
+        </Association>
+        <Function Name="ReserveSequentialGuids" Aggregate="false" BuiltIn="false" NiladicFunction="false" IsComposable="false" ParameterTypeSemantics="AllowImplicitConversion" Schema="dbo">
+          <Parameter Name="EntityName" Type="nvarchar" Mode="In" />
+          <Parameter Name="BlockSize" Type="int" Mode="In" />
+          <Parameter Name="ReservedBy" Type="nvarchar" Mode="In" />
+        </Function>
+      </Schema>
+    </StorageModels>
+    <Mappings>
+      <Mapping Space="C-S" xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs">
+        <EntityContainerMapping StorageEntityContainer="TaskOTimeModelStoreContainer" CdmEntityContainer="TaskOTimeContext">
+          <EntitySetMapping Name="Category">
+            <EntityTypeMapping TypeName="TaskOTimeModel.Category">
+              <MappingFragment StoreEntitySet="Category">
+                <ScalarProperty Name="IdCategory" ColumnName="IdCategory" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="IdSymbol" ColumnName="IdSymbol" />
+                <ScalarProperty Name="CategoryName" ColumnName="CategoryName" />
+                <ScalarProperty Name="CategoryDescription" ColumnName="CategoryDescription" />
+                <ScalarProperty Name="DisplayOrder" ColumnName="DisplayOrder" />
+                <ScalarProperty Name="IsPublic" ColumnName="IsPublic" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="CategorySymbol">
+            <EntityTypeMapping TypeName="TaskOTimeModel.CategorySymbol">
+              <MappingFragment StoreEntitySet="CategorySymbol">
+                <ScalarProperty Name="IdCategorySymbol" ColumnName="IdCategorySymbol" />
+                <ScalarProperty Name="IdProject" ColumnName="IdProject" />
+                <ScalarProperty Name="SymbolName" ColumnName="SymbolName" />
+                <ScalarProperty Name="SymbolDescription" ColumnName="SymbolDescription" />
+                <ScalarProperty Name="SymbolChar" ColumnName="SymbolChar" />
+                <ScalarProperty Name="FontName" ColumnName="FontName" />
+                <ScalarProperty Name="FontSize" ColumnName="FontSize" />
+                <ScalarProperty Name="SymbolOffsetX" ColumnName="SymbolOffsetX" />
+                <ScalarProperty Name="SymbolOffsetY" ColumnName="SymbolOffsetY" />
+                <ScalarProperty Name="SymbolColor" ColumnName="SymbolColor" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="GuidReservation">
+            <EntityTypeMapping TypeName="TaskOTimeModel.GuidReservation">
+              <MappingFragment StoreEntitySet="GuidReservation">
+                <ScalarProperty Name="IdGuidReservation" ColumnName="IdGuidReservation" />
+                <ScalarProperty Name="EntityName" ColumnName="EntityName" />
+                <ScalarProperty Name="ReservedAt" ColumnName="ReservedAt" />
+                <ScalarProperty Name="ReservedBy" ColumnName="ReservedBy" />
+                <ScalarProperty Name="ConsumedAt" ColumnName="ConsumedAt" />
+                <ScalarProperty Name="IsConsumed" ColumnName="IsConsumed" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="LogItem">
+            <EntityTypeMapping TypeName="TaskOTimeModel.LogItem">
+              <MappingFragment StoreEntitySet="LogItem">
+                <ScalarProperty Name="IdLogItem" ColumnName="IdLogItem" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="Category" ColumnName="Category" />
+                <ScalarProperty Name="LocalLogTime" ColumnName="LocalLogTime" />
+                <ScalarProperty Name="Message" ColumnName="Message" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="LookupItem">
+            <EntityTypeMapping TypeName="TaskOTimeModel.LookupItem">
+              <MappingFragment StoreEntitySet="LookupItem">
+                <ScalarProperty Name="Id" ColumnName="Id" />
+                <ScalarProperty Name="Key" ColumnName="Key" />
+                <ScalarProperty Name="IdForeign" ColumnName="IdForeign" />
+                <ScalarProperty Name="StringValue" ColumnName="StringValue" />
+                <ScalarProperty Name="BlobReference" ColumnName="BlobReference" />
+                <ScalarProperty Name="IntegerValue" ColumnName="IntegerValue" />
+                <ScalarProperty Name="DateValue" ColumnName="DateValue" />
+                <ScalarProperty Name="DecimalValue" ColumnName="DecimalValue" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Note">
+            <EntityTypeMapping TypeName="TaskOTimeModel.Note">
+              <MappingFragment StoreEntitySet="Note">
+                <ScalarProperty Name="IdNote" ColumnName="IdNote" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="IdProject" ColumnName="IdProject" />
+                <ScalarProperty Name="IdTask" ColumnName="IdTask" />
+                <ScalarProperty Name="IdSymbol" ColumnName="IdSymbol" />
+                <ScalarProperty Name="NoteMnemonic" ColumnName="NoteMnemonic" />
+                <ScalarProperty Name="Note1" ColumnName="Note" />
+                <ScalarProperty Name="DateCreated" ColumnName="DateCreated" />
+                <ScalarProperty Name="DateModified" ColumnName="DateModified" />
+                <ScalarProperty Name="SyncId" ColumnName="SyncId" />
+                <ScalarProperty Name="SyncStatus" ColumnName="SyncStatus" />
+                <ScalarProperty Name="ExternalId" ColumnName="ExternalId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Project">
+            <EntityTypeMapping TypeName="TaskOTimeModel.Project">
+              <MappingFragment StoreEntitySet="Project">
+                <ScalarProperty Name="IdProject" ColumnName="IdProject" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="IdSymbol" ColumnName="IdSymbol" />
+                <ScalarProperty Name="ProjectName" ColumnName="ProjectName" />
+                <ScalarProperty Name="ProjectType" ColumnName="ProjectType" />
+                <ScalarProperty Name="ProjectNumber" ColumnName="ProjectNumber" />
+                <ScalarProperty Name="ProjectDescription" ColumnName="ProjectDescription" />
+                <ScalarProperty Name="ProjectIdentifier" ColumnName="ProjectIdentifier" />
+                <ScalarProperty Name="ProjectSymbolChar" ColumnName="ProjectSymbolChar" />
+                <ScalarProperty Name="ProjectSymbolColor" ColumnName="ProjectSymbolColor" />
+                <ScalarProperty Name="ProjectSymbolUrl" ColumnName="ProjectSymbolUrl" />
+                <ScalarProperty Name="StartOfProject" ColumnName="StartOfProject" />
+                <ScalarProperty Name="EndOfProject" ColumnName="EndOfProject" />
+                <ScalarProperty Name="IsActive" ColumnName="IsActive" />
+                <ScalarProperty Name="IsDeleted" ColumnName="IsDeleted" />
+                <ScalarProperty Name="Scope" ColumnName="Scope" />
+                <ScalarProperty Name="IsSystem" ColumnName="IsSystem" />
+                <ScalarProperty Name="DateCreated" ColumnName="DateCreated" />
+                <ScalarProperty Name="DateModified" ColumnName="DateModified" />
+                <ScalarProperty Name="SyncId" ColumnName="SyncId" />
+                <ScalarProperty Name="SyncStatus" ColumnName="SyncStatus" />
+                <ScalarProperty Name="ExternalId" ColumnName="ExternalId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="SharableProject">
+            <EntityTypeMapping TypeName="TaskOTimeModel.SharableProject">
+              <MappingFragment StoreEntitySet="SharableProject">
+                <ScalarProperty Name="IdSharableProject" ColumnName="IdSharableProject" />
+                <ScalarProperty Name="IdProject" ColumnName="IdProject" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="IdDefaultCategory" ColumnName="IdDefaultCategory" />
+                <ScalarProperty Name="ProjectSymbolColor" ColumnName="ProjectSymbolColor" />
+                <ScalarProperty Name="InvitationMessage" ColumnName="InvitationMessage" />
+                <ScalarProperty Name="DateInvitationSent" ColumnName="DateInvitationSent" />
+                <ScalarProperty Name="DateInvitationAccepted" ColumnName="DateInvitationAccepted" />
+                <ScalarProperty Name="FirstUsed" ColumnName="FirstUsed" />
+                <ScalarProperty Name="IsValid" ColumnName="IsValid" />
+                <ScalarProperty Name="IsActive" ColumnName="IsActive" />
+                <ScalarProperty Name="IsDeleted" ColumnName="IsDeleted" />
+                <ScalarProperty Name="CurrentRelationStatus" ColumnName="CurrentRelationStatus" />
+                <ScalarProperty Name="ProjectLocationNameSharedUser" ColumnName="ProjectLocationNameSharedUser" />
+                <ScalarProperty Name="StartOfProjectSharedUser" ColumnName="StartOfProjectSharedUser" />
+                <ScalarProperty Name="EndOfProjectSharedUser" ColumnName="EndOfProjectSharedUser" />
+                <ScalarProperty Name="IsTasksCoOwner" ColumnName="IsTasksCoOwner" />
+                <ScalarProperty Name="IsCoOwner" ColumnName="IsCoOwner" />
+                <ScalarProperty Name="AllowOthersToSeeMyTasksAndTimes" ColumnName="AllowOthersToSeeMyTasksAndTimes" />
+                <ScalarProperty Name="AllowOthersToAssignTasksToMe" ColumnName="AllowOthersToAssignTasksToMe" />
+                <ScalarProperty Name="AllowOthersToDoMyReporting" ColumnName="AllowOthersToDoMyReporting" />
+                <ScalarProperty Name="AllowCoOwnerToDoMyReporting" ColumnName="AllowCoOwnerToDoMyReporting" />
+                <ScalarProperty Name="AllowCoOwnerToEditMyTimes" ColumnName="AllowCoOwnerToEditMyTimes" />
+                <ScalarProperty Name="AllowGeoFencingForTimeRecordings" ColumnName="AllowGeoFencingForTimeRecordings" />
+                <ScalarProperty Name="AllowGeoFencingForTasks" ColumnName="AllowGeoFencingForTasks" />
+                <ScalarProperty Name="MetaInfo" ColumnName="MetaInfo" />
+                <ScalarProperty Name="DateCreated" ColumnName="DateCreated" />
+                <ScalarProperty Name="DateModified" ColumnName="DateModified" />
+                <ScalarProperty Name="SyncId" ColumnName="SyncId" />
+                <ScalarProperty Name="SyncStatus" ColumnName="SyncStatus" />
+                <ScalarProperty Name="ExternalId" ColumnName="ExternalId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="Tag">
+            <EntityTypeMapping TypeName="TaskOTimeModel.Tag">
+              <MappingFragment StoreEntitySet="Tag">
+                <ScalarProperty Name="IdTag" ColumnName="IdTag" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="Tag1" ColumnName="Tag" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="DateCreated" ColumnName="DateCreated" />
+                <ScalarProperty Name="DateModified" ColumnName="DateModified" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="TaskItem">
+            <EntityTypeMapping TypeName="TaskOTimeModel.TaskItem">
+              <MappingFragment StoreEntitySet="TaskItem">
+                <ScalarProperty Name="IdTaskItem" ColumnName="IdTaskItem" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="IdProject" ColumnName="IdProject" />
+                <ScalarProperty Name="IdTaskList" ColumnName="IdTaskList" />
+                <ScalarProperty Name="IdSymbol" ColumnName="IdSymbol" />
+                <ScalarProperty Name="TaskItemName" ColumnName="TaskItemName" />
+                <ScalarProperty Name="TaskItemDescription" ColumnName="TaskItemDescription" />
+                <ScalarProperty Name="QuickInfo" ColumnName="QuickInfo" />
+                <ScalarProperty Name="DueDate" ColumnName="DueDate" />
+                <ScalarProperty Name="TaskHoursBudget" ColumnName="TaskHoursBudget" />
+                <ScalarProperty Name="Priority" ColumnName="Priority" />
+                <ScalarProperty Name="IsPrivateTask" ColumnName="IsPrivateTask" />
+                <ScalarProperty Name="Scope" ColumnName="Scope" />
+                <ScalarProperty Name="IsActive" ColumnName="IsActive" />
+                <ScalarProperty Name="IsCompleted" ColumnName="IsCompleted" />
+                <ScalarProperty Name="DateCompleted" ColumnName="DateCompleted" />
+                <ScalarProperty Name="IsDeleted" ColumnName="IsDeleted" />
+                <ScalarProperty Name="IsForeign" ColumnName="IsForeign" />
+                <ScalarProperty Name="DateCreated" ColumnName="DateCreated" />
+                <ScalarProperty Name="DateModified" ColumnName="DateModified" />
+                <ScalarProperty Name="SyncId" ColumnName="SyncId" />
+                <ScalarProperty Name="SyncStatus" ColumnName="SyncStatus" />
+                <ScalarProperty Name="ExternalId" ColumnName="ExternalId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="TaskList">
+            <EntityTypeMapping TypeName="TaskOTimeModel.TaskList">
+              <MappingFragment StoreEntitySet="TaskList">
+                <ScalarProperty Name="IdTaskList" ColumnName="IdTaskList" />
+                <ScalarProperty Name="IdProject" ColumnName="IdProject" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="IdSymbol" ColumnName="IdSymbol" />
+                <ScalarProperty Name="TaskListName" ColumnName="TaskListName" />
+                <ScalarProperty Name="TaskListDescription" ColumnName="TaskListDescription" />
+                <ScalarProperty Name="DisplayOrder" ColumnName="DisplayOrder" />
+                <ScalarProperty Name="IsPublic" ColumnName="IsPublic" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="TenantLead">
+            <EntityTypeMapping TypeName="TaskOTimeModel.TenantLead">
+              <MappingFragment StoreEntitySet="TenantLead">
+                <ScalarProperty Name="IdTenantLead" ColumnName="IdTenantLead" />
+                <ScalarProperty Name="IdAssignedToUser" ColumnName="IdAssignedToUser" />
+                <ScalarProperty Name="TenantLeadName" ColumnName="TenantLeadName" />
+                <ScalarProperty Name="OrganizationName" ColumnName="OrganizationName" />
+                <ScalarProperty Name="FirstName" ColumnName="FirstName" />
+                <ScalarProperty Name="LastName" ColumnName="LastName" />
+                <ScalarProperty Name="EMail" ColumnName="EMail" />
+                <ScalarProperty Name="Phone" ColumnName="Phone" />
+                <ScalarProperty Name="LeadSource" ColumnName="LeadSource" />
+                <ScalarProperty Name="LeadStatus" ColumnName="LeadStatus" />
+                <ScalarProperty Name="Notes" ColumnName="Notes" />
+                <ScalarProperty Name="DateFirstContact" ColumnName="DateFirstContact" />
+                <ScalarProperty Name="DateLastContact" ColumnName="DateLastContact" />
+                <ScalarProperty Name="DateConverted" ColumnName="DateConverted" />
+                <ScalarProperty Name="IsConverted" ColumnName="IsConverted" />
+                <ScalarProperty Name="IsDeleted" ColumnName="IsDeleted" />
+                <ScalarProperty Name="DateCreated" ColumnName="DateCreated" />
+                <ScalarProperty Name="DateModified" ColumnName="DateModified" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="TimeItem">
+            <EntityTypeMapping TypeName="TaskOTimeModel.TimeItem">
+              <MappingFragment StoreEntitySet="TimeItem">
+                <ScalarProperty Name="IdTimeItem" ColumnName="IdTimeItem" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="IdProject" ColumnName="IdProject" />
+                <ScalarProperty Name="IdNextItem" ColumnName="IdNextItem" />
+                <ScalarProperty Name="IdPreviousItem" ColumnName="IdPreviousItem" />
+                <ScalarProperty Name="IdTask" ColumnName="IdTask" />
+                <ScalarProperty Name="IdCategory" ColumnName="IdCategory" />
+                <ScalarProperty Name="ShortTitle" ColumnName="ShortTitle" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="EventTime" ColumnName="EventTime" />
+                <ScalarProperty Name="BookingDate" ColumnName="BookingDate" />
+                <ScalarProperty Name="EventInfo" ColumnName="EventInfo" />
+                <ScalarProperty Name="EventTypeInfo" ColumnName="EventTypeInfo" />
+                <ScalarProperty Name="DurationToNext" ColumnName="DurationToNext" />
+                <ScalarProperty Name="DurationTicksToNext" ColumnName="DurationTicksToNext" />
+                <ScalarProperty Name="DurationToPrevious" ColumnName="DurationToPrevious" />
+                <ScalarProperty Name="DurationTicksToPrevious" ColumnName="DurationTicksToPrevious" />
+                <ScalarProperty Name="IdParentItem" ColumnName="IdParentItem" />
+                <ScalarProperty Name="Scope" ColumnName="Scope" />
+                <ScalarProperty Name="IsItemCompleted" ColumnName="IsItemCompleted" />
+                <ScalarProperty Name="IsItemDeleted" ColumnName="IsItemDeleted" />
+                <ScalarProperty Name="IsStartAction" ColumnName="IsStartAction" />
+                <ScalarProperty Name="IsEndAction" ColumnName="IsEndAction" />
+                <ScalarProperty Name="Value" ColumnName="Value" />
+                <ScalarProperty Name="Priority" ColumnName="Priority" />
+                <ScalarProperty Name="DateItemAcceptedOrRejected" ColumnName="DateItemAcceptedOrRejected" />
+                <ScalarProperty Name="MachineID" ColumnName="MachineID" />
+                <ScalarProperty Name="IdItemAssignedToUser" ColumnName="IdItemAssignedToUser" />
+                <ScalarProperty Name="IdUserItemFrom" ColumnName="IdUserItemFrom" />
+                <ScalarProperty Name="DateItemFinished" ColumnName="DateItemFinished" />
+                <ScalarProperty Name="DateCreated" ColumnName="DateCreated" />
+                <ScalarProperty Name="DateModified" ColumnName="DateModified" />
+                <ScalarProperty Name="SyncId" ColumnName="SyncId" />
+                <ScalarProperty Name="SyncStatus" ColumnName="SyncStatus" />
+                <ScalarProperty Name="ExternalId" ColumnName="ExternalId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="User">
+            <EntityTypeMapping TypeName="TaskOTimeModel.User">
+              <MappingFragment StoreEntitySet="User">
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="UserIdent" ColumnName="UserIdent" />
+                <ScalarProperty Name="FirstName" ColumnName="FirstName" />
+                <ScalarProperty Name="MiddleName" ColumnName="MiddleName" />
+                <ScalarProperty Name="LastName" ColumnName="LastName" />
+                <ScalarProperty Name="EMail" ColumnName="EMail" />
+                <ScalarProperty Name="IsAdmin" ColumnName="IsAdmin" />
+                <ScalarProperty Name="EmojiIndex" ColumnName="EmojiIndex" />
+                <ScalarProperty Name="MaxProjects" ColumnName="MaxProjects" />
+                <ScalarProperty Name="LastLogin" ColumnName="LastLogin" />
+                <ScalarProperty Name="DateCreated" ColumnName="DateCreated" />
+                <ScalarProperty Name="DateModified" ColumnName="DateModified" />
+                <ScalarProperty Name="SyncId" ColumnName="SyncId" />
+                <ScalarProperty Name="SyncStatus" ColumnName="SyncStatus" />
+                <ScalarProperty Name="ExternalId" ColumnName="ExternalId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <EntitySetMapping Name="WebLink">
+            <EntityTypeMapping TypeName="TaskOTimeModel.WebLink">
+              <MappingFragment StoreEntitySet="WebLink">
+                <ScalarProperty Name="IdWebLink" ColumnName="IdWebLink" />
+                <ScalarProperty Name="IdUser" ColumnName="IdUser" />
+                <ScalarProperty Name="IdProject" ColumnName="IdProject" />
+                <ScalarProperty Name="IdSymbol" ColumnName="IdSymbol" />
+                <ScalarProperty Name="Link" ColumnName="Link" />
+                <ScalarProperty Name="Domain" ColumnName="Domain" />
+                <ScalarProperty Name="Title" ColumnName="Title" />
+                <ScalarProperty Name="Description" ColumnName="Description" />
+                <ScalarProperty Name="DateCreated" ColumnName="DateCreated" />
+                <ScalarProperty Name="DateModified" ColumnName="DateModified" />
+                <ScalarProperty Name="SyncId" ColumnName="SyncId" />
+                <ScalarProperty Name="SyncStatus" ColumnName="SyncStatus" />
+                <ScalarProperty Name="ExternalId" ColumnName="ExternalId" />
+              </MappingFragment>
+            </EntityTypeMapping>
+          </EntitySetMapping>
+          <AssociationSetMapping Name="NoteTag" TypeName="TaskOTimeModel.NoteTag" StoreEntitySet="NoteTag">
+            <EndProperty Name="Note">
+              <ScalarProperty Name="IdNote" ColumnName="IdNote" />
+            </EndProperty>
+            <EndProperty Name="Tag">
+              <ScalarProperty Name="IdTag" ColumnName="IdTag" />
+            </EndProperty>
+          </AssociationSetMapping>
+          <AssociationSetMapping Name="TaskItemTag" TypeName="TaskOTimeModel.TaskItemTag" StoreEntitySet="TaskItemTag">
+            <EndProperty Name="Tag">
+              <ScalarProperty Name="IdTag" ColumnName="IdTag" />
+            </EndProperty>
+            <EndProperty Name="TaskItem">
+              <ScalarProperty Name="IdTaskItem" ColumnName="IdTaskItem" />
+            </EndProperty>
+          </AssociationSetMapping>
+          <AssociationSetMapping Name="WebLinkTag" TypeName="TaskOTimeModel.WebLinkTag" StoreEntitySet="WebLinkTag">
+            <EndProperty Name="Tag">
+              <ScalarProperty Name="IdTag" ColumnName="IdTag" />
+            </EndProperty>
+            <EndProperty Name="WebLink">
+              <ScalarProperty Name="IdWebLink" ColumnName="IdWebLink" />
+            </EndProperty>
+          </AssociationSetMapping>
+        </EntityContainerMapping>
+      </Mapping>
+    </Mappings>
+  </Runtime>
+  <Designer>
+    <Connection />
+    <Options />
+    <Diagrams />
+  </Designer>
+</Edmx>

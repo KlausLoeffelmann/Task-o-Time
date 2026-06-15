@@ -1,0 +1,20 @@
+{
+  "tenants": 1,
+  "projects": 5,
+  "users": [
+    {
+      "handle": "Admin",
+      "password": "P@$$w0rd",
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john@doe.de"
+    }
+  ],
+  "categories": 20,
+  "lists": 4,
+  "tasks": {
+    "open": 15,
+    "closed": 20
+  },
+  "timeItems": 100
+}
