@@ -13,4 +13,7 @@
   <Folder Name="/Tools/">
     <Project Path="TaskOTime.Cli/TaskOTime.Cli.csproj" Id="416c4c60-289d-47eb-b8f3-b250dfb6aa8a" />
   </Folder>
+  <Folder Name="/Tests/">
+    <Project Path="TaskOTime.AppServer.Tests/TaskOTime.AppServer.Tests.csproj" />
+  </Folder>
 </Solution>

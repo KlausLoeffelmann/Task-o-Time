@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net461</TargetFramework>
+    <LangVersion>10</LangVersion>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\TaskOTime.DTOs\TaskOTime.DTOs.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="..\TaskOTime.AppServer\Models\ServiceResult.cs" Link="AppServer\Models\ServiceResult.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Security\*.cs" LinkBase="AppServer\Security" />
+    <Compile Include="..\TaskOTime.AppServer\TimeBooking\*.cs" LinkBase="AppServer\TimeBooking" />
+  </ItemGroup>
+
+</Project>
