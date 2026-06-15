@@ -34,10 +34,12 @@ namespace TaskOTime.DataLayer
         public virtual DbSet<LookupItem> LookupItem { get; set; }
         public virtual DbSet<Note> Note { get; set; }
         public virtual DbSet<Project> Project { get; set; }
+        public virtual DbSet<ProjectUserAssignment> ProjectUserAssignment { get; set; }
         public virtual DbSet<SharableProject> SharableProject { get; set; }
         public virtual DbSet<Tag> Tag { get; set; }
         public virtual DbSet<TaskItem> TaskItem { get; set; }
         public virtual DbSet<TaskList> TaskList { get; set; }
+        public virtual DbSet<Tenant> Tenant { get; set; }
         public virtual DbSet<TenantLead> TenantLead { get; set; }
         public virtual DbSet<TimeItem> TimeItem { get; set; }
         public virtual DbSet<User> User { get; set; }

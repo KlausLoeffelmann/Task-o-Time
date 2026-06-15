@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Data.Entity;
 using System.Linq;
+using System.Security.Cryptography;
 using TaskOTime.DTOs;
 
 namespace TaskOTime.DataLayer
@@ -28,8 +29,10 @@ namespace TaskOTime.DataLayer
                 using (var transaction = context.Database.BeginTransaction())
                 {
                     var now = DateTimeOffset.Now;
-                    var users = CreateUsers(context, options.Users, now);
-                    var projects = CreateProjects(context, users, options.Projects, now);
+                    var tenants = CreateTenants(context, options.Tenants, now);
+                    var users = CreateUsers(context, tenants, options.Users, now);
+                    var projects = CreateProjects(context, tenants, users, options.Projects, now);
+                    CreateProjectUserAssignments(context, users, projects, now);
                     var symbols = CreateSymbols(context, projects);
                     var categories = CreateCategories(context, users, symbols, options.Categories);
                     var lists = CreateTaskLists(context, users, projects, symbols, options.Lists);
@@ -48,20 +51,57 @@ namespace TaskOTime.DataLayer
             }
         }
 
-        private static List<User> CreateUsers(TaskOTimeContext context, IEnumerable<DemoUserOptions> userOptions, DateTimeOffset now)
+        private static List<Tenant> CreateTenants(TaskOTimeContext context, int count, DateTimeOffset now)
+        {
+            var tenants = new List<Tenant>();
+            for (var i = 0; i < count; i++)
+            {
+                var tenant = new Tenant
+                {
+                    IdTenant = Guid.NewGuid(),
+                    TenantName = "Demo Tenant " + (i + 1),
+                    TenantIdentifier = "DEMO-TENANT-" + (i + 1).ToString("000"),
+                    Description = "Generated demo tenant " + (i + 1),
+                    IsActive = true,
+                    IsDeleted = false,
+                    DateCreated = now,
+                    DateModified = now,
+                    ExternalId = "demo-tenant-" + i
+                };
+
+                context.Tenant.Add(tenant);
+                tenants.Add(tenant);
+            }
+
+            return tenants;
+        }
+
+        private static List<User> CreateUsers(TaskOTimeContext context, IReadOnlyList<Tenant> tenants, IEnumerable<DemoUserOptions> userOptions, DateTimeOffset now)
         {
             var users = new List<User>();
             var index = 0;
             foreach (var userOption in userOptions)
             {
+                var tenant = tenants[index % tenants.Count];
+                var salt = CreateSalt();
                 var user = new User
                 {
                     IdUser = Guid.NewGuid(),
+                    IdTenant = tenant.IdTenant,
                     UserIdent = userOption.Handle,
                     FirstName = userOption.FirstName,
                     LastName = userOption.LastName,
                     EMail = userOption.Email,
                     IsAdmin = index == 0,
+                    IsActive = true,
+                    IsDeleted = false,
+                    MustChangePassword = true,
+                    PasswordSalt = salt,
+                    PasswordHash = HashPassword(userOption.Password, salt),
+                    PasswordChangedAt = null,
+                    PreliminaryPasswordExpiresAt = now.AddDays(14),
+                    FailedLoginCount = 0,
+                    LockoutUntil = null,
                     EmojiIndex = index,
                     MaxProjects = 50,
                     LastLogin = now,
@@ -80,15 +120,17 @@ namespace TaskOTime.DataLayer
             return users;
         }
 
-        private static List<Project> CreateProjects(TaskOTimeContext context, IReadOnlyList<User> users, int count, DateTimeOffset now)
+        private static List<Project> CreateProjects(TaskOTimeContext context, IReadOnlyList<Tenant> tenants, IReadOnlyList<User> users, int count, DateTimeOffset now)
         {
             var projects = new List<Project>();
             for (var i = 0; i < count; i++)
             {
-                var user = users[i % users.Count];
+                var tenant = tenants[i % tenants.Count];
+                var user = users.FirstOrDefault(u => u.IdTenant == tenant.IdTenant) ?? users[0];
                 var project = new Project
                 {
                     IdProject = Guid.NewGuid(),
+                    IdTenant = tenant.IdTenant,
                     IdUser = user.IdUser,
                     ProjectName = "Demo Project " + (i + 1),
                     ProjectType = i % 3,
@@ -113,6 +155,41 @@ namespace TaskOTime.DataLayer
             }
 
             return projects;
+        }
+
+        private static void CreateProjectUserAssignments(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, DateTimeOffset now)
+        {
+            var displayOrder = 0;
+            foreach (var project in projects)
+            {
+                var tenantUsers = users.Where(u => u.IdTenant == project.IdTenant).ToList();
+                if (tenantUsers.Count == 0)
+                {
+                    tenantUsers.Add(users[0]);
+                }
+
+                foreach (var user in tenantUsers)
+                {
+                    context.ProjectUserAssignment.Add(new ProjectUserAssignment
+                    {
+                        IdProjectUserAssignment = Guid.NewGuid(),
+                        IdProject = project.IdProject,
+                        IdUser = user.IdUser,
+                        IdAssignedByUser = project.IdUser,
+                        AssignmentRole = user.IsAdmin ? 1 : 0,
+                        CanBookTime = true,
+                        CanManageTasks = user.IsAdmin,
+                        CanManageProject = user.IdUser == project.IdUser || user.IsAdmin,
+                        DisplayOrder = displayOrder++,
+                        IsActive = true,
+                        IsDeleted = false,
+                        DateAssigned = now,
+                        DateCreated = now,
+                        DateModified = now,
+                        ExternalId = "demo-project-assignment-" + displayOrder
+                    });
+                }
+            }
         }
 
         private static List<CategorySymbol> CreateSymbols(TaskOTimeContext context, IReadOnlyList<Project> projects)
@@ -417,6 +494,26 @@ namespace TaskOTime.DataLayer
                     Message = "Generated demo activity " + (i + 1),
                     LocalLogTime = now.AddMinutes(-i * 15)
                 });
+            }
+        }
+
+        private static string CreateSalt()
+        {
+            var bytes = new byte[16];
+            using (var rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(bytes);
+            }
+
+            return Convert.ToBase64String(bytes);
+        }
+
+        private static string HashPassword(string password, string salt)
+        {
+            var saltBytes = Convert.FromBase64String(salt);
+            using (var deriveBytes = new Rfc2898DeriveBytes(password, saltBytes, 10000))
+            {
+                return Convert.ToBase64String(deriveBytes.GetBytes(32));
             }
         }
     }
