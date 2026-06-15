@@ -15,6 +15,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         DataContext = _viewModel;
+        _viewModel.DialogRequested += OnDialogRequested;
         Loaded += (_, _) => UpdateLayoutMode(ActualWidth);
         SizeChanged += (_, args) => UpdateLayoutMode(args.NewSize.Width);
     }
@@ -27,5 +28,15 @@ public partial class MainWindow : Window
     private void OnQuitMenuItemClick(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    private void OnDialogRequested(object sender, DialogRequestedEventArgs e)
+    {
+        var dialog = new DialogShell(e.Dialog)
+        {
+            Owner = this
+        };
+
+        dialog.ShowDialog();
     }
 }

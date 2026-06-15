@@ -332,13 +332,35 @@
 
         <Menu Grid.Row="0">
             <MenuItem Header="{StaticResource FileMenuHeader}">
-                <MenuItem Header="{StaticResource ExportDayMenuHeader}" IsEnabled="False" />
-                <MenuItem Header="{StaticResource ExportPeriodMenuHeader}" IsEnabled="False" />
+                <MenuItem Header="{StaticResource ExportDayMenuHeader}"
+                          Command="{Binding ExportSelectedDayCommand}" />
+                <MenuItem Header="{StaticResource ExportPeriodMenuHeader}"
+                          Command="{Binding ExportPeriodCommand}" />
                 <Separator />
                 <MenuItem Header="{StaticResource QuitMenuHeader}" Click="OnQuitMenuItemClick" />
             </MenuItem>
-            <MenuItem Header="{StaticResource MasterDataMenuHeader}" IsEnabled="False" />
-            <MenuItem Header="{StaticResource AnalysisMenuHeader}" IsEnabled="False" />
+            <MenuItem Header="{StaticResource MasterDataMenuHeader}">
+                <MenuItem Header="{StaticResource ManageProjectsMenuHeader}"
+                          Command="{Binding ManageProjectsCommand}" />
+                <MenuItem Header="{StaticResource ManageTaskListsMenuHeader}"
+                          Command="{Binding ManageTaskListsCommand}" />
+                <MenuItem Header="{StaticResource ManageTasksMenuHeader}"
+                          Command="{Binding ManageTasksCommand}" />
+                <Separator />
+                <MenuItem Header="{StaticResource ManageUsersAdminMenuHeader}"
+                          Command="{Binding ManageUsersAdminCommand}" />
+            </MenuItem>
+            <MenuItem Header="{StaticResource AnalysisMenuHeader}">
+                <MenuItem Header="{StaticResource DailyStatementMenuHeader}"
+                          Command="{Binding ShowDailyStatementCommand}" />
+                <MenuItem Header="{StaticResource WeeklyStatementMenuHeader}"
+                          Command="{Binding ShowWeeklyStatementCommand}" />
+                <MenuItem Header="{StaticResource MonthlyStatementMenuHeader}"
+                          Command="{Binding ShowMonthlyStatementCommand}" />
+                <Separator />
+                <MenuItem Header="{StaticResource TenantAdminStatisticsMenuHeader}"
+                          Command="{Binding ShowTenantAdminStatisticsCommand}" />
+            </MenuItem>
         </Menu>
 
         <Grid Grid.Row="1" Margin="8">

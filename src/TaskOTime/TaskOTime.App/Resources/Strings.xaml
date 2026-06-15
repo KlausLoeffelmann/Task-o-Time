@@ -8,6 +8,15 @@
     <sys:String x:Key="ExportDayMenuHeader">Tag als CSV exportieren</sys:String>
     <sys:String x:Key="ExportPeriodMenuHeader">Zeitraum als CSV exportieren</sys:String>
     <sys:String x:Key="QuitMenuHeader">Beenden</sys:String>
+    <sys:String x:Key="ManageProjectsMenuHeader">Projekte...</sys:String>
+    <sys:String x:Key="ManageTaskListsMenuHeader">Aufgabenlisten...</sys:String>
+    <sys:String x:Key="ManageTasksMenuHeader">Aufgaben...</sys:String>
+    <sys:String x:Key="ManageUsersAdminMenuHeader">Benutzer/Admin...</sys:String>
+    <sys:String x:Key="DailyStatementMenuHeader">Tagesnachweis...</sys:String>
+    <sys:String x:Key="WeeklyStatementMenuHeader">Wochennachweis...</sys:String>
+    <sys:String x:Key="MonthlyStatementMenuHeader">Monatsnachweis...</sys:String>
+    <sys:String x:Key="TenantAdminStatisticsMenuHeader">Mandantenstatistik...</sys:String>
+    <sys:String x:Key="DialogCloseButtonText">Schließen</sys:String>
     <sys:String x:Key="TodayButtonText">Heute</sys:String>
     <sys:String x:Key="YesterdayButtonText">Gestern</sys:String>
     <sys:String x:Key="AddTimeEntryButtonText">Hinzufügen</sys:String>
