@@ -33,6 +33,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="SystemTimeMarkerIds.cs" />
     <Compile Include="Generated\*.cs" />
   </ItemGroup>
   <ItemGroup>

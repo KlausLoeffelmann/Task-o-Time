@@ -175,6 +175,13 @@ CREATE TABLE [dbo].[LookupItem]
 );
 GO
 
+INSERT INTO [dbo].[LookupItem]
+    ([Id], [Key], [IdForeign], [StringValue], [BlobReference], [IntegerValue])
+VALUES
+    ('058aecda-fd30-413d-9013-49d8da6cce37', N'SystemTimeMarker.Category.WorkBreak', N'058aecda-fd30-413d-9013-49d8da6cce37', N'Work break', N'Category', 1),
+    ('d6dc8c0d-1ffb-4529-9b7d-e1622da4bef8', N'SystemTimeMarker.Category.StopMark', N'd6dc8c0d-1ffb-4529-9b7d-e1622da4bef8', N'Stop mark', N'Category', 2);
+GO
+
 CREATE TABLE [dbo].[TenantLead]
 (
     [IdTenantLead] uniqueidentifier NOT NULL

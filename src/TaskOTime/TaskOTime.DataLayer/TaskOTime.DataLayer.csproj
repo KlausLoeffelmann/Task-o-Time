@@ -47,6 +47,7 @@
       <DesignTime>True</DesignTime>
       <DependentUpon>TaskOTime.Context.tt</DependentUpon>
     </Compile>
+    <Compile Include="SystemTimeMarkerSeed.cs" />
     <Compile Include="TaskOTimeContext.partial.cs" />
     <Compile Include="TaskOTimeContextFactory.cs" />
     <Compile Include="TaskOTimeDatabaseAdmin.cs" />

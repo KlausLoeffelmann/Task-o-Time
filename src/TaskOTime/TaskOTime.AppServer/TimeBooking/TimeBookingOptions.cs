@@ -7,9 +7,9 @@ namespace TaskOTime.AppServer.TimeBooking
     {
         public int TimeEventType { get; set; } = (int)TimeBookingEventType.Time;
 
-        public Guid WorkBreakCategoryId { get; set; } = LegacySystemTimeMarkerIds.WorkBreak;
+        public Guid WorkBreakCategoryId { get; set; } = SystemTimeMarkerIds.WorkBreakCategoryId;
 
-        public Guid StopMarkCategoryId { get; set; } = LegacySystemTimeMarkerIds.StopMark;
+        public Guid StopMarkCategoryId { get; set; } = SystemTimeMarkerIds.StopMarkCategoryId;
 
         public Guid? WorkBreakProjectId { get; set; }
 

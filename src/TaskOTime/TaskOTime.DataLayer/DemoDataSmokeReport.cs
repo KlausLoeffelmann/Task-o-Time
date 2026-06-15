@@ -18,6 +18,8 @@ namespace TaskOTime.DataLayer
         public int TaggedTaskCount { get; private set; }
         public int NoteCount { get; private set; }
         public int WebLinkCount { get; private set; }
+        public bool SystemMarkerLookupItemsSeeded { get; private set; }
+        public bool SystemMarkerCategoriesSeeded { get; private set; }
         public int AnalysisBookingCount { get; private set; }
         public int AnalysisBookingUserCount { get; private set; }
         public int AnalysisBookingProjectCount { get; private set; }
@@ -44,6 +46,8 @@ namespace TaskOTime.DataLayer
             var normalTimeItems = context.TimeItem
                 .Where(item =>
                     item.EventTypeInfo == TimeBookingEventType &&
+                    item.IdCategory != TaskOTime.DTOs.SystemTimeMarkerIds.WorkBreakCategoryId &&
+                    item.IdCategory != TaskOTime.DTOs.SystemTimeMarkerIds.StopMarkCategoryId &&
                     !item.IsItemDeleted &&
                     item.BookingDate.HasValue &&
                     item.DurationTicksToNext.HasValue &&
@@ -64,6 +68,8 @@ namespace TaskOTime.DataLayer
                 TaggedTaskCount = context.TaskItem.Count(task => !task.IsDeleted && task.Tag.Any()),
                 NoteCount = context.Note.Count(),
                 WebLinkCount = context.WebLink.Count(),
+                SystemMarkerLookupItemsSeeded = SystemTimeMarkerSeed.HasSeededLookupItems(context),
+                SystemMarkerCategoriesSeeded = SystemTimeMarkerSeed.HasSeededCategories(context),
                 AnalysisBookingCount = normalTimeItems.Count,
                 AnalysisBookingUserCount = normalTimeItems.Select(item => item.IdUser).Distinct().Count(),
                 AnalysisBookingProjectCount = normalTimeItems.Select(item => item.IdProject).Distinct().Count(),
@@ -88,6 +94,8 @@ namespace TaskOTime.DataLayer
                 TaggedTaskCount == 0 ||
                 NoteCount == 0 ||
                 WebLinkCount == 0 ||
+                !SystemMarkerLookupItemsSeeded ||
+                !SystemMarkerCategoriesSeeded ||
                 AnalysisBookingCount == 0 ||
                 AnalysisBookingUserCount == 0 ||
                 AnalysisBookingProjectCount == 0 ||
@@ -116,6 +124,7 @@ namespace TaskOTime.DataLayer
                 ", TaggedTasks=" + TaggedTaskCount +
                 ", Notes=" + NoteCount +
                 ", Links=" + WebLinkCount +
+                ", SystemMarkers=" + (SystemMarkerLookupItemsSeeded && SystemMarkerCategoriesSeeded ? "Seeded" : "Missing") +
                 ", AnalysisBookings=" + AnalysisBookingCount +
                 " (" + AnalysisBookedHours.ToString("0.##") + "h)" +
                 ", BookingUsers=" + AnalysisBookingUserCount +
