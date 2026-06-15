@@ -1,5 +1,6 @@
 Imports System
 Imports System.Collections.ObjectModel
+Imports System.ComponentModel
 Imports System.Windows.Input
 Imports TaskOTime.ViewModel.Base
 
@@ -12,24 +13,10 @@ Namespace ViewModels
 
         Public Sub New()
             _selectedDate = DateTime.Today
+            TimeCollection = New TimeCollectionViewModel(_selectedDate)
+            AddHandler TimeCollection.PropertyChanged, AddressOf OnTimeCollectionPropertyChanged
 
-            BookedDates = New ObservableCollection(Of DateTime) From {
-                DateTime.Today,
-                DateTime.Today.AddDays(-1),
-                DateTime.Today.AddDays(-3)
-            }
-
-            TimeEntryPlaceholders = New ObservableCollection(Of String) From {
-                "08:30 - Projektarbeit erfassen",
-                "10:15 - kurze Abstimmung eintragen",
-                "13:00 - Fokuszeit hinzufügen"
-            }
-
-            TaskPlaceholders = New ObservableCollection(Of String) From {
-                "Aktive Aufgabe auswählen",
-                "Neue Aufgabe vorbereiten",
-                "Tagesnotiz ergänzen"
-            }
+            TaskManagement = New TaskManagementViewModel()
 
             TodayCommand = New DelegateCommand(AddressOf SelectToday)
             YesterdayCommand = New DelegateCommand(AddressOf SelectYesterday)
@@ -41,6 +28,7 @@ Namespace ViewModels
             End Get
             Set(value As DateTime)
                 If SetProperty(_selectedDate, value.Date, NameOf(SelectedDate)) Then
+                    TimeCollection.BookingDate = value.Date
                     OnPropertyChanged(NameOf(SelectedDateSummary))
                 End If
             End Set
@@ -55,11 +43,15 @@ Namespace ViewModels
             End Set
         End Property
 
+        Public ReadOnly Property TimeCollection As TimeCollectionViewModel
+
         Public ReadOnly Property BookedDates As ObservableCollection(Of DateTime)
+            Get
+                Return TimeCollection.BookedDates
+            End Get
+        End Property
 
-        Public ReadOnly Property TimeEntryPlaceholders As ObservableCollection(Of String)
-
-        Public ReadOnly Property TaskPlaceholders As ObservableCollection(Of String)
+        Public ReadOnly Property TaskManagement As TaskManagementViewModel
 
         Public ReadOnly Property TodayCommand As ICommand
 
@@ -67,43 +59,43 @@ Namespace ViewModels
 
         Public ReadOnly Property TargetTime As TimeSpan
             Get
-                Return TimeSpan.FromHours(8)
+                Return TimeCollection.TargetTime
             End Get
         End Property
 
         Public ReadOnly Property BookedTime As TimeSpan
             Get
-                Return TimeSpan.FromHours(0)
+                Return TimeCollection.BookedTime
             End Get
         End Property
 
         Public ReadOnly Property RemainingTime As TimeSpan
             Get
-                Return TargetTime - BookedTime
+                Return TimeCollection.RemainingTime
             End Get
         End Property
 
         Public ReadOnly Property CenterPanelTitle As String
             Get
-                Return "Zeiterfassung"
+                Return TimeCollection.Heading
             End Get
         End Property
 
         Public ReadOnly Property CenterPanelSummary As String
             Get
-                Return "Hier entsteht die Tagesübersicht für gebuchte und geplante Zeiten."
+                Return TimeCollection.DaySummary
             End Get
         End Property
 
         Public ReadOnly Property TaskPanelTitle As String
             Get
-                Return "Aufgaben"
+                Return TaskManagement.TaskPanelTitle
             End Get
         End Property
 
         Public ReadOnly Property TaskPanelSummary As String
             Get
-                Return "Platzhalter für die spätere Aufgabenliste und Detailauswahl."
+                Return TaskManagement.TaskPanelSummary
             End Get
         End Property
 
@@ -119,6 +111,17 @@ Namespace ViewModels
 
         Private Sub SelectYesterday()
             SelectedDate = DateTime.Today.AddDays(-1)
+        End Sub
+
+        Private Sub OnTimeCollectionPropertyChanged(sender As Object, e As PropertyChangedEventArgs)
+            Select Case e.PropertyName
+                Case NameOf(TimeCollectionViewModel.BookedTime), NameOf(TimeCollectionViewModel.WorkBreakTime), NameOf(TimeCollectionViewModel.RemainingTime), NameOf(TimeCollectionViewModel.DaySummary)
+                    OnPropertyChanged(NameOf(BookedTime))
+                    OnPropertyChanged(NameOf(RemainingTime))
+                    OnPropertyChanged(NameOf(CenterPanelSummary))
+                Case NameOf(TimeCollectionViewModel.Heading)
+                    OnPropertyChanged(NameOf(CenterPanelTitle))
+            End Select
         End Sub
     End Class
 End Namespace

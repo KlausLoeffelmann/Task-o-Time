@@ -4,6 +4,7 @@
         xmlns:convert="clr-namespace:TaskOTime.App.Convert"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:vm="clr-namespace:TaskOTime.ViewModel.ViewModels;assembly=TaskOTime.ViewModel"
         mc:Ignorable="d"
         Title="{StaticResource AppTitle}"
         MinHeight="640"
@@ -61,19 +62,207 @@
             </Border>
         </DataTemplate>
 
+        <Style x:Key="TaskCardMutedTextStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
+            <Setter Property="Opacity" Value="0.72" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+
+        <Style x:Key="TaskPanelListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                        <Border x:Name="SelectionBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="2"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="SelectionBorder" Property="Background" Value="#337EA6C8" />
+                                <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="TaskPanelListBoxStyle" TargetType="{x:Type ListBox}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource TaskPanelListBoxItemStyle}" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        </Style>
+
+        <DataTemplate x:Key="TaskListTemplate" DataType="{x:Type vm:TaskListViewModel}">
+            <Border Background="{StaticResource ContentBackgroundBrush}"
+                    BorderBrush="{StaticResource PanelBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="2"
+                    Padding="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Style="{StaticResource ContentTextStyle}"
+                               FontWeight="SemiBold"
+                               Text="{Binding Title}" />
+                    <DockPanel Grid.Row="1" Margin="0,3,0,0">
+                        <TextBlock DockPanel.Dock="Right"
+                                   Style="{StaticResource TaskCardMutedTextStyle}"
+                                   Text="{Binding ProgressSummary}" />
+                        <TextBlock Style="{StaticResource TaskCardMutedTextStyle}"
+                                   Text="{Binding Subtitle}" />
+                    </DockPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="TaskItemTemplate" DataType="{x:Type vm:TaskItemViewModel}">
+            <Border Background="{StaticResource ContentBackgroundBrush}"
+                    BorderBrush="{StaticResource PanelBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="2"
+                    Padding="8">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock FontWeight="SemiBold" Text="{Binding Title}">
+                        <TextBlock.Style>
+                            <Style BasedOn="{StaticResource ContentTextStyle}" TargetType="{x:Type TextBlock}">
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding IsDone}" Value="True">
+                                        <Setter Property="TextDecorations" Value="Strikethrough" />
+                                        <Setter Property="Opacity" Value="0.62" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </TextBlock.Style>
+                    </TextBlock>
+                    <TextBlock Grid.Row="1"
+                               Margin="0,3,0,0"
+                               Style="{StaticResource TaskCardMutedTextStyle}"
+                               Text="{Binding Description}" />
+                    <DockPanel Grid.Row="2" Margin="0,6,0,0">
+                        <TextBlock DockPanel.Dock="Right"
+                                   Foreground="{StaticResource AccentBrush}"
+                                   FontWeight="SemiBold"
+                                   Text="{Binding StatusText}" />
+                        <TextBlock Style="{StaticResource TaskCardMutedTextStyle}"
+                                   Text="{Binding DueText}" />
+                    </DockPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
         <DataTemplate x:Key="BookedDateTemplate">
             <TextBlock Foreground="{StaticResource MutedForegroundBrush}"
                        Margin="0,0,0,4"
                        Text="{Binding StringFormat={}{0:dd.MM.yyyy}}" />
         </DataTemplate>
 
-        <DataTemplate x:Key="TaskPanelTemplate">
+        <Style x:Key="TimeEntryListBoxItemStyle" TargetType="{x:Type ListBoxItem}">
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Padding" Value="0" />
+        </Style>
+
+        <Style x:Key="TimeEntryListBoxStyle" TargetType="{x:Type ListBox}">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ItemContainerStyle" Value="{StaticResource TimeEntryListBoxItemStyle}" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+        </Style>
+
+        <DataTemplate x:Key="TimeEntryItemTemplate" DataType="{x:Type vm:TimeEntryViewModel}">
+            <Border Background="{StaticResource ContentBackgroundBrush}"
+                    BorderBrush="{Binding MarkerAccent}"
+                    BorderThickness="1"
+                    CornerRadius="2"
+                    Padding="8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="58" />
+                        <ColumnDefinition Width="6" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="120" />
+                    </Grid.ColumnDefinitions>
+
+                    <StackPanel Grid.Column="0">
+                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                                   FontSize="18"
+                                   FontWeight="SemiBold"
+                                   Text="{Binding EntryTimeText}" />
+                        <TextBlock Foreground="{Binding MarkerAccent}"
+                                   FontSize="18"
+                                   HorizontalAlignment="Center"
+                                   Text="{Binding MarkerVisualHint}" />
+                    </StackPanel>
+
+                    <Border Grid.Column="1"
+                            Background="{Binding MarkerAccent}"
+                            Margin="0,2,8,2" />
+
+                    <StackPanel Grid.Column="2">
+                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                                   FontWeight="SemiBold"
+                                   Text="{Binding Title}" />
+                        <TextBlock Style="{StaticResource ContentTextStyle}"
+                                   Margin="0,2,0,4"
+                                   Text="{Binding Description}" />
+                        <TextBlock Foreground="{Binding MarkerAccent}"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Text="{Binding MarkerLabel}" />
+                    </StackPanel>
+
+                    <StackPanel Grid.Column="3" HorizontalAlignment="Right">
+                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Right"
+                                   Text="{Binding DurationToNextText}" />
+                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                                   FontSize="11"
+                                   HorizontalAlignment="Right"
+                                   Text="bis nächster" />
+                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                                   FontSize="11"
+                                   HorizontalAlignment="Right"
+                                   Margin="0,6,0,0"
+                                   Text="seit vorheriger" />
+                        <TextBlock Foreground="{StaticResource ContentForegroundBrush}"
+                                   FontSize="11"
+                                   HorizontalAlignment="Right"
+                                   Text="{Binding DurationFromPreviousText}" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="TaskPanelTemplate" DataType="{x:Type vm:TaskManagementViewModel}">
             <Border Style="{StaticResource PanelBorderStyle}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0"
@@ -81,11 +270,54 @@
                                Text="{Binding TaskPanelTitle}" />
                     <TextBlock Grid.Row="1"
                                Style="{StaticResource MutedTextStyle}"
-                               Margin="0,0,0,12"
+                               Margin="0,0,0,10"
                                Text="{Binding TaskPanelSummary}" />
-                    <ItemsControl Grid.Row="2"
-                                  ItemTemplate="{StaticResource PlaceholderItemTemplate}"
-                                  ItemsSource="{Binding TaskPlaceholders}" />
+
+                    <TextBlock Grid.Row="2"
+                               Foreground="{StaticResource AccentBrush}"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,6"
+                               Text="Listen" />
+                    <ListBox Grid.Row="3"
+                             MaxHeight="170"
+                             ItemTemplate="{StaticResource TaskListTemplate}"
+                             ItemsSource="{Binding TaskLists}"
+                             SelectedItem="{Binding SelectedTaskList, Mode=TwoWay}"
+                             Style="{StaticResource TaskPanelListBoxStyle}" />
+
+                    <DockPanel Grid.Row="4" Margin="0,8,0,6">
+                        <TextBlock DockPanel.Dock="Right"
+                                   Foreground="{StaticResource MutedForegroundBrush}"
+                                   Text="{Binding SelectedListSummary}" />
+                        <TextBlock Foreground="{StaticResource AccentBrush}"
+                                   FontWeight="SemiBold"
+                                   Text="Aufgaben" />
+                    </DockPanel>
+
+                    <ListBox Grid.Row="5"
+                             ItemTemplate="{StaticResource TaskItemTemplate}"
+                             ItemsSource="{Binding SelectedTaskList.Tasks}"
+                             SelectedItem="{Binding SelectedTaskItem, Mode=TwoWay}"
+                             Style="{StaticResource TaskPanelListBoxStyle}" />
+
+                    <Border Grid.Row="6"
+                            Background="#2630363D"
+                            BorderBrush="{StaticResource PanelBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="2"
+                            Margin="0,8,0,0"
+                            Padding="8">
+                        <StackPanel>
+                            <TextBlock Style="{StaticResource MutedTextStyle}"
+                                       Margin="0,0,0,8"
+                                       Text="{Binding SelectedTaskSummary}" />
+                            <WrapPanel>
+                                <Button Command="{Binding StartTaskCommand}" Content="Starten" />
+                                <Button Command="{Binding CompleteTaskCommand}" Content="Erledigt" />
+                                <Button Command="{Binding MoreToDoCommand}" Content="Mehr zu tun" Margin="0" />
+                            </WrapPanel>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -169,6 +401,8 @@
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
@@ -181,13 +415,30 @@
                                    FontWeight="SemiBold"
                                    Margin="0,0,0,4"
                                    Text="{Binding SelectedDateSummary}" />
-                        <StackPanel Grid.Row="2" Margin="0,10,0,0">
-                            <TextBlock Style="{StaticResource MutedTextStyle}"
-                                       Margin="0,0,0,12"
-                                       Text="{Binding CenterPanelSummary}" />
-                            <ItemsControl ItemTemplate="{StaticResource PlaceholderItemTemplate}"
-                                          ItemsSource="{Binding TimeEntryPlaceholders}" />
-                        </StackPanel>
+                        <TextBlock Grid.Row="2"
+                                   Style="{StaticResource MutedTextStyle}"
+                                   Margin="0,0,0,12"
+                                   Text="{Binding CenterPanelSummary}" />
+
+                        <WrapPanel Grid.Row="3" Margin="0,0,0,10">
+                            <Button Command="{Binding TimeCollection.AddCommand}"
+                                    Content="{StaticResource AddTimeEntryButtonText}" />
+                            <Button Command="{Binding TimeCollection.EditCommand}"
+                                    Content="{StaticResource EditTimeEntryButtonText}" />
+                            <Button Command="{Binding TimeCollection.DeleteCommand}"
+                                    Content="{StaticResource DeleteTimeEntryButtonText}" />
+                            <Button Command="{Binding TimeCollection.InsertWorkBreakCommand}"
+                                    Content="{StaticResource InsertWorkBreakButtonText}" />
+                            <Button Command="{Binding TimeCollection.InsertStopMarkCommand}"
+                                    Content="{StaticResource InsertStopMarkButtonText}"
+                                    Margin="0" />
+                        </WrapPanel>
+
+                        <ListBox Grid.Row="4"
+                                 ItemTemplate="{StaticResource TimeEntryItemTemplate}"
+                                 ItemsSource="{Binding TimeCollection.SelectedDayEntries}"
+                                 SelectedItem="{Binding TimeCollection.SelectedEntry, Mode=TwoWay}"
+                                 Style="{StaticResource TimeEntryListBoxStyle}" />
                     </Grid>
                 </Border>
 
@@ -199,14 +450,14 @@
 
                 <ContentControl Grid.Row="0"
                                 Grid.Column="2"
-                                Content="{Binding}"
+                                Content="{Binding TaskManagement}"
                                 ContentTemplate="{StaticResource TaskPanelTemplate}"
                                 Visibility="{Binding IsWideLayout, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
                 <ContentControl Grid.Row="1"
                                 Grid.Column="0"
                                 Grid.ColumnSpan="3"
-                                Content="{Binding}"
+                                Content="{Binding TaskManagement}"
                                 ContentTemplate="{StaticResource TaskPanelTemplate}"
                                 Visibility="{Binding IsWideLayout, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}" />
             </Grid>

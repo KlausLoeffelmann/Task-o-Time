@@ -10,4 +10,9 @@
     <sys:String x:Key="QuitMenuHeader">Beenden</sys:String>
     <sys:String x:Key="TodayButtonText">Heute</sys:String>
     <sys:String x:Key="YesterdayButtonText">Gestern</sys:String>
+    <sys:String x:Key="AddTimeEntryButtonText">Hinzufügen</sys:String>
+    <sys:String x:Key="EditTimeEntryButtonText">Bearbeiten</sys:String>
+    <sys:String x:Key="DeleteTimeEntryButtonText">Löschen</sys:String>
+    <sys:String x:Key="InsertWorkBreakButtonText">Pause einfügen</sys:String>
+    <sys:String x:Key="InsertStopMarkButtonText">Stoppmarke</sys:String>
 </ResourceDictionary>
