@@ -31,7 +31,7 @@
         </CollectionViewSource>
 
         <Style TargetType="{x:Type Menu}">
-            <Setter Property="Background" Value="{StaticResource PanelBackgroundBrush}" />
+            <Setter Property="Background" Value="{StaticResource CommandBackgroundBrush}" />
             <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
         </Style>
 
@@ -42,10 +42,10 @@
         </Style>
 
         <Style TargetType="{x:Type Button}">
-            <Setter Property="Background" Value="{StaticResource ContentBackgroundBrush}" />
+            <Setter Property="Background" Value="{StaticResource ListItemBackgroundBrush}" />
             <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
-            <Setter Property="Padding" Value="10,4" />
+            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="Padding" Value="9,4" />
             <Setter Property="Margin" Value="0,0,6,0" />
         </Style>
 
@@ -55,7 +55,7 @@
         </Style>
 
         <Style x:Key="ContentTextStyle" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
+            <Setter Property="Foreground" Value="{StaticResource ListItemForegroundBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
@@ -96,6 +96,7 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="SelectionBorder" Property="Background" Value="{StaticResource ListItemSelectedBackgroundBrush}" />
                                 <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource ListItemSelectedBorderBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -115,7 +116,16 @@
                     BorderBrush="{StaticResource PanelBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="2"
-                    Padding="5">
+                    Padding="5"
+                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{StaticResource NewTaskListButtonText}"
+                                  Command="{Binding PlacementTarget.Tag.NewTaskListCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                        <MenuItem Header="{StaticResource EditTaskListButtonText}"
+                                  Command="{Binding PlacementTarget.Tag.EditTaskListCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -140,7 +150,23 @@
                     BorderBrush="{StaticResource PanelBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="2"
-                    Padding="5">
+                    Padding="5"
+                    Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}">
+                <Border.ContextMenu>
+                    <ContextMenu>
+                        <MenuItem Header="{StaticResource NewTaskButtonText}"
+                                  Command="{Binding PlacementTarget.Tag.NewTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                        <MenuItem Header="{StaticResource EditTaskButtonText}"
+                                  Command="{Binding PlacementTarget.Tag.EditTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                        <Separator />
+                        <MenuItem Header="{StaticResource StartTaskButtonText}"
+                                  Command="{Binding PlacementTarget.Tag.StartTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                        <MenuItem Header="{StaticResource CompleteTaskButtonText}"
+                                  Command="{Binding PlacementTarget.Tag.CompleteTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                        <MenuItem Header="Mehr zu tun"
+                                  Command="{Binding PlacementTarget.Tag.MoreToDoCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
+                    </ContextMenu>
+                </Border.ContextMenu>
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -236,6 +262,7 @@
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter TargetName="SelectionBorder" Property="Background" Value="{StaticResource ListItemSelectedBackgroundBrush}" />
                                 <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource ListItemSelectedBorderBrush}" />
+                                <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -371,26 +398,10 @@
                              SelectedItem="{Binding SelectedTaskItem, Mode=TwoWay}"
                              Style="{StaticResource TaskPanelListBoxStyle}" />
 
-                    <Border Grid.Row="7"
-                            Background="#2630363D"
-                            BorderBrush="{StaticResource PanelBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="2"
-                            Margin="0,8,0,0"
-                            Padding="8">
-                        <StackPanel>
-                            <TextBlock Style="{StaticResource MutedTextStyle}"
-                                       Margin="0,0,0,8"
-                                       Text="{Binding SelectedTaskSummary}" />
-                            <WrapPanel>
-                                <Button Command="{Binding NewTaskCommand}" Content="Neu" />
-                                <Button Command="{Binding EditTaskCommand}" Content="Bearbeiten" />
-                                <Button Command="{Binding StartTaskCommand}" Content="Starten" />
-                                <Button Command="{Binding CompleteTaskCommand}" Content="Erledigt" />
-                                <Button Command="{Binding MoreToDoCommand}" Content="Mehr zu tun" Margin="0" />
-                            </WrapPanel>
-                        </StackPanel>
-                    </Border>
+                    <TextBlock Grid.Row="7"
+                               Style="{StaticResource MutedTextStyle}"
+                               Margin="0,8,0,0"
+                               Text="{Binding SelectedTaskSummary}" />
                 </Grid>
             </Border>
         </DataTemplate>
@@ -443,7 +454,7 @@
             </MenuItem>
         </Menu>
 
-        <ToolBarTray Grid.Row="1" Background="{StaticResource PanelBackgroundBrush}">
+        <ToolBarTray Grid.Row="1" Background="{StaticResource CommandBackgroundBrush}">
             <ToolBar Style="{StaticResource ClassicToolBarStyle}">
                 <Button Command="{Binding TaskManagement.NewTaskCommand}" ToolTip="Neue Aufgabe">
                     <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource NewTaskButtonText}" /></StackPanel>
@@ -465,6 +476,24 @@
                 <Button Command="{Binding TimeCollection.CheckOutCommand}" ToolTip="Ausbuchen">
                     <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource CheckOutButtonText}" /></StackPanel>
                 </Button>
+                <StackPanel Orientation="Horizontal"
+                            Margin="2,0,4,0"
+                            Visibility="{Binding IsTaskRecording, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}">
+                    <TextBlock VerticalAlignment="Center"
+                               Foreground="{StaticResource MenuForegroundBrush}"
+                               Margin="0,0,4,0"
+                               Text="Start" />
+                    <TextBox Width="48"
+                             Margin="0,0,4,0"
+                             Text="{Binding ManualCompletionStartText, UpdateSourceTrigger=PropertyChanged}" />
+                    <TextBlock VerticalAlignment="Center"
+                               Foreground="{StaticResource MenuForegroundBrush}"
+                               Margin="0,0,4,0"
+                               Text="Dauer" />
+                    <TextBox Width="56"
+                             Margin="0,0,4,0"
+                             Text="{Binding ManualCompletionDurationText, UpdateSourceTrigger=PropertyChanged}" />
+                </StackPanel>
                 <Button Command="{Binding TaskManagement.CompleteTaskCommand}" ToolTip="Aufgabe erledigt">
                     <StackPanel Orientation="Horizontal"><TextBlock FontFamily="Segoe MDL2 Assets" Text="" /><TextBlock Margin="5,0,0,0" Text="{StaticResource CompleteTaskButtonText}" /></StackPanel>
                 </Button>
@@ -530,7 +559,7 @@
 
                     <Calendar Grid.Row="2"
                              Background="{StaticResource ListItemBackgroundBrush}"
-                             Foreground="{StaticResource MutedForegroundBrush}"
+                             Foreground="{StaticResource ListItemForegroundBrush}"
                               Margin="0,0,0,12"
                               SelectedDate="{Binding SelectedDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
@@ -539,7 +568,7 @@
                                   Text="{StaticResource BookedDaysHeader}" />
                        <ListBox Background="{StaticResource ListItemBackgroundBrush}"
                                 BorderBrush="{StaticResource PanelBorderBrush}"
-                                Foreground="{StaticResource MutedForegroundBrush}"
+                                Foreground="{StaticResource ListItemForegroundBrush}"
                                 ItemTemplate="{StaticResource BookedDateTemplate}"
                                 ItemsSource="{Binding Source={StaticResource BookedDatesView}}"
                                 SelectedValue="{Binding SelectedDate, Mode=TwoWay}"

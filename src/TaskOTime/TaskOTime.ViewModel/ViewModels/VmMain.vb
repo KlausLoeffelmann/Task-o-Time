@@ -10,6 +10,8 @@ Namespace ViewModels
 
         Private _selectedDate As DateTime
         Private _isWideLayout As Boolean = True
+        Private _manualCompletionStartText As String = DateTime.Now.ToString("HH:mm")
+        Private _manualCompletionDurationText As String = "00:30"
 
         Public Sub New()
             _selectedDate = DateTime.Today
@@ -101,6 +103,24 @@ Namespace ViewModels
         Public ReadOnly Property ShowMonthlyStatementCommand As ICommand
 
         Public ReadOnly Property ShowTenantAdminStatisticsCommand As ICommand
+
+        Public Property ManualCompletionStartText As String
+            Get
+                Return _manualCompletionStartText
+            End Get
+            Set(value As String)
+                SetProperty(_manualCompletionStartText, value, NameOf(ManualCompletionStartText))
+            End Set
+        End Property
+
+        Public Property ManualCompletionDurationText As String
+            Get
+                Return _manualCompletionDurationText
+            End Get
+            Set(value As String)
+                SetProperty(_manualCompletionDurationText, value, NameOf(ManualCompletionDurationText))
+            End Set
+        End Property
 
         Public ReadOnly Property IsTaskRecording As Boolean
             Get

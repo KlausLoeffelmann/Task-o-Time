@@ -28,7 +28,7 @@ Namespace ViewModels
             AddCommand = New DelegateCommand(Sub(parameter) RequestAddEntry())
             _editCommand = New DelegateCommand(Sub(parameter) RequestEditEntry(), Function(parameter) SelectedEntry IsNot Nothing)
             _deleteCommand = New DelegateCommand(Sub(parameter) DeleteEntry(), Function(parameter) SelectedEntry IsNot Nothing)
-            InsertWorkBreakCommand = New DelegateCommand(Sub(parameter) InsertSystemMarker(TimeEntryMarkerKind.WorkBreak))
+            InsertWorkBreakCommand = New DelegateCommand(Sub(parameter) UpsertLatestSystemMarker(TimeEntryMarkerKind.WorkBreak))
             InsertStopMarkCommand = New DelegateCommand(Sub(parameter) InsertSystemMarker(TimeEntryMarkerKind.StopMark))
             InsertDownTimeCommand = New DelegateCommand(Sub(parameter) UpsertLatestSystemMarker(TimeEntryMarkerKind.DownTime))
             CheckOutCommand = New DelegateCommand(Sub(parameter) UpsertLatestSystemMarker(TimeEntryMarkerKind.StopMark))
