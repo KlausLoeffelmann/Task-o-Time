@@ -5,13 +5,13 @@ namespace TaskOTime.AppServer.Services
 {
     public interface IAdminMasterDataService
     {
-        ServiceResult<IReadOnlyList<ProjectMasterDataDto>> GetProjects(MasterDataQueryRequest request);
+        ServiceResult<IReadOnlyList<ProjectMainDataDto>> GetProjects(MasterDataQueryRequest request);
 
-        ServiceResult<ProjectMasterDataDto> GetProject(MasterDataItemRequest request);
+        ServiceResult<ProjectMainDataDto> GetProject(MasterDataItemRequest request);
 
-        ServiceResult<ProjectMasterDataDto> CreateProject(SaveProjectRequest request);
+        ServiceResult<ProjectMainDataDto> CreateProject(SaveProjectRequest request);
 
-        ServiceResult<ProjectMasterDataDto> UpdateProject(SaveProjectRequest request);
+        ServiceResult<ProjectMainDataDto> UpdateProject(SaveProjectRequest request);
 
         ServiceResult<MasterDataDeleteResult> DeleteProject(DeleteMasterDataRequest request);
 

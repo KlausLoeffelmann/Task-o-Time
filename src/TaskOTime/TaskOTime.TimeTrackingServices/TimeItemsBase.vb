@@ -60,9 +60,9 @@ Namespace ActiveDevelop.TimeTrackingServices
                 _sortedList.Add(item)
                 UpdateItem(item, 0)
                 WirePropertyChangeEvent(item)
-                OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, 0))
                 OnPropertyChanged(_countPropertyChangedEventArgs)
                 OnPropertyChanged(_itemPropertyChangedEventArgs)
+                OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, 0))
                 Return 0
             End If
 
@@ -86,6 +86,8 @@ Namespace ActiveDevelop.TimeTrackingServices
         End Sub
 
         Private Sub InsertWithUpdate(item As TimeItemType, index As Integer)
+            item.ItemState = TimeItemState.Added
+
             If index = _sortedList.Count Then
                 _sortedList.Add(item)
             Else
@@ -93,10 +95,10 @@ Namespace ActiveDevelop.TimeTrackingServices
             End If
 
             WirePropertyChangeEvent(item)
-            OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index))
+            UpdateItem(item, index)
             OnPropertyChanged(_countPropertyChangedEventArgs)
             OnPropertyChanged(_itemPropertyChangedEventArgs)
-            UpdateItem(item, index)
+            OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index))
         End Sub
 
         Private Function UpdateItem(item As TimeItemType, index As Integer) As TimeItemType
@@ -141,54 +143,63 @@ Namespace ActiveDevelop.TimeTrackingServices
                 Throw New ArgumentNullException(NameOf(item))
             End If
 
-            Dim oldIndex As Integer
-            Dim oldItem As TimeItemType
+            Dim oldItem = If(oldValue, item)
+            Dim oldIndex = _sortedList.IndexOf(oldItem)
 
-            CheckForSameEventTime(item)
-
-            If oldValue IsNot Nothing Then
-                oldIndex = _sortedList.IndexOf(oldValue)
-                If oldIndex < 0 Then
-                    Throw New InvalidOperationException("The time item is not part of this collection.")
-                End If
-
-                oldItem = _sortedList(oldIndex)
-                item.PreviousItem = oldItem.PreviousItem
-                item.NextItem = oldItem.NextItem
-            Else
-                oldIndex = _sortedList.IndexOf(item)
-                If oldIndex < 0 Then
-                    Throw New InvalidOperationException("The time item is not part of this collection.")
-                End If
-
-                oldItem = _sortedList(oldIndex)
+            If oldIndex < 0 Then
+                Throw New InvalidOperationException("The time item is not part of this collection.")
             End If
 
-            Dim predictedPosition = PredictNewPosition(item)
+            CheckForSameEventTime(item, oldItem)
 
-            If predictedPosition = 0 Then
-                UnwirePropertyChangeEvent(_sortedList(oldIndex))
-                _sortedList(oldIndex).DurationToNext = Nothing
-                _sortedList(oldIndex).DurationToPrevious = Nothing
+            If oldValue Is Nothing Then
+                RepositionItem(item, oldIndex)
+                Return
+            End If
+
+            item.PreviousItem = oldItem.PreviousItem
+            item.NextItem = oldItem.NextItem
+
+            If PredictNewPosition(item) = 0 Then
+                UnwirePropertyChangeEvent(oldItem)
+                oldItem.DurationToNext = Nothing
+                oldItem.DurationToPrevious = Nothing
                 _sortedList(oldIndex) = item
-                WirePropertyChangeEvent(_sortedList(oldIndex))
+                WirePropertyChangeEvent(item)
                 UpdateItem(item, oldIndex)
                 OnPropertyChanged(_itemPropertyChangedEventArgs)
                 OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Replace, item, oldItem, oldIndex))
-            Else
-                RemoveAtCore(oldIndex)
-                OnPropertyChanged(_countPropertyChangedEventArgs)
-                OnPropertyChanged(_itemPropertyChangedEventArgs)
-                OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, oldItem, oldIndex))
-                AddWithPositionInfo(item)
-                OnPropertyChanged(_countPropertyChangedEventArgs)
-                OnPropertyChanged(_itemPropertyChangedEventArgs)
+                Return
+            End If
+
+            RemoveAtCore(oldIndex)
+            OnPropertyChanged(_countPropertyChangedEventArgs)
+            OnPropertyChanged(_itemPropertyChangedEventArgs)
+            OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, oldItem, oldIndex))
+            AddWithPositionInfo(item)
+        End Sub
+
+        Private Sub RepositionItem(item As TimeItemType, oldIndex As Integer)
+            Dim previous = If(oldIndex > 0, _sortedList(oldIndex - 1), Nothing)
+            Dim [next] = If(oldIndex < _sortedList.Count - 1, _sortedList(oldIndex + 1), Nothing)
+
+            LinkItems(previous, [next])
+            _sortedList.RemoveAt(oldIndex)
+
+            Dim index = _sortedList.BinarySearch(item, _comparer)
+            Dim newIndex = If(index < 0, -index - 1, index)
+            _sortedList.Insert(newIndex, item)
+            UpdateItem(item, newIndex)
+            OnPropertyChanged(_itemPropertyChangedEventArgs)
+
+            If newIndex <> oldIndex Then
+                OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Move, item, newIndex, oldIndex))
             End If
         End Sub
 
-        Private Sub CheckForSameEventTime(item As TimeItemType)
+        Private Sub CheckForSameEventTime(item As TimeItemType, ignoredItem As TimeItemType)
             For Each existingItem In _sortedList
-                If Object.Equals(existingItem.IDTimeItem, item.IDTimeItem) Then
+                If Object.ReferenceEquals(existingItem, ignoredItem) Then
                     Continue For
                 End If
 

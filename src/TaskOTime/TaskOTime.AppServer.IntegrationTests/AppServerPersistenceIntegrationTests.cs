@@ -39,7 +39,7 @@ namespace TaskOTime.AppServer.IntegrationTests
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new ProjectMasterDataDto
+                Item = new ProjectMainDataDto
                 {
                     IdProject = ProjectId,
                     ProjectName = "  Persistence Portal  ",
@@ -169,6 +169,44 @@ namespace TaskOTime.AppServer.IntegrationTests
             Assert.AreEqual(3.5m, tenantStatistics.CurrentDayBookedHours);
         }
 
+        [TestMethod]
+        public void TimeBooking_RetrospectiveInsertEditAndDelete_PersistReorderedTimelineAndDeltas()
+        {
+            var passwordHasher = new Pbkdf2PasswordHasher();
+            SeedProjectCategoryTaskForBookings(passwordHasher);
+
+            var booking = new TimeBookingService(LocalDbPersistenceTestDatabase.CreateContext, passwordHasher);
+            var firstId = GuidFromSuffix(201);
+            var secondId = GuidFromSuffix(202);
+            var retrospectiveId = GuidFromSuffix(203);
+
+            AssertSucceeded(booking.AddTimeBooking(CreateBooking(firstId, WorkDayStart, "Morgens begonnen")));
+            AssertSucceeded(booking.AddTimeBooking(CreateBooking(secondId, WorkDayStart.AddHours(3), "Mittags weiter")));
+            AssertPersistedTimeline(
+                new[] { firstId, secondId },
+                new[] { TimeSpan.FromHours(3).Ticks, (long?)null });
+
+            AssertSucceeded(booking.AddTimeBooking(CreateBooking(retrospectiveId, WorkDayStart.AddHours(1), "Rückwirkend ergänzt")));
+            AssertPersistedTimeline(
+                new[] { firstId, retrospectiveId, secondId },
+                new[] { TimeSpan.FromHours(1).Ticks, TimeSpan.FromHours(2).Ticks, (long?)null });
+
+            AssertSucceeded(booking.EditTimeBooking(CreateBooking(retrospectiveId, WorkDayStart.AddHours(2), "Rückwirkend verschoben")));
+            AssertPersistedTimeline(
+                new[] { firstId, retrospectiveId, secondId },
+                new[] { TimeSpan.FromHours(2).Ticks, TimeSpan.FromHours(1).Ticks, (long?)null });
+
+            AssertSucceeded(booking.DeleteTimeBooking(new DeleteTimeBookingRequest
+            {
+                AccessContext = CreateAccessContext(),
+                IdTimeItem = retrospectiveId,
+                BookingDate = WorkDayStart.Date
+            }));
+            AssertPersistedTimeline(
+                new[] { firstId, secondId },
+                new[] { TimeSpan.FromHours(3).Ticks, (long?)null });
+        }
+
         private static void SeedTenantAndAdmin()
         {
             var now = DateTimeOffset.UtcNow;
@@ -216,16 +254,80 @@ namespace TaskOTime.AppServer.IntegrationTests
             };
         }
 
+        private static void SeedProjectCategoryTaskForBookings(Pbkdf2PasswordHasher passwordHasher)
+        {
+            var masterData = new AdminMasterDataService(LocalDbPersistenceTestDatabase.CreateContext, passwordHasher);
+
+            AssertSucceeded(masterData.CreateProject(new SaveProjectRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new ProjectMainDataDto
+                {
+                    IdProject = ProjectId,
+                    ProjectName = "Timeline Project",
+                    ProjectIdentifier = "TIME",
+                    IsActive = true
+                }
+            }));
+
+            AssertSucceeded(masterData.CreateCategory(new SaveCategoryRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new CategoryMasterDataDto
+                {
+                    IdCategory = CategoryId,
+                    IdUser = AdminUserId,
+                    CategoryName = "Timeline",
+                    IsPublic = true
+                }
+            }));
+
+            AssertSucceeded(masterData.CreateTaskList(new SaveTaskListRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new TaskListMasterDataDto
+                {
+                    IdTaskList = TaskListId,
+                    IdProject = ProjectId,
+                    IdUser = AdminUserId,
+                    TaskListName = "Timeline List",
+                    IsPublic = true
+                }
+            }));
+
+            AssertSucceeded(masterData.CreateTaskItem(new SaveTaskItemRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new TaskItemMasterDataDto
+                {
+                    IdTaskItem = TaskItemId,
+                    IdProject = ProjectId,
+                    IdTaskList = TaskListId,
+                    IdUser = AdminUserId,
+                    TaskItemName = "Timeline Task"
+                }
+            }));
+        }
+
+        private static TimeBookingAccessContextDto CreateAccessContext()
+        {
+            return new TimeBookingAccessContextDto
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                IdBookingUser = AdminUserId
+            };
+        }
+
         private static SaveTimeBookingRequest CreateBooking(Guid idTimeItem, DateTimeOffset eventTime, string description)
         {
             return new SaveTimeBookingRequest
             {
-                AccessContext = new TimeBookingAccessContextDto
-                {
-                    IdTenant = TenantId,
-                    IdActingUser = AdminUserId,
-                    IdBookingUser = AdminUserId
-                },
+                AccessContext = CreateAccessContext(),
                 Item = new TimeBookingItemDto
                 {
                     IdTimeItem = idTimeItem,
@@ -237,6 +339,37 @@ namespace TaskOTime.AppServer.IntegrationTests
                     Description = description
                 }
             };
+        }
+
+        private static void AssertPersistedTimeline(Guid[] expectedIds, long?[] expectedTicksToNext)
+        {
+            using (var context = LocalDbPersistenceTestDatabase.CreateContext())
+            {
+                var timeItems = context.TimeItem
+                    .Where(item => item.IdUser == AdminUserId && item.BookingDate == WorkDayStart.Date)
+                    .OrderBy(item => item.EventTime)
+                    .ToList();
+
+                CollectionAssert.AreEqual(expectedIds, timeItems.Select(item => item.IdTimeItem).ToArray());
+                CollectionAssert.AreEqual(expectedTicksToNext, timeItems.Select(item => item.DurationTicksToNext).ToArray());
+
+                for (var index = 0; index < timeItems.Count; index++)
+                {
+                    var previous = index == 0 ? (Guid?)null : timeItems[index - 1].IdTimeItem;
+                    var next = index == timeItems.Count - 1 ? (Guid?)null : timeItems[index + 1].IdTimeItem;
+                    Assert.AreEqual(previous, timeItems[index].IdPreviousItem, "Unexpected previous link at index " + index + ".");
+                    Assert.AreEqual(next, timeItems[index].IdNextItem, "Unexpected next link at index " + index + ".");
+
+                    if (expectedTicksToNext[index].HasValue)
+                    {
+                        Assert.AreEqual(TimeSpan.FromTicks(expectedTicksToNext[index].Value), timeItems[index].DurationToNext);
+                    }
+                    else
+                    {
+                        Assert.IsNull(timeItems[index].DurationToNext);
+                    }
+                }
+            }
         }
 
         private static T AssertSucceeded<T>(ServiceResult<T> result)

@@ -54,7 +54,7 @@ namespace TaskOTime.AppServer.Models
         public TDto Item { get; set; }
     }
 
-    public sealed class SaveProjectRequest : SaveMasterDataRequest<ProjectMasterDataDto>
+    public sealed class SaveProjectRequest : SaveMasterDataRequest<ProjectMainDataDto>
     {
     }
 

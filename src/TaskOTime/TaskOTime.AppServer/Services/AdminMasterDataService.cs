@@ -20,16 +20,16 @@ namespace TaskOTime.AppServer.Services
         {
         }
 
-        public ServiceResult<IReadOnlyList<ProjectMasterDataDto>> GetProjects(MasterDataQueryRequest request)
+        public ServiceResult<IReadOnlyList<ProjectMainDataDto>> GetProjects(MasterDataQueryRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<IReadOnlyList<ProjectMasterDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
+                return ServiceResult<IReadOnlyList<ProjectMainDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<IReadOnlyList<ProjectMasterDataDto>>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<IReadOnlyList<ProjectMainDataDto>>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -63,20 +63,20 @@ namespace TaskOTime.AppServer.Services
                     .Select(ToProjectMasterDataDto)
                     .ToList();
 
-                return ServiceResult<IReadOnlyList<ProjectMasterDataDto>>.Ok(projects);
+                return ServiceResult<IReadOnlyList<ProjectMainDataDto>>.Ok(projects);
             }
         }
 
-        public ServiceResult<ProjectMasterDataDto> GetProject(MasterDataItemRequest request)
+        public ServiceResult<ProjectMainDataDto> GetProject(MasterDataItemRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<ProjectMasterDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
+                return ServiceResult<ProjectMainDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<ProjectMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<ProjectMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -85,18 +85,18 @@ namespace TaskOTime.AppServer.Services
                 var project = context.Project.SingleOrDefault(p => p.IdTenant == request.IdTenant && p.IdProject == request.IdItem);
                 if (project == null)
                 {
-                    return ServiceResult<ProjectMasterDataDto>.Fail("ProjectNotFound", "The tenant project was not found.");
+                    return ServiceResult<ProjectMainDataDto>.Fail("ProjectNotFound", "The tenant project was not found.");
                 }
 
-                return ServiceResult<ProjectMasterDataDto>.Ok(ToProjectMasterDataDto(project));
+                return ServiceResult<ProjectMainDataDto>.Ok(ToProjectMasterDataDto(project));
             }
         }
 
-        public ServiceResult<ProjectMasterDataDto> CreateProject(SaveProjectRequest request)
+        public ServiceResult<ProjectMainDataDto> CreateProject(SaveProjectRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<ProjectMasterDataDto>.Fail("InvalidRequest", "A project item is required.");
+                return ServiceResult<ProjectMainDataDto>.Fail("InvalidRequest", "A project item is required.");
             }
 
             try
@@ -105,7 +105,7 @@ namespace TaskOTime.AppServer.Services
                 using (var context = CreateContext())
                 using (var transaction = context.Database.BeginTransaction())
                 {
-                    var authorization = Authorize<ProjectMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<ProjectMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -114,7 +114,7 @@ namespace TaskOTime.AppServer.Services
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<ProjectMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<ProjectMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     var now = DateTimeOffset.UtcNow;
@@ -150,20 +150,20 @@ namespace TaskOTime.AppServer.Services
                     context.SaveChanges();
                     transaction.Commit();
 
-                    return ServiceResult<ProjectMasterDataDto>.Ok(ToProjectMasterDataDto(project));
+                    return ServiceResult<ProjectMainDataDto>.Ok(ToProjectMasterDataDto(project));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<ProjectMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<ProjectMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<ProjectMasterDataDto> UpdateProject(SaveProjectRequest request)
+        public ServiceResult<ProjectMainDataDto> UpdateProject(SaveProjectRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<ProjectMasterDataDto>.Fail("InvalidRequest", "A project item is required.");
+                return ServiceResult<ProjectMainDataDto>.Fail("InvalidRequest", "A project item is required.");
             }
 
             try
@@ -172,7 +172,7 @@ namespace TaskOTime.AppServer.Services
                 using (var context = CreateContext())
                 using (var transaction = context.Database.BeginTransaction())
                 {
-                    var authorization = Authorize<ProjectMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<ProjectMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -180,25 +180,25 @@ namespace TaskOTime.AppServer.Services
 
                     if (request.Item.IdProject == Guid.Empty)
                     {
-                        return ServiceResult<ProjectMasterDataDto>.Fail("InvalidRequest", "A project id is required.");
+                        return ServiceResult<ProjectMainDataDto>.Fail("InvalidRequest", "A project id is required.");
                     }
 
                     var project = context.Project.SingleOrDefault(p => p.IdTenant == request.IdTenant && p.IdProject == request.Item.IdProject);
                     if (project == null)
                     {
-                        return ServiceResult<ProjectMasterDataDto>.Fail("ProjectNotFound", "The tenant project was not found.");
+                        return ServiceResult<ProjectMainDataDto>.Fail("ProjectNotFound", "The tenant project was not found.");
                     }
 
                     var ownerResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!ownerResult.Success)
                     {
-                        return ServiceResult<ProjectMasterDataDto>.Fail(ownerResult.ErrorCode, ownerResult.ErrorMessage);
+                        return ServiceResult<ProjectMainDataDto>.Fail(ownerResult.ErrorCode, ownerResult.ErrorMessage);
                     }
 
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<ProjectMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<ProjectMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     var now = DateTimeOffset.UtcNow;
@@ -225,12 +225,12 @@ namespace TaskOTime.AppServer.Services
                     context.SaveChanges();
                     transaction.Commit();
 
-                    return ServiceResult<ProjectMasterDataDto>.Ok(ToProjectMasterDataDto(project));
+                    return ServiceResult<ProjectMainDataDto>.Ok(ToProjectMasterDataDto(project));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<ProjectMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<ProjectMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
@@ -2134,9 +2134,9 @@ namespace TaskOTime.AppServer.Services
             return webLink.Tag.Select(t => t.IdTag).OrderBy(id => id).ToList();
         }
 
-        private static ProjectMasterDataDto ToProjectMasterDataDto(Project project)
+        private static ProjectMainDataDto ToProjectMasterDataDto(Project project)
         {
-            return new ProjectMasterDataDto
+            return new ProjectMainDataDto
             {
                 IdProject = project.IdProject,
                 IdTenant = project.IdTenant,

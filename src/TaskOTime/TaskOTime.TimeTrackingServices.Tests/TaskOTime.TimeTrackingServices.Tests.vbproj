@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj" />
+    <ProjectReference Include="..\TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj" />
   </ItemGroup>
 
 </Project>

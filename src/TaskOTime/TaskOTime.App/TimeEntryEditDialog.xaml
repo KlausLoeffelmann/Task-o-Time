@@ -1,0 +1,32 @@
+<Window x:Class="TaskOTime.App.TimeEntryEditDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Zeitbuchung"
+        MinWidth="460"
+        SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        Background="{StaticResource WindowBackgroundBrush}">
+    <Border Style="{StaticResource PanelBorderStyle}" Margin="12">
+        <StackPanel>
+            <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Zeitbuchung" />
+            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Startzeit" />
+            <TextBox Margin="0,2,0,8" Text="{Binding EntryTime, StringFormat={}{0:HH:mm}, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Titel" />
+            <TextBox Margin="0,2,0,8" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Beschreibung" />
+            <TextBox Margin="0,2,0,8" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
+            <CheckBox Margin="0,0,0,16"
+                      Foreground="{StaticResource MutedForegroundBrush}"
+                      Content="{StaticResource CompleteRecordingTaskCheckBoxText}"
+                      IsChecked="{Binding CompleteRunningTask}" />
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <Button MinWidth="42" ToolTip="OK" IsDefault="True" Click="OnOkClick">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                </Button>
+                <Button MinWidth="42" ToolTip="Abbrechen" IsCancel="True">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                </Button>
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</Window>

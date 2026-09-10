@@ -52,10 +52,43 @@
     <Reference Include="PresentationFramework" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\TaskOTime.AppServer\TaskOTime.AppServer.csproj">
+      <Project>{C80D4780-4B7E-474C-9D7A-601970132934}</Project>
+      <Name>TaskOTime.AppServer</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\TaskOTime.DTOs\TaskOTime.DTOs.csproj">
+      <Project>{5627E69E-7076-43B3-A9C1-AFCE82D7B6DD}</Project>
+      <Name>TaskOTime.DTOs</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj">
+      <Name>TaskOTime.TimeTrackingServices</Name>
+    </ProjectReference>
+    <ProjectReference Include="..\TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj">
+      <Project>{A3E6F80D-1EC3-4F7B-9B84-C38CC606D25C}</Project>
+      <Name>TaskOTime.ViewModel</Name>
+    </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
     <ApplicationDefinition Include="App.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Page Include="DialogShell.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="OptionsDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="TaskListEditDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="TimeEntryEditDialog.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
     <Page Include="MainWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -64,10 +97,38 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="DialogShell.xaml.cs">
+      <DependentUpon>DialogShell.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="OptionsDialog.xaml.cs">
+      <DependentUpon>OptionsDialog.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="TaskListEditDialog.xaml.cs">
+      <DependentUpon>TaskListEditDialog.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="TimeEntryEditDialog.xaml.cs">
+      <DependentUpon>TimeEntryEditDialog.xaml</DependentUpon>
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="MainWindow.xaml.cs">
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Convert\BooleanToVisibilityConverter.cs" />
+    <Compile Include="Convert\BooleanToGridLengthConverter.cs" />
+    <Compile Include="Convert\TimeSpanDisplayConverter.cs" />
+    <Compile Include="Convert\WidthToLayoutModeConverter.cs" />
+    <Page Include="Themes\ClassicDark.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Page Include="Resources\Strings.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.cs">

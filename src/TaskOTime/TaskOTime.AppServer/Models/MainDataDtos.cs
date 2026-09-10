@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace TaskOTime.AppServer.Models
 {
-    public sealed class ProjectMasterDataDto
+    public sealed class ProjectMainDataDto
     {
         public Guid IdProject { get; set; }
 
