@@ -1,4 +1,3 @@
-Imports System
 Imports System.Windows.Input
 
 Namespace Base

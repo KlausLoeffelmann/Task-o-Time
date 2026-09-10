@@ -1,4 +1,3 @@
-Imports System.Collections.Generic
 Imports System.ComponentModel
 
 Namespace Base

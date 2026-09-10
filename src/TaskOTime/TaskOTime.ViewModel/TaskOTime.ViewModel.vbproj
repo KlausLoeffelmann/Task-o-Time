@@ -8,4 +8,8 @@
     <OptionInfer>On</OptionInfer>
   </PropertyGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj" />
+  </ItemGroup>
+
 </Project>

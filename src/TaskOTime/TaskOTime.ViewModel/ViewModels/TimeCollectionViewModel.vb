@@ -1,5 +1,3 @@
-Imports System
-Imports System.Collections.Generic
 Imports System.Collections.ObjectModel
 Imports System.Windows.Input
 Imports TaskOTime.ViewModel.Base
@@ -22,7 +20,7 @@ Namespace ViewModels
 
         Public Sub New(bookingDate As DateTime)
             _entriesByDate = New Dictionary(Of DateTime, List(Of TimeEntrySeed))()
-            SelectedDayEntries = New ObservableCollection(Of TimeEntryViewModel)()
+            TimeItems = New TimeItemsViewModel()
             BookedDateItems = New ObservableCollection(Of BookedDateItemViewModel)()
 
             AddCommand = New DelegateCommand(Sub(parameter) RequestAddEntry())
@@ -67,7 +65,13 @@ Namespace ViewModels
             End Set
         End Property
 
-        Public ReadOnly Property SelectedDayEntries As ObservableCollection(Of TimeEntryViewModel)
+        Public ReadOnly Property TimeItems As TimeItemsViewModel
+
+        Public ReadOnly Property SelectedDayEntries As TimeItemsViewModel
+            Get
+                Return TimeItems
+            End Get
+        End Property
 
         Public ReadOnly Property BookedDateItems As ObservableCollection(Of BookedDateItemViewModel)
 
@@ -250,8 +254,17 @@ Namespace ViewModels
             If latest Is Nothing Then
                 AddEntryFromDialog(
                     MoveToFreeMinute(nowTime),
-                    If(markerKind = TimeEntryMarkerKind.DownTime, "Ausfallzeit", If(markerKind = TimeEntryMarkerKind.WorkBreak, "Pause", "Ausbuchen")),
-                    If(markerKind = TimeEntryMarkerKind.DownTime, "Ausfallzeit nachgetragen.", If(markerKind = TimeEntryMarkerKind.WorkBreak, "Pause aktualisiert.", "Tagesende aktualisiert.")),
+                    If(
+                        markerKind = TimeEntryMarkerKind.DownTime,
+                        "Ausfallzeit",
+                        If(markerKind = TimeEntryMarkerKind.WorkBreak,
+                            "Pause",
+                            "Ausbuchen")),
+                    If(markerKind = TimeEntryMarkerKind.DownTime,
+                        "Ausfallzeit nachgetragen.",
+                        If(markerKind = TimeEntryMarkerKind.WorkBreak,
+                            "Pause aktualisiert.",
+                            "Tagesende aktualisiert.")),
                     markerKind,
                     False)
                 Return
@@ -286,20 +299,8 @@ Namespace ViewModels
 
             Dim seeds = GetExistingSeeds(BookingDate)
             If seeds IsNot Nothing Then
-                seeds.Sort(Function(left, right) left.EntryTime.CompareTo(right.EntryTime))
-
-                For index = 0 To seeds.Count - 1
-                    Dim seed = seeds(index)
+                For Each seed In seeds
                     Dim entry = New TimeEntryViewModel(seed.IdTimeItem, seed.EntryTime, seed.Title, seed.Description, seed.MarkerKind)
-
-                    If index > 0 Then
-                        entry.DurationFromPrevious = entry.EntryTime - seeds(index - 1).EntryTime
-                    End If
-
-                    If index < seeds.Count - 1 Then
-                        entry.DurationToNext = seeds(index + 1).EntryTime - entry.EntryTime
-                    End If
-
                     SelectedDayEntries.Add(entry)
                 Next
             End If
@@ -335,6 +336,7 @@ Namespace ViewModels
         End Function
 
         Private Sub RaiseDayPropertiesChanged()
+            OnPropertyChanged(NameOf(TimeItems))
             OnPropertyChanged(NameOf(SelectedDayEntries))
             OnPropertyChanged(NameOf(BookedTime))
             OnPropertyChanged(NameOf(WorkBreakTime))
@@ -455,10 +457,10 @@ Namespace ViewModels
 
         Private Sub SeedSampleData()
             AddSeed(DateTime.Today, 8, 30, "Tagesplanung", "Prioritäten und Aufgaben für den Tag sortieren.", TimeEntryMarkerKind.Normal)
-            AddSeed(DateTime.Today, 9, 0, "Projektarbeit", "Umsetzung der Zeiterfassungsansicht.", TimeEntryMarkerKind.Normal)
-            AddSeed(DateTime.Today, 12, 0, "Mittagspause", "Arbeitsunterbrechung.", TimeEntryMarkerKind.WorkBreak)
-            AddSeed(DateTime.Today, 12, 30, "Projektarbeit", "UI-Slice fertigstellen und prüfen.", TimeEntryMarkerKind.Normal)
             AddSeed(DateTime.Today, 15, 0, "Stopp", "Ende der aktuellen Buchungskette.", TimeEntryMarkerKind.StopMark)
+            AddSeed(DateTime.Today, 12, 0, "Mittagspause", "Arbeitsunterbrechung.", TimeEntryMarkerKind.WorkBreak)
+            AddSeed(DateTime.Today, 9, 0, "Projektarbeit", "Umsetzung der Zeiterfassungsansicht.", TimeEntryMarkerKind.Normal)
+            AddSeed(DateTime.Today, 12, 30, "Projektarbeit", "UI-Slice fertigstellen und prüfen.", TimeEntryMarkerKind.Normal)
 
             AddSeed(DateTime.Today.AddDays(-1), 8, 15, "Support", "Kundenrückfrage bearbeiten.", TimeEntryMarkerKind.Normal)
             AddSeed(DateTime.Today.AddDays(-1), 10, 45, "Stopp", "Wechsel auf nicht gebuchte Tätigkeit.", TimeEntryMarkerKind.StopMark)

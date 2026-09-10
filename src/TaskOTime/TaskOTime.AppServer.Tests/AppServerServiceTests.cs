@@ -48,7 +48,7 @@ namespace TaskOTime.AppServer.Tests
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new ProjectMasterDataDto
+                Item = new ProjectMainDataDto
                 {
                     IdProject = ProjectId,
                     ProjectName = "  Alpha migration  ",
@@ -71,7 +71,7 @@ namespace TaskOTime.AppServer.Tests
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new ProjectMasterDataDto
+                Item = new ProjectMainDataDto
                 {
                     IdProject = ProjectId,
                     IdUser = AdminUserId,

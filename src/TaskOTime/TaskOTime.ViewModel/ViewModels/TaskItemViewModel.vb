@@ -1,4 +1,3 @@
-Imports System
 Imports TaskOTime.ViewModel.Base
 
 Namespace ViewModels

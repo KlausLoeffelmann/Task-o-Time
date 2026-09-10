@@ -60,6 +60,9 @@
       <Project>{5627E69E-7076-43B3-A9C1-AFCE82D7B6DD}</Project>
       <Name>TaskOTime.DTOs</Name>
     </ProjectReference>
+    <ProjectReference Include="..\TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj">
+      <Name>TaskOTime.TimeTrackingServices</Name>
+    </ProjectReference>
     <ProjectReference Include="..\TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj">
       <Project>{A3E6F80D-1EC3-4F7B-9B84-C38CC606D25C}</Project>
       <Name>TaskOTime.ViewModel</Name>

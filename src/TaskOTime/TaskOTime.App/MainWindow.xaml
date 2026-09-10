@@ -847,7 +847,7 @@
 
                         <ListBox Grid.Row="4"
                                  ItemTemplate="{StaticResource TimeEntryItemTemplate}"
-                                 ItemsSource="{Binding TimeCollection.SelectedDayEntries}"
+                                 ItemsSource="{Binding TimeCollection.TimeItems}"
                                  MouseDoubleClick="OnTimeEntryDoubleClick"
                                  SelectedItem="{Binding TimeCollection.SelectedEntry, Mode=TwoWay}"
                                  Style="{StaticResource TimeEntryListBoxStyle}" />

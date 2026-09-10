@@ -1,6 +1,5 @@
-Imports System
 Imports System.Globalization
-Imports TaskOTime.ViewModel.Base
+Imports ActiveDevelop.TimeTrackingServices
 
 Namespace ViewModels
     Public Enum TimeEntryMarkerKind
@@ -11,34 +10,33 @@ Namespace ViewModels
     End Enum
 
     Public Class TimeEntryViewModel
-        Inherits ViewModelBase
+        Inherits TimeItemBase
 
-        Private _entryTime As DateTime
         Private _title As String
         Private _description As String
-        Private _durationToNext As TimeSpan?
-        Private _durationFromPrevious As TimeSpan?
+
+        Public Sub New()
+            Me.New(Guid.Empty, DateTime.MinValue, String.Empty, String.Empty, TimeEntryMarkerKind.Normal)
+        End Sub
 
         Public Sub New(idTimeItem As Guid, entryTime As DateTime, title As String, description As String, markerKind As TimeEntryMarkerKind)
-            Me.IdTimeItem = idTimeItem
-            _entryTime = entryTime
+            Me.IDTimeItem = idTimeItem
+            EventTime = New DateTimeOffset(entryTime)
+            IsStartAction = False
+            IsEndAction = False
             _title = title
             _description = description
             Me.MarkerKind = markerKind
         End Sub
 
-        Public ReadOnly Property IdTimeItem As Guid
-
         Public ReadOnly Property MarkerKind As TimeEntryMarkerKind
 
         Public Property EntryTime As DateTime
             Get
-                Return _entryTime
+                Return If(EventTime.HasValue, EventTime.Value.DateTime, DateTime.MinValue)
             End Get
             Set(value As DateTime)
-                If SetProperty(_entryTime, value, NameOf(EntryTime)) Then
-                    OnPropertyChanged(NameOf(EntryTimeText))
-                End If
+                EventTime = New DateTimeOffset(value)
             End Set
         End Property
 
@@ -60,25 +58,12 @@ Namespace ViewModels
             End Set
         End Property
 
-        Public Property DurationToNext As TimeSpan?
-            Get
-                Return _durationToNext
-            End Get
-            Set(value As TimeSpan?)
-                If SetProperty(_durationToNext, value, NameOf(DurationToNext)) Then
-                    OnPropertyChanged(NameOf(DurationToNextText))
-                End If
-            End Set
-        End Property
-
         Public Property DurationFromPrevious As TimeSpan?
             Get
-                Return _durationFromPrevious
+                Return DurationToPrevious
             End Get
             Set(value As TimeSpan?)
-                If SetProperty(_durationFromPrevious, value, NameOf(DurationFromPrevious)) Then
-                    OnPropertyChanged(NameOf(DurationFromPreviousText))
-                End If
+                DurationToPrevious = value
             End Set
         End Property
 
@@ -166,5 +151,20 @@ Namespace ViewModels
 
             Return String.Format(CultureInfo.CurrentCulture, "{0}{1:0}:{2:00} h", sign, totalHours, absoluteDuration.Minutes)
         End Function
+
+        Protected Overrides Sub OnPropertyChanged(Optional propertyName As String = Nothing)
+            MyBase.OnPropertyChanged(propertyName)
+
+            Select Case propertyName
+                Case NameOf(EventTime)
+                    MyBase.OnPropertyChanged(NameOf(EntryTime))
+                    MyBase.OnPropertyChanged(NameOf(EntryTimeText))
+                Case NameOf(DurationToNext)
+                    MyBase.OnPropertyChanged(NameOf(DurationToNextText))
+                Case NameOf(DurationToPrevious)
+                    MyBase.OnPropertyChanged(NameOf(DurationFromPrevious))
+                    MyBase.OnPropertyChanged(NameOf(DurationFromPreviousText))
+            End Select
+        End Sub
     End Class
 End Namespace

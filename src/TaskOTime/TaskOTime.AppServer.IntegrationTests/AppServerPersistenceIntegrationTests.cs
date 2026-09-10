@@ -39,7 +39,7 @@ namespace TaskOTime.AppServer.IntegrationTests
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new ProjectMasterDataDto
+                Item = new ProjectMainDataDto
                 {
                     IdProject = ProjectId,
                     ProjectName = "  Persistence Portal  ",
@@ -262,7 +262,7 @@ namespace TaskOTime.AppServer.IntegrationTests
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new ProjectMasterDataDto
+                Item = new ProjectMainDataDto
                 {
                     IdProject = ProjectId,
                     ProjectName = "Timeline Project",

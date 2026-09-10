@@ -1,5 +1,3 @@
-Imports System
-
 Namespace ViewModels
     Public Class TimeEntryEditRequestEventArgs
         Inherits EventArgs

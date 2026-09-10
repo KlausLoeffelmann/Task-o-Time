@@ -80,20 +80,35 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Dim first = items(0)
             Dim second = items(1)
             Dim third = items(2)
+            Dim collectionChanges As New List(Of NotifyCollectionChangedEventArgs)()
+            Dim propertyChanges As New List(Of String)()
+            AddHandler items.CollectionChanged, Sub(sender, e) collectionChanges.Add(e)
+            AddHandler items.PropertyChanged, Sub(sender, e) propertyChanges.Add(e.PropertyName)
 
             third.EventTime = DayStart.AddHours(-1)
 
             CollectionAssert.AreEqual(
                 New Guid() {third.IDTimeItem, first.IDTimeItem, second.IDTimeItem},
                 items.Select(Function(item) item.IDTimeItem).ToArray())
+            Assert.AreEqual(3, items.Count)
+            Assert.AreEqual(3, items.Distinct().Count())
+            Assert.AreEqual(1, items.Where(Function(item) Object.ReferenceEquals(item, third)).Count())
             AssertNoPrevious(third)
             AssertLinked(third, first, TimeSpan.FromHours(1))
             AssertLinked(first, second, TimeSpan.FromHours(1))
             AssertNoNext(second)
+
+            Assert.AreEqual(1, collectionChanges.Count)
+            Assert.AreEqual(NotifyCollectionChangedAction.Move, collectionChanges(0).Action)
+            Assert.AreEqual(2, collectionChanges(0).OldStartingIndex)
+            Assert.AreEqual(0, collectionChanges(0).NewStartingIndex)
+            Assert.AreSame(third, collectionChanges(0).OldItems(0))
+            Assert.AreSame(third, collectionChanges(0).NewItems(0))
+            CollectionAssert.AreEqual(New String() {"Item[]"}, propertyChanges.ToArray())
         End Sub
 
         <TestMethod>
-        Public Sub AddRemoveAndResort_RaiseCollectionAndPropertyNotifications()
+        Public Sub AddRemoveAndClear_RaiseCollectionAndPropertyNotifications()
             Dim items As New TimeItemsBase(Of Guid, TimeItemBase)()
             Dim collectionChanges As New List(Of NotifyCollectionChangedEventArgs)()
             Dim propertyChanges As New List(Of String)()
@@ -103,16 +118,35 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Dim first = CreateItem(1, DayStart)
             Dim second = CreateItem(2, DayStart.AddHours(1))
             items.Add(first)
-            items.Add(second)
-            second.EventTime = DayStart.AddHours(-1)
-            items.Remove(first)
 
+            Assert.AreEqual(1, collectionChanges.Count)
             Assert.AreEqual(NotifyCollectionChangedAction.Add, collectionChanges(0).Action)
             Assert.AreEqual(0, collectionChanges(0).NewStartingIndex)
-            Assert.IsTrue(collectionChanges.Any(Function(e) e.Action = NotifyCollectionChangedAction.Remove))
-            Assert.IsTrue(collectionChanges.Any(Function(e) e.Action = NotifyCollectionChangedAction.Add AndAlso e.NewStartingIndex = 0))
-            Assert.IsTrue(propertyChanges.Contains("Count"))
-            Assert.IsTrue(propertyChanges.Contains("Item[]"))
+            Assert.AreSame(first, collectionChanges(0).NewItems(0))
+            CollectionAssert.AreEqual(New String() {"Count", "Item[]"}, propertyChanges.ToArray())
+
+            collectionChanges.Clear()
+            propertyChanges.Clear()
+            items.Add(second)
+            items.Remove(first)
+
+            Assert.AreEqual(2, collectionChanges.Count)
+            Assert.AreEqual(NotifyCollectionChangedAction.Add, collectionChanges(0).Action)
+            Assert.AreEqual(1, collectionChanges(0).NewStartingIndex)
+            Assert.AreEqual(NotifyCollectionChangedAction.Remove, collectionChanges(1).Action)
+            Assert.AreEqual(0, collectionChanges(1).OldStartingIndex)
+            Assert.AreSame(first, collectionChanges(1).OldItems(0))
+            CollectionAssert.AreEqual(
+                New String() {"Count", "Item[]", "Count", "Item[]"},
+                propertyChanges.ToArray())
+
+            collectionChanges.Clear()
+            propertyChanges.Clear()
+            items.Clear()
+
+            Assert.AreEqual(1, collectionChanges.Count)
+            Assert.AreEqual(NotifyCollectionChangedAction.Reset, collectionChanges(0).Action)
+            CollectionAssert.AreEqual(New String() {"Count", "Item[]"}, propertyChanges.ToArray())
         End Sub
 
         <TestMethod>
@@ -121,11 +155,17 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Dim first = items(0)
             Dim middle = items(1)
             Dim last = items(2)
+            Dim collectionChangeCount = 0
+            Dim propertyChanges As New List(Of String)()
+            AddHandler items.CollectionChanged, Sub(sender, e) collectionChangeCount += 1
+            AddHandler items.PropertyChanged, Sub(sender, e) propertyChanges.Add(e.PropertyName)
 
             middle.EventTime = DayStart.AddMinutes(30)
 
             AssertLinked(first, middle, TimeSpan.FromMinutes(30))
             AssertLinked(middle, last, TimeSpan.FromMinutes(90))
+            Assert.AreEqual(0, collectionChangeCount)
+            CollectionAssert.AreEqual(New String() {"Item[]"}, propertyChanges.ToArray())
         End Sub
 
         <TestMethod>
