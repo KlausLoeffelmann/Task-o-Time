@@ -157,25 +157,25 @@ Namespace ViewModels
                     Return String.Empty
                 End If
 
-                Return $"{ShortTitle} seit {StartedAt.Value:HH:mm} - {RecordingElapsedText}"
+                Return $"{ShortTitle} sinds {StartedAt.Value:HH:mm} - {RecordingElapsedText}"
             End Get
         End Property
 
         Public ReadOnly Property ActionHint As String
             Get
                 If IsDone Then
-                    Return "Diese Aufgabe ist abgeschlossen."
+                    Return "This task is complete."
                 End If
 
                 If NeedsMore Then
-                    Return "Die Aufgabe bleibt offen und braucht weitere Schritte."
+                    Return "De taak blijft open en heeft meer werk nodig."
                 End If
 
                 If IsStarted Then
-                    Return "Die Aufgabe läuft gerade."
+                    Return "The task is currently running."
                 End If
 
-                Return "Bereit zum Starten."
+                Return "Klaar om te starten."
             End Get
         End Property
 

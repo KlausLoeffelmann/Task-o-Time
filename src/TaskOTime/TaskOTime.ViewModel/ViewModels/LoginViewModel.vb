@@ -48,20 +48,20 @@ Namespace ViewModels
                     .UserIdentOrEmail = userName, .Password = password, .IdTenant = tenant
                 })
                 If result Is Nothing OrElse Not result.Success OrElse result.Value Is Nothing OrElse result.Value.User Is Nothing Then
-                    SetError(If(result Is Nothing, "Keine Antwort vom Anmeldedienst.", result.ErrorCode & ": " & result.ErrorMessage))
+                    SetError(If(result Is Nothing, "Geen antwoord van de aanmeldservice.", result.ErrorCode & ": " & GetDutchErrorMessage(result.ErrorCode)))
                     Return False
                 End If
                 If result.Value.MustChangePassword Then
                     _pendingUser = result.Value.User
                     OnPropertyChanged(NameOf(MustChangePassword))
-                    SetError("Bitte das vorläufige Kennwort durch ein neues ersetzen.")
+                    SetError("Vervang het tijdelijke wachtwoord door een nieuw wachtwoord.")
                     Return False
                 End If
                 _session = result.Value.User
                 OnPropertyChanged(NameOf(Session))
                 Return True
             Catch ex As Exception
-                SetError("Anmeldung fehlgeschlagen: " & ex.Message)
+                SetError("Aanmelden is mislukt: " & ex.Message)
                 Return False
             End Try
         End Function
@@ -78,14 +78,14 @@ Namespace ViewModels
             Try
                 Dim result = _authentication.ChangeTemporaryPassword(_pendingUser.IdTenant, _pendingUser.IdUser, temporaryPassword, newPassword)
                 If Not result.Success Then
-                    SetError(result.ErrorCode & ": " & result.ErrorMessage)
+                    SetError(result.ErrorCode & ": " & GetDutchErrorMessage(result.ErrorCode))
                     Return False
                 End If
                 Dim user = _pendingUser.UserIdent
                 Dim tenant = _pendingUser.IdTenant
                 Return Login(user, newPassword, tenant)
             Catch ex As Exception
-                SetError("Kennwortänderung fehlgeschlagen: " & ex.Message)
+                SetError("Het wijzigen van het wachtwoord is mislukt: " & ex.Message)
                 Return False
             End Try
         End Function
@@ -109,5 +109,26 @@ Namespace ViewModels
             _errorMessage = value
             OnPropertyChanged(NameOf(ErrorMessage))
         End Sub
+
+        Private Shared Function GetDutchErrorMessage(errorCode As String) As String
+            Select Case errorCode
+                Case "InvalidRequest"
+                    Return "Vul de vereiste aanmeldgegevens in."
+                Case "InvalidCredentials"
+                    Return "De gebruikersnaam of het wachtwoord is ongeldig."
+                Case "UserInactive"
+                    Return "Deze gebruiker is niet actief."
+                Case "UserLockedOut"
+                    Return "Deze gebruiker is tijdelijk geblokkeerd."
+                Case "TemporaryPasswordExpired"
+                    Return "Het tijdelijke wachtwoord is verlopen."
+                Case "UserNotFound"
+                    Return "De actieve gebruiker is niet gevonden."
+                Case "PasswordChangeNotRequired"
+                    Return "Voor deze gebruiker hoeft het tijdelijke wachtwoord niet te worden gewijzigd."
+                Case Else
+                    Return "De aanmeldservice heeft de aanvraag geweigerd (" & errorCode & ")."
+            End Select
+        End Function
     End Class
 End Namespace

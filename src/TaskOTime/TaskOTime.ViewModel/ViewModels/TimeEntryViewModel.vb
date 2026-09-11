@@ -103,15 +103,15 @@ Namespace ViewModels
             Get
                 Select Case MarkerKind
                     Case TimeEntryMarkerKind.WorkBreak
-                        Return "Arbeitsunterbrechung"
+                        Return "Pauze"
                     Case TimeEntryMarkerKind.StopMark
-                        Return "Stoppmarke"
+                        Return "Stop marker"
                     Case TimeEntryMarkerKind.DownTime
-                        Return "Ausfallzeit"
+                        Return "Downtime"
                     Case TimeEntryMarkerKind.Errand
-                        Return "Besorgung"
+                        Return "Boodschap"
                     Case Else
-                        Return "Zeitbuchung"
+                        Return "Time booking"
                 End Select
             End Get
         End Property

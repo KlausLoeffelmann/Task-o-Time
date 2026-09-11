@@ -283,7 +283,7 @@
                                   Command="{Binding PlacementTarget.Tag.StartTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
                         <MenuItem Header="{StaticResource CompleteTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.CompleteTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="Mehr zu tun"
+                        <MenuItem Header="More to do"
                                   Command="{Binding PlacementTarget.Tag.MoreToDoCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
                     </ContextMenu>
                 </Border.ContextMenu>
@@ -447,12 +447,12 @@
                         <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
-                                   Text="bis nächster" />
+                                   Text="until next" />
                         <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
                                    Margin="0,6,0,0"
-                                   Text="seit vorheriger" />
+                                   Text="sinds vorige" />
                         <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
@@ -488,7 +488,7 @@
                                Foreground="{StaticResource AccentBrush}"
                                FontWeight="SemiBold"
                                Margin="0,0,0,6"
-                               Text="Listen" />
+                               Text="Lists" />
                     <ListBox Grid.Row="3"
                              MaxHeight="170"
                              ItemTemplate="{StaticResource TaskListTemplate}"
@@ -503,7 +503,7 @@
                                    Text="{Binding SelectedListSummary}" />
                         <TextBlock Foreground="{StaticResource AccentBrush}"
                                    FontWeight="SemiBold"
-                                   Text="Aufgaben" />
+                                   Text="Taken" />
                     </DockPanel>
 
                     <CheckBox Grid.Row="5"
@@ -541,7 +541,7 @@
                           Command="{Binding ExportSelectedDayCommand}" />
                 <MenuItem Header="{StaticResource ExportPeriodMenuHeader}"
                           Command="{Binding ExportPeriodCommand}" />
-                <MenuItem Header="Abmelden" Click="OnLogoutClick" />
+                <MenuItem Header="Afmelden" Click="OnLogoutClick" />
                 <MenuItem Header="{StaticResource QuitMenuHeader}" Click="OnQuitMenuItemClick" />
             </MenuItem>
             <MenuItem Header="{StaticResource MasterDataMenuHeader}">
@@ -575,19 +575,19 @@
         <Border Grid.Row="1" Background="{StaticResource CommandBackgroundBrush}" Padding="8,3">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                <Button Command="{Binding TaskManagement.NewTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Neue Aufgabe">
+                <Button Command="{Binding TaskManagement.NewTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="New task">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.EditTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabe bearbeiten">
+                <Button Command="{Binding TaskManagement.EditTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Taak bewerken">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.NewTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Neue Aufgabenliste">
+                <Button Command="{Binding TaskManagement.NewTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Nieuwe takenlijst">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.EditTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabenliste bearbeiten">
+                <Button Command="{Binding TaskManagement.EditTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Edit task list">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.StartTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabe beginnen">
+                <Button Command="{Binding TaskManagement.StartTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Start task">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripCheckOutButton"
@@ -610,13 +610,13 @@
                     <TextBlock VerticalAlignment="Center"
                                Foreground="{StaticResource MenuForegroundBrush}"
                                Margin="0,0,4,0"
-                               Text="Dauer" />
+                               Text="Duur" />
                     <TextBox MinWidth="72"
                              Width="72"
                              Margin="0,0,4,0"
                              Text="{Binding ManualCompletionDurationText, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
-                <Button Command="{Binding TaskManagement.CompleteTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabe erledigt">
+                <Button Command="{Binding TaskManagement.CompleteTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Complete task">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripWorkBreakButton"
@@ -680,7 +680,7 @@
 
                     <TextBlock Grid.Row="0"
                                Style="{StaticResource SectionHeaderTextStyle}"
-                               Text="Datum" />
+                               Text="Date" />
 
                     <StackPanel Grid.Row="1"
                                 Margin="0,0,0,10"
@@ -905,19 +905,19 @@
             </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Soll: " />
+                    <TextBlock Text="Target: " />
                     <TextBlock Text="{Binding TargetTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Gebucht: " />
+                    <TextBlock Text="Geboekt: " />
                     <TextBlock Text="{Binding BookedTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Offen: " />
+                    <TextBlock Text="Open: " />
                     <TextBlock Text="{Binding RemainingTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
                 </StackPanel>
             </StatusBarItem>
