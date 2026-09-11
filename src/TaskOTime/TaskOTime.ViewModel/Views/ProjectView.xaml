@@ -4,22 +4,22 @@
  <Grid Margin="17,9,10,14">
   <Grid.ColumnDefinitions><ColumnDefinition Width="43*"/><ColumnDefinition Width="57*"/></Grid.ColumnDefinitions>
   <Grid.RowDefinitions><RowDefinition Height="45"/><RowDefinition Height="*"/><RowDefinition Height="42"/></Grid.RowDefinitions>
-  <Label x:Name="HeadingLabel" x:FieldModifier="public" Content="Projektstammdaten" FontSize="21" FontWeight="Bold" Foreground="Maroon"/>
+  <Label x:Name="HeadingLabel" x:FieldModifier="public" Content="Project Main Data" FontSize="21" FontWeight="Bold" Foreground="Maroon"/>
   <ListView x:Name="ProjectListView" x:FieldModifier="public" Grid.Row="1" Margin="0,0,19,0" DisplayMemberPath="ProjectName" Background="LavenderBlush"/>
   <StackPanel Grid.Row="1" Grid.Column="1">
-   <Label Content="Projektname" Foreground="DarkSlateGray"/>
+   <Label Content="Project name" Foreground="DarkSlateGray"/>
    <TextBox x:Name="ProjectNameTextBox" x:FieldModifier="public" Height="29" FontFamily="Consolas" FontSize="13"/>
-   <Label Content="Kennung" Margin="0,9,0,0"/>
+   <Label Content="Identifier" Margin="0,9,0,0"/>
    <TextBox x:Name="IdentifierTextBox" x:FieldModifier="public" Width="230" HorizontalAlignment="Left"/>
-   <Label Content="Beschreibung" Margin="0,13,0,0"/>
+   <Label Content="Description" Margin="0,13,0,0"/>
    <TextBox x:Name="DescriptionTextBox" x:FieldModifier="public" Height="110" AcceptsReturn="True" TextWrapping="Wrap" Background="AliceBlue"/>
-   <CheckBox x:Name="ActiveCheckBox" x:FieldModifier="public" Content="Projekt ist aktiv" Margin="2,17,0,0"/>
-   <TextBlock x:Name="AssignmentLabel" x:FieldModifier="public" Margin="0,20,0,0" Foreground="SteelBlue" Text="Keine Zuordnungen"/>
+   <CheckBox x:Name="ActiveCheckBox" x:FieldModifier="public" Content="Project is active" Margin="2,17,0,0"/>
+   <TextBlock x:Name="AssignmentLabel" x:FieldModifier="public" Margin="0,20,0,0" Foreground="SteelBlue" Text="No assignments"/>
   </StackPanel>
   <StackPanel Grid.Row="2" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
-   <Button x:Name="NewButton" x:FieldModifier="public" Content="Neu" Width="75" Margin="4"/>
-   <Button x:Name="SaveButton" x:FieldModifier="public" Content="Speichern" Width="105" Margin="4" Background="PaleGreen"/>
-   <Button x:Name="DeleteButton" x:FieldModifier="public" Content="Archivieren" Width="105" Margin="4" Foreground="Firebrick"/>
+   <Button x:Name="NewButton" x:FieldModifier="public" Content="New" Width="75" Margin="4"/>
+   <Button x:Name="SaveButton" x:FieldModifier="public" Content="Save" Width="105" Margin="4" Background="PaleGreen"/>
+   <Button x:Name="DeleteButton" x:FieldModifier="public" Content="Archive" Width="105" Margin="4" Foreground="Firebrick"/>
   </StackPanel>
  </Grid>
 </UserControl>
