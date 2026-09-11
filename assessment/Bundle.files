@@ -16,6 +16,7 @@ Modernization.Analyzers.Tests\Provenance.cs
 Modernization.Analyzers.Tests\RepositoryTests.cs
 Modernization.Analyzers.Tests\AssessmentModel.cs
 Modernization.Analyzers.Tests\OutcomeAnalyzer.cs
+Modernization.Analyzers.Tests\CommentLanguageAnalyzer.cs
 Modernization.Analyzers.Tests\LocalizationAnalysis.cs
 Modernization.Analyzers.Tests\ThemeAnalysis.cs
 Modernization.Analyzers.Tests\MigrationToolAnalysis.cs

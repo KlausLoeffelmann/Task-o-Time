@@ -16,7 +16,8 @@ public sealed class OutcomeTests
     {
         var analyzer = new OutcomeAnalyzer(corpus ?? [new("", compilation)], t => t.Name == "RenamedScreen",
             path => Path.GetFileName(path) == "Screen.xaml", contracts);
-        var found = await compilation.WithAnalyzers([analyzer], new AnalyzerOptions((files ?? []).ToImmutableArray())).GetAnalyzerDiagnosticsAsync();
+        var found = await compilation.WithAnalyzers([analyzer, new CommentLanguageAnalyzer()],
+            new AnalyzerOptions((files ?? []).ToImmutableArray())).GetAnalyzerDiagnosticsAsync();
         Assert.DoesNotContain(found, d => d.Id == "AD0001");
         return found;
     }
@@ -61,6 +62,16 @@ public sealed class OutcomeTests
         var prefix = language == LanguageNames.CSharp ? (prose.StartsWith('<') ? "/// " : "// ") :
             (prose.StartsWith('<') ? "''' " : "' ");
         var found = await Analyze(Compile(language, prefix + prose + "\n" + Plain(language)));
+        Assert.Equal(bad, found.Any(d => d.Id == "ENG001"));
+    }
+    [Theory]
+    [InlineData("This method returns the selected item and keeps the stored order for callers.", false)]
+    [InlineData("Deze methode geeft de geselecteerde waarde terug en wordt alleen voor de gebruiker gebruikt.", true)]
+    [InlineData("Diese Methode gibt den ausgewählten Wert zurück und wird nur für den Benutzer verwendet.", true)]
+    [InlineData("The selected waarde is stored for the next call.", false)]
+    public async Task Comment_language_uses_coverage_and_confidence(string prose, bool bad)
+    {
+        var found = await Analyze(Compile(LanguageNames.CSharp, "// " + prose + "\npublic class Plain {}"));
         Assert.Equal(bad, found.Any(d => d.Id == "ENG001"));
     }
     [Theory]
@@ -857,5 +868,66 @@ public sealed class OutcomeTests
             File("Renamed.de.resx", Resx(value: "Änderungen speichern")), File("Renamed.nl.resx", Resx(value: "Wijzigingen opslaan"))]);
         Assert.Equal(bad, found.Any(d => d.Id == "LOC001"));
         if (bad) Assert.Contains(found, d => d.Id == "LOC001" && d.GetMessage().Contains("neutral resource language conflicts"));
+    }
+
+    [Fact]
+    public async Task Repository_contract_requires_sdk_style_and_net10_independently()
+    {
+        var compilation = Compile(LanguageNames.CSharp, Plain(LanguageNames.CSharp));
+        AssessmentProject[] corpus = [new(@"C:\fixtures\App.csproj", compilation)];
+        InputFile Metadata(bool sdk, string framework) => File("App.csproj.assessment",
+            $"""<Project Path="C:\fixtures\App.csproj" Name="Fixture" SdkStyle="{sdk.ToString().ToLowerInvariant()}" TargetFramework="{framework}"/>""");
+        var healthy = await Analyze(compilation, [Metadata(true, "net10.0-windows")], corpus, contracts: true);
+        Assert.DoesNotContain(healthy, d => d.Id is "PRJ001" or "PRJ002");
+        var legacy = await Analyze(compilation, [Metadata(false, "net472")], corpus, contracts: true);
+        Assert.Contains(legacy, d => d.Id == "PRJ001");
+        Assert.Contains(legacy, d => d.Id == "PRJ002");
+    }
+
+    [Fact]
+    public async Task Strict_localization_policy_requires_extensions_usage_surfaces_and_options_culture()
+    {
+        var source = Localized(LanguageNames.CSharp) + """
+            namespace Microsoft.Extensions.Localization {
+              public interface IStringLocalizer { string this[string name] { get; } }
+            }
+            public class LoginExperience : System.Windows.Window {
+              public void Render(Microsoft.Extensions.Localization.IStringLocalizer l) { Title = l["Save"]; }
+            }
+            public class MainWindow : System.Windows.Window {
+              public void Render(Microsoft.Extensions.Localization.IStringLocalizer l) { Title = l["Save"]; }
+            }
+            public class TimeEntryEditDialog : System.Windows.Window {
+              public void Render(Microsoft.Extensions.Localization.IStringLocalizer l) { Title = l["Save"]; }
+            }
+            public class ProjectView : System.Windows.Window {
+              public void Render(Microsoft.Extensions.Localization.IStringLocalizer l) { Title = l["Save"]; }
+            }
+            public class OptionsDialog {
+              public string SelectedLanguage { get; set; }
+              public void Apply(System.Globalization.CultureInfo culture) {
+                System.Globalization.CultureInfo.CurrentUICulture = culture;
+              }
+            }
+            """;
+        var policy = File("Scenario.assessment", """
+            <ScenarioScope><Localization NeutralLanguage="en">
+              <RequiredLanguage>de</RequiredLanguage><RequiredLanguage>nl</RequiredLanguage><RequiredLanguage>es</RequiredLanguage>
+              <Surface Id="Login">Login</Surface><Surface Id="TimeCollection">MainWindow</Surface>
+              <Surface Id="Booking">TimeEntryEdit</Surface><Surface Id="ProjectMainData">ProjectView</Surface>
+              <OptionsSurface>Options</OptionsSurface>
+            </Localization></ScenarioScope>
+            """);
+        var options = File("OptionsDialog.xaml", """
+            <Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+              <ComboBox SelectedValue="{Binding SelectedLanguage}"/>
+            </Window>
+            """);
+        AdditionalText[] files = [policy, options,
+            File("Fixture.csproj.assessment", """<Project Name="Fixture"><Package Name="Microsoft.Extensions.Localization" Version="10.0.0"/></Project>"""),
+            File("Renamed.resx", Resx()), File("Renamed.de.resx", Resx(value: "Änderungen speichern")),
+            File("Renamed.nl.resx", Resx(value: "Wijzigingen opslaan")), File("Renamed.es.resx", Resx(value: "Guardar cambios"))];
+        var found = await Analyze(Compile(LanguageNames.CSharp, source), files);
+        Assert.DoesNotContain(found, d => d.Id == "LOC001");
     }
 }

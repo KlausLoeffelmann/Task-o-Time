@@ -79,10 +79,17 @@ not DLL basenames. Missing or ambiguous project identities fail closed. Metadata
 regressions compile an equivalent .NET 10 executable/library pair using the actual
 source-image replacement, without reading a stale reference DLL.
 
-The report is `Artifacts\Reports\roslyn-diagnostics.json` (or the configured
-artifact root), written before test assertions. It contains compilation validity,
+The reports are `Artifacts\Reports\roslyn-diagnostics.json` and
+`Artifacts\Reports\repository-assessment.csv` (or the configured artifact root),
+written before test assertions, including when the modernization gate fails.
+JSON contains compilation validity,
 sorted project/source/AdditionalFile paths, selected architecture types, all
-diagnostics and per-criterion integer metrics. There are no timestamps or elapsed
+diagnostics, per-criterion integer metrics, evaluation-valid/hard-gate/unverified
+status, rubric version, and normalized overall score. CSV rubric `2026-09-v2`
+uses bounded criterion scores rather than dividing by diagnostic counts:
+business 28, MVVM 18, localization 14, VB-to-C# 9, theme 9, comments 5,
+Main Data naming 5, migration tool 5, SDK-style 3.5, and .NET 10 target 3.5.
+It contains criterion evidence and an `OVERALL` row. There are no timestamps or elapsed
 times. Diagnostics are sorted by ID, path, line, column and message.
 `OutcomeAnalyzer` runs a compilation action over the supplied compilation corpus;
 cross-project locations are Roslyn external-file diagnostic locations, retaining
@@ -130,11 +137,12 @@ identities are deliberate compatibility contracts, not frontend method-name test
 
 ### English comments and retained documentation
 
-* **ENG001** inspects Roslyn C#/VB comment and XML-documentation **syntax trivia**,
-  not regex matches over string literals or entire source files. A deterministic
-  Dutch/German lexicon requires two distinct distinctive words, or a known
-  source-language n-gram. Sentence fragments, mixed English/source-language prose,
-  umlauts and common source-language phrasing have bilingual fixtures.
+* **ENG001** is emitted by a dedicated diagnostic analyzer over Roslyn C#/VB
+  comment and XML-documentation **syntax trivia**, not string literals or entire
+  source files. It estimates English, Dutch, and German from sets of common
+  article/function/content words and requires minimum vote count, token coverage,
+  and a confidence margin over English. Sentence fragments, mixed prose, and
+  representative English/Dutch/German comments have calibrated fixtures.
 * XML markup is removed **structurally**. Element names, attributes/`cref`,
   `<c>`, `<code>` and `<see>` content do not vote as prose. CamelCase,
   underscore/dotted identifiers, inline backtick code, and `TODO` alone do not
@@ -156,12 +164,14 @@ Unrecognized languages/phrasing and very short prose can evade the lexicon.
 the documentation threshold; documentation outside compiler source trivia (for
 example historical Markdown) is not a language verdict input.
 
-### Classic localization in a WPF application
+### Microsoft extensions localization in a WPF application
 
 * **LOC001** requires a classic `.resx` root/header/data schema, nonempty textual
   entries, a neutral resource and the language cultures required by the external
   `ScenarioScope.xml` localization policy, all with exact key parity. The supplied
-  scenario requires **neutral English plus both German (`de`) and Dutch (`nl`)**.
+  scenario requires **neutral English plus German (`de`), Dutch (`nl`), and
+  Spanish (`es`)**. Required culture files must not merely duplicate all neutral
+  text.
   Regional variants such as `de-DE` and `nl-BE` satisfy their language families;
   two German variants cannot substitute for Dutch. Resource filenames/classes
   are not prescribed. Duplicate keys/headers, absent required languages and key
@@ -176,13 +186,16 @@ example historical Markdown) is not a language verdict input.
   English is accepted). No new attribute is mandatory. Schema/culture coverage
   and a declared language are **not proof that neutral prose is English or that
   any translation is correct**; the translation-quality limitations below remain.
-* Actual `ResourceManager` construction, same-assembly input, symbol-resolved
+* The repository policy additionally requires an evaluated
+  `Microsoft.Extensions.Localization` dependency and a symbol-resolved
+  `IStringLocalizer` key lookup that reaches presentation output. Actual
+  `ResourceManager` construction, same-assembly input, symbol-resolved
   `GetString`, constant key/base-name alignment with evaluated manifest metadata,
   and a strongly typed static string accessor are examined, **including generated
   designer source**. Generated-source metadata/conventions or the standard
   `GeneratedCodeAttribute` identify the generated accessor role; this does not
   prove who generated it. Resource/toolkit/class/file names are not prescribed.
-* The accessor must flow into a known WPF text property, `MessageBox` string
+* The accessor/localizer must flow into a known WPF text property, `MessageBox` string
   argument, observable UI output, or structurally resolved XAML `x:Static`
   property use. The validated lookup must also contribute to the getter's
   **returned value**; discarded calls and unrelated local initializers do not
@@ -198,13 +211,25 @@ example historical Markdown) is not a language verdict input.
   generated-accessor exemption: a UI-consumed hardcoded getter return or literal
   fallback is diagnosed, including consumption through XAML `x:Static`.
 
-This is **WinForms/designer-style resource localization, not a requirement to use
-WinForms UI in WPF**. Merely moving strings into a XAML dictionary is insufficient.
-The checker establishes static UI consumption, not that a particular window is
-ever opened, a culture is selected at runtime, every possible dynamic string is
-translated, or a translation is good. Reflection, arbitrary custom markup
+The repository policy requires applied keys on Login Experience, Main
+time-collection UI, add/edit booking dialog, and Project Main Data dialog. The
+Options surface must contain a language-selection control bound to language or
+culture state and code that changes current/default culture behavior. Merely
+moving strings into a XAML dictionary is insufficient. The checker establishes
+static UI consumption, not that a particular window is ever opened or that every
+translation is linguistically correct. Reflection, arbitrary custom markup
 extensions, source generators and unmodeled external string producers are not
 proved. Source-generator-dependent inputs that cannot compile fail closed.
+
+### Project-system and framework migration
+
+**PRJ001/PRJ002** use evaluated MSBuild metadata supplied as AdditionalFiles.
+Each production project must be SDK-style and target `net10.0` (including
+platform-qualified forms such as `net10.0-windows`). These checks are independent:
+an SDK-style project on an older framework, or a legacy project claiming a newer
+target, still receives the corresponding diagnostic. The requested migration
+order is documented for delivery review; static final-source analysis proves the
+resulting states, not historical execution order.
 
 ### All production VB and preserved core / EF6
 

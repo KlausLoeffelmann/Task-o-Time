@@ -17,7 +17,7 @@ internal static class EvaluatorConfiguration
     internal static IEnumerable<string> DiscoveryRoots =>
         XDocument.Load(Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml")).Root!
             .Element("Discovery")!.Elements("Root")
-            .Select(e => Path.GetFullPath(e.Value, SourceRoot))
+            .Select(e => Path.GetFullPath(Path.Combine(SourceRoot, e.Value)))
             .Append(Environment.GetEnvironmentVariable("MIGRATION_TOOL_ROOT") ?? SourceRoot)
             .Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase);
     internal static readonly ScenarioSelection Selection = ScenarioSelection.Load(

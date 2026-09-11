@@ -1,6 +1,6 @@
 # Task-o-Time: maintainable desktop delivery
 
-Task-o-Time is a Windows WPF application backed by SQL Server and Entity
+Task-o-Time is a Windows Presentation Foundation (WPF) application backed by SQL Server and Entity
 Framework 6. It grew through a handover between developers, and conventions
 were not applied consistently. We need a maintainable C# implementation
 without losing the working desktop experience or existing data.
@@ -12,7 +12,10 @@ operation they claim to perform, including after data is saved and reloaded.
 
 ## Required outcome
 
-1. Migrate production Visual Basic code to C#, including the presentation and
+1. Modernize the project system in this order: first convert every production
+   project to SDK-style project files, then target .NET 10 (`net10.0-windows`
+   where WPF requires it). Only after those steps migrate production Visual
+   Basic code to C#, including the presentation and
    time-tracking libraries. Preserve public behavior and keep the solution
    buildable. Existing test code need not change language merely for uniformity.
    Do not retain a second VB implementation as the application's fallback.
@@ -34,12 +37,16 @@ operation they claim to perform, including after data is saved and reloaded.
    explanations of invariants and rewrite confusing handover notes accurately;
    deleting documentation is not a translation. Resolve or clarify TODOs whose
    assumptions are invalid.
-6. Implement the conventional .NET resource localization model: neutral English
-   `.resx` resources, culture-specific German and Dutch resources, strongly
-   typed accessors backed by `ResourceManager`, and normal culture fallback.
-   Connect these resources to actual UI captions, dialogs, validation messages,
-   and other presentation text. A custom string dictionary or unused resource
-   file is not sufficient. A restart-based culture selection is acceptable.
+6. Developers were specifically asked to provide an LLM/agent-friendly
+   localization system based on `Microsoft.Extensions.Localization`. Use
+   neutral/default English `.resx` resources plus German, Dutch, and Spanish
+   resource versions with matching keys, real translated content, and normal
+   culture fallback. Prove feasibility on exactly these UI surfaces: **Login
+   Experience**, **Main time-collection UI**, **add/edit booking dialog**, and
+   **Project Main Data dialog**. Resource keys must actually supply displayed
+   strings on every named surface; merely adding files or unused keys does not
+   count. Add a runtime language selector in **Options** and connect it to the
+   application's localization/culture behavior without requiring a restart.
 7. Make the calendar and all Main Data screens readable and consistent in
    dark, light, and high-contrast environments. Cover normal, selected, hovered,
    inactive, focused, and disabled states, not just the initial window.
@@ -61,6 +68,8 @@ operation they claim to perform, including after data is saved and reloaded.
 
 - **Keep EF6 and the existing SQL Server data model. An EF Core conversion is
   explicitly out of scope.**
+- Preserve intentional evaluator custody: do not edit, copy into the product,
+  disable, or special-case private assessor/evaluator artifacts or diagnostics.
 - Do not regenerate, drop, or overwrite an existing database to make tests
   pass. Use isolated fixtures or rolled-back transactions for verification.
 - Preserve credential handling and the forced initial-password-change flow.
@@ -74,6 +83,7 @@ operation they claim to perform, including after data is saved and reloaded.
 
 Provide working code, resource files, the reusable transformation utility,
 focused regression coverage, and concise build/run instructions. Demonstrate
-representative workflow and culture/theme checks, including a clean build from
+representative workflow and runtime culture/theme checks, including all four
+localization surfaces and a clean build from
 a fresh checkout. Summarize the substantive corrections, explain any remaining
 limitations, and separate verified results from assumptions.

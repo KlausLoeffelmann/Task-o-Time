@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Text;
 using System.Text.Json;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Diagnostics;
@@ -10,6 +11,11 @@ namespace Modernization.Analyzers.Tests;
 public sealed record ScanDiagnostic(string Id, string Severity, string Project, string Path, int Line, int Column, string Message);
 public sealed record ScanReport(bool CompilationValid, string[] Projects, ScanDiagnostic[] Diagnostics)
 {
+    public string RubricVersion { get; init; } = "2026-09-v2";
+    public bool EvaluationValid { get; init; }
+    public bool HardGatePassed { get; init; }
+    public int UnverifiedCount { get; init; }
+    public double OverallScore { get; init; }
     public string[] ArchitectureTypes { get; init; } = [];
     public string[] SourcePaths { get; init; } = [];
     public string[] AdditionalPaths { get; init; } = [];
@@ -26,6 +32,10 @@ public sealed class RepositoryTests
     {
         var report = await Scan.Value;
         Assert.True(report.CompilationValid, Evidence(report.Diagnostics.Where(d => d.Severity == "Error")));
+        Assert.Single(report.Diagnostics, d => d.Id == "BUS001");
+        Assert.Single(report.Diagnostics, d => d.Id == "BUS002");
+        Assert.InRange(report.OverallScore, 0, 1);
+        Assert.True(File.Exists(Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports", "repository-assessment.csv")));
     }
 
     [Fact]
@@ -96,7 +106,8 @@ public sealed class RepositoryTests
                 foreach (var project in corpus.Where(p => !p.IsTooling))
                 {
                     var found = await project.Compilation.WithAnalyzers(ImmutableArray.Create<DiagnosticAnalyzer>(
-                            new ModernizationAnalyzer(EvaluatorConfiguration.Selection.Includes)))
+                            new ModernizationAnalyzer(EvaluatorConfiguration.Selection.Includes),
+                            new CommentLanguageAnalyzer()))
                         .GetAnalyzerDiagnosticsAsync();
                     diagnostics.AddRange(found.Select(d => Convert(root, project.Name, d)));
                 }
@@ -142,10 +153,61 @@ public sealed class RepositoryTests
     {
         var output = Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports");
         Directory.CreateDirectory(output);
+        var rows = Rubric(report.Diagnostics);
+        report = report with
+        {
+            EvaluationValid = report.CompilationValid && !report.Diagnostics.Any(d => d.Id is "ASM001" or "AD0001" or "LOAD001"),
+            HardGatePassed = report.CompilationValid && report.Diagnostics.Length == 0,
+            UnverifiedCount = Math.Max(report.Diagnostics.Count(d => d.Id == "THM002"),
+                report.Metrics.Values.Sum(m => m.Unverified)),
+            OverallScore = rows.Sum(r => r.Weight * r.Score) / 100d
+        };
         await File.WriteAllTextAsync(Path.Combine(output, "roslyn-diagnostics.json"),
             JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine);
+        var csv = new StringBuilder("rubric_version,criterion_id,criterion_name,weight,score,weighted_contribution,status,evidence\r\n");
+        foreach (var row in rows)
+            csv.AppendLine(string.Join(",", new[] { report.RubricVersion, row.Id, row.Name,
+                row.Weight.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
+                row.Score.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture),
+                (row.Weight * row.Score / 100d).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
+                row.Score == 1 ? "PASS" : row.Score == 0 ? "FAIL" : "PARTIAL", row.Evidence }.Select(Csv)));
+        csv.AppendLine(string.Join(",", new[] { report.RubricVersion, "OVERALL", "Normalized overall score", "100.0",
+            report.OverallScore.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture),
+            report.OverallScore.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
+            report.HardGatePassed ? "PASS" : "FAIL",
+            $"evaluation-valid={report.EvaluationValid}; hard-gate={report.HardGatePassed}; unverified={report.UnverifiedCount}" }.Select(Csv)));
+        await File.WriteAllTextAsync(Path.Combine(output, "repository-assessment.csv"), csv.ToString());
         return report;
     }
+
+    private sealed record RubricRow(string Id, string Name, double Weight, double Score, string Evidence);
+    private static RubricRow[] Rubric(ScanDiagnostic[] diagnostics)
+    {
+        int Count(params string[] ids) => diagnostics.Count(d => ids.Contains(d.Id, StringComparer.Ordinal));
+        double Clear(params string[] ids) => Count(ids) == 0 ? 1d : 0d;
+        string EvidenceFor(params string[] ids)
+        {
+            var counts = ids.Select(id => id + "=" + diagnostics.Count(d => d.Id == id));
+            return string.Join("; ", counts);
+        }
+        return
+        [
+            new("BUS", "Business correctness", 28, (Clear("BUS001") + Clear("BUS002")) / 2, EvidenceFor("BUS001", "BUS002")),
+            new("MVVM", "WPF MVVM architecture", 18, Clear("MOD001", "MOD002", "MOD003", "MOD004", "MOD005", "MOD006", "COR001"),
+                EvidenceFor("MOD001", "MOD002", "MOD003", "MOD004", "MOD005", "MOD006", "COR001")),
+            new("LOC", "Microsoft.Extensions.Localization and required UI", 14, Clear("LOC001", "LOC002"), EvidenceFor("LOC001", "LOC002")),
+            new("LNG", "Production VB to C#", 9, Clear("LNG001"), EvidenceFor("LNG001")),
+            new("THM", "Theme coverage", 9, Clear("THM001", "THM002"), EvidenceFor("THM001", "THM002")),
+            new("ENG", "English comments and documentation", 5,
+                Clear("ENG001") * .7 + Clear("ENG002") * .3, EvidenceFor("ENG001", "ENG002")),
+            new("NAM", "Main Data naming", 5, Clear("NAM001"), EvidenceFor("NAM001")),
+            new("TOOL", "Reusable migration tool", 5, Clear("TOOL001"), EvidenceFor("TOOL001")),
+            new("SDK", "SDK-style projects", 3.5, Clear("PRJ001"), EvidenceFor("PRJ001")),
+            new("NET10", ".NET 10 target", 3.5, Clear("PRJ002"), EvidenceFor("PRJ002"))
+        ];
+    }
+
+    private static string Csv(string value) => "\"" + value.Replace("\"", "\"\"") + "\"";
 
     internal static ScanDiagnostic Convert(string root, string project, Diagnostic diagnostic)
     {

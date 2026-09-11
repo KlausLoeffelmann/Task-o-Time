@@ -11,6 +11,12 @@
   <Localization NeutralLanguage="en">
     <RequiredLanguage>de</RequiredLanguage>
     <RequiredLanguage>nl</RequiredLanguage>
+    <RequiredLanguage>es</RequiredLanguage>
+    <Surface Id="Login">Login</Surface>
+    <Surface Id="TimeCollection">MainWindow</Surface>
+    <Surface Id="Booking">TimeEntryEdit</Surface>
+    <Surface Id="ProjectMainData">ProjectView</Surface>
+    <OptionsSurface>Options</OptionsSurface>
   </Localization>
   <EF6 Context="TaskOTime.DataLayer.TaskOTimeContext" PackageVersion="6.5.1">
     <Entity>TaskOTime.DTOs.Category</Entity>

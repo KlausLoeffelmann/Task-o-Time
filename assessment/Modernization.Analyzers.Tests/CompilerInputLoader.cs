@@ -53,7 +53,7 @@ internal sealed class CompilerInputLoader(string intermediateRoot)
             "-property:ProvideCommandLineArgs=true",
             "-property:CustomAfterMicrosoftCommonTargets=" + Path.Combine(AppContext.BaseDirectory, "CompilerInputs.targets"),
             "-getItem:CscCommandLineArgs,VbcCommandLineArgs,ProjectReference,Compile,Page,ApplicationDefinition,EmbeddedResource,ReferencePath,ReferencePathWithRefAssemblies,PackageReference,None,Content",
-            "-getProperty:TargetPath,TargetRefPath,AssemblyName,IsTestProject,TargetFramework,RootNamespace"
+            "-getProperty:TargetPath,TargetRefPath,AssemblyName,IsTestProject,TargetFramework,RootNamespace,UsingMicrosoftNETSdk"
         }) start.ArgumentList.Add(argument);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Cannot start dotnet MSBuild.");
         var outputTask = process.StandardOutput.ReadToEndAsync();
@@ -148,6 +148,10 @@ internal sealed class CompilerInputLoader(string intermediateRoot)
         }
         var metadata = new XElement("Project", new XAttribute("Path", projectPath), new XAttribute("Name", name),
             new XAttribute("Test", test), new XAttribute("Tooling", tooling),
+            new XAttribute("SdkStyle", properties.TryGetProperty("UsingMicrosoftNETSdk", out var sdk) &&
+                sdk.GetString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true),
+            new XAttribute("TargetFramework", properties.TryGetProperty("TargetFramework", out var framework)
+                ? framework.GetString() ?? "" : ""),
             items.GetProperty("ReferencePath").EnumerateArray().Select(a =>
                 new XElement("Reference", new XAttribute("Name", Path.GetFileNameWithoutExtension(a.GetProperty("Identity").GetString()!)))),
             items.GetProperty("PackageReference").EnumerateArray().Select(a =>

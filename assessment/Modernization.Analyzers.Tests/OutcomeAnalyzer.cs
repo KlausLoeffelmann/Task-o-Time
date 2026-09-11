@@ -22,12 +22,15 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
     internal static readonly DiagnosticDescriptor ThemeCoverage = Rule("THM002", "Theme coverage unverified", "{0}");
     internal static readonly DiagnosticDescriptor Naming = Rule("NAM001", "Obsolete presentation terminology", "Presentation/application terminology still uses Master Data: {0}");
     internal static readonly DiagnosticDescriptor Tool = Rule("TOOL001", "Reusable migration tool evidence incomplete", "{0}");
+    internal static readonly DiagnosticDescriptor SdkProject = Rule("PRJ001", "SDK-style project migration incomplete", "{0}");
+    internal static readonly DiagnosticDescriptor Net10 = Rule("PRJ002", ".NET 10 migration incomplete", "{0}");
     internal static readonly DiagnosticDescriptor EF = Rule("EF001", "EF6 compatibility boundary", "{0}");
     internal static readonly DiagnosticDescriptor Core = Rule("COR001", "Protected architecture regression", "{0}");
     internal static readonly DiagnosticDescriptor Inputs = new("ASM001", "Invalid assessment input", "{0}",
         "AssessmentInput", DiagnosticSeverity.Error, true);
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        [English, Documentation, Localization, Literal, ProductionVB, Scope, Theme, ThemeCoverage, Naming, Tool, EF, Core, Inputs];
+        [English, Documentation, Localization, Literal, ProductionVB, Scope, Theme, ThemeCoverage, Naming, Tool,
+            SdkProject, Net10, EF, Core, Inputs];
 
     private readonly IReadOnlyList<AssessmentProject>? corpus;
     private readonly Func<INamedTypeSymbol, bool> selection;
@@ -58,7 +61,7 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
             var projects = corpus ?? [new AssessmentProject("", c.Compilation)];
             var recorder = new Recorder(c.ReportDiagnostic, Metrics);
             foreach (var name in new[] { "English", "Documentation", "Localization", "Language", "Scope",
-                "Theme", "Naming", "MigrationTool", "EF6", "ProtectedCore", "Input" }) recorder.Measure(name, 0, 0);
+                "Theme", "Naming", "MigrationTool", "SdkStyle", "Net10", "EF6", "ProtectedCore", "Input" }) recorder.Measure(name, 0, 0);
             var production = projects.Where(p => !p.Test && !p.Tooling).ToArray();
             if (production.Length == 0 || production.All(p => !Evidence.Members(p.Compilation).Any(s => Evidence.Source(s, p))))
                 recorder.Report("Input", Inputs, Location.None, "The production source corpus is empty.");
@@ -87,10 +90,10 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
                     if (type.Language == LanguageNames.VisualBasic)
                         recorder.Report("Language", ProductionVB, Evidence.At(type), type.ToDisplayString());
                 }
-                AnalyzeProse(p, recorder);
                 AnalyzeNames(p, recorder);
             }
             AnalyzeContracts(production, xml, recorder);
+            if (contracts) AnalyzeProjects(production, xml, recorder);
             new LocalizationAnalysis(production, xml, recorder).Run();
             new ThemeAnalysis(production, xml.Where(x => Path.GetExtension(x.File.Path) == ".xaml").ToArray(),
                 selection, sourceSelection, recorder, contracts).Run();
@@ -99,28 +102,25 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
         });
     }
 
-    private static void AnalyzeProse(AssessmentProject p, Recorder r)
+    private static void AnalyzeProjects(AssessmentProject[] projects,
+        List<(AdditionalText File, XDocument Document)> xml, Recorder r)
     {
-        foreach (var tree in p.Compilation.SyntaxTrees.Where(t => !Evidence.Generated(t, p)))
-        foreach (var trivia in tree.GetRoot().DescendantTrivia())
+        var metadata = xml.Where(x => Path.GetExtension(x.File.Path) == ".assessment" &&
+            x.Document.Root?.Name.LocalName == "Project").ToArray();
+        foreach (var project in projects)
         {
-            var doc = tree.Options.Language == LanguageNames.CSharp
-                ? trivia.IsKind(CS.SyntaxKind.SingleLineDocumentationCommentTrivia) || trivia.IsKind(CS.SyntaxKind.MultiLineDocumentationCommentTrivia)
-                : trivia.IsKind(VB.SyntaxKind.DocumentationCommentTrivia);
-            var comment = tree.Options.Language == LanguageNames.CSharp
-                ? trivia.IsKind(CS.SyntaxKind.SingleLineCommentTrivia) || trivia.IsKind(CS.SyntaxKind.MultiLineCommentTrivia)
-                : trivia.IsKind(VB.SyntaxKind.CommentTrivia);
-            if (!doc && !comment) continue;
-            var prose = trivia.ToFullString();
-            if (doc)
-            {
-                prose = Regex.Replace(prose, @"(?m)^\s*(///|'''|\* ?)", "");
-                prose = prose.Replace("/**", "").Replace("*/", "");
-                prose = ProseDetector.XmlText("<root>" + prose + "</root>");
-            }
-            var evidence = ProseDetector.Detect(prose);
-            r.Measure("English", 1, evidence == null ? 1 : 0);
-            if (evidence != null) r.Report("English", English, trivia.GetLocation(), evidence);
+            var entry = metadata.FirstOrDefault(x =>
+                string.Equals(x.Document.Root?.Attribute("Path")?.Value, project.Path, StringComparison.OrdinalIgnoreCase));
+            var sdk = entry.Document?.Root?.Attribute("SdkStyle")?.Value.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
+            var framework = entry.Document?.Root?.Attribute("TargetFramework")?.Value ?? "";
+            r.Measure("SdkStyle", 1, sdk ? 1 : 0);
+            r.Measure("Net10", 1, framework.StartsWith("net10.0", StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+            if (!sdk)
+                r.Report("SdkStyle", SdkProject, entry.File == null ? Location.None : Evidence.At(entry.File),
+                    Path.GetFileName(project.Path) + " is not evaluated as an SDK-style project.");
+            if (!framework.StartsWith("net10.0", StringComparison.OrdinalIgnoreCase))
+                r.Report("Net10", Net10, entry.File == null ? Location.None : Evidence.At(entry.File),
+                    Path.GetFileName(project.Path) + " targets '" + framework + "' instead of .NET 10.");
         }
     }
 
@@ -333,25 +333,18 @@ internal sealed class Recorder(Action<Diagnostic> report, SortedDictionary<strin
 
 internal static class ProseDetector
 {
-    private static readonly string[] Phrases = ["de volgende", "het geselecteerde", "de geselecteerde", "wordt gebruikt",
-        "geeft de", "voor de", "van de", "een nieuwe", "niet beschikbaar", "de verzameling", "de tijd",
-        "gibt den", "gibt die", "wird verwendet", "für die", "für den", "der ausgewählte", "die ausgewählte",
-        "nicht verfügbar", "die sammlung", "das kennwort", "des benutzers", "zum nächsten", "naar het",
-        "een tijdregel", "de regel", "wordt alleen", "worden niet", "de opslag", "de melding", "dit contract",
-        "een ontbrekende", "de collectie", "de aanroeper", "de taakstatus", "de tijdgrens", "de lokale",
-        "de zichtbare", "de oorspronkelijke", "de afhankelijkheden", "wanneer de", "alleen wanneer", "de waarde",
-        "de aanmeldservice", "die optionen", "dann weiss", "die zahl", "an einer", "die liste", "in die",
-        "beim speichern", "nach dem", "damit die", "wenn die", "der getter", "die felder", "die tagesauswahl",
-        "damit nicht", "weil hier", "noch kein", "auch wenn", "brauchen wir", "die anzeige"];
-    private static readonly HashSet<string> Words = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "bijwerken", "bijgewerkt", "verzameling", "tijdstip", "tijdsduur", "gebruiker", "gebruikers", "geselecteerde",
-        "retourneert", "opgeslagen", "aanmelden", "wachtwoord", "volgende", "vorige", "tijdregistratie",
-        "berekent", "verwijdert", "voegt", "wijzigingen", "volgorde", "bijbehorende", "vastgelegd", "opnieuw",
-        "zurück", "aktualisiert", "ausgewählten", "ausgewählte", "benutzer", "kennwort", "anmeldung",
-        "zeitpunkt", "zeitspanne", "sammlung", "berechnet", "entfernt", "hinzugefügt", "gespeichert",
-        "änderungen", "nächsten", "vorherigen", "reihenfolge", "verknüpfungen", "verknüpft", "überprüft"
-    };
+    private static readonly HashSet<string> English = new(StringComparer.OrdinalIgnoreCase)
+        { "the", "and", "or", "to", "of", "for", "with", "when", "only", "this", "that", "is", "are", "from",
+          "returns", "uses", "keeps", "value", "selected", "stored", "without", "before", "after", "not" };
+    private static readonly HashSet<string> Dutch = new(StringComparer.OrdinalIgnoreCase)
+        { "de", "het", "een", "en", "of", "voor", "van", "met", "wanneer", "alleen", "wordt", "worden", "dit",
+          "dat", "naar", "niet", "gebruikt", "geeft", "blijft", "waarde", "geselecteerde", "opgeslagen",
+          "volgende", "vorige", "gebruiker", "verzameling", "tijdregistratie", "bijwerken", "berekent" };
+    private static readonly HashSet<string> German = new(StringComparer.OrdinalIgnoreCase)
+        { "der", "die", "das", "den", "dem", "des", "ein", "eine", "und", "oder", "für", "von", "mit", "wenn",
+          "nur", "wird", "werden", "dies", "damit", "nicht", "gibt", "bleibt", "wert", "ausgewählte",
+          "gespeicherte", "zurück", "benutzer", "sammlung", "zeitspanne", "beim", "nach", "auch", "weil",
+          "noch", "kein" };
     internal static string? Detect(string prose)
     {
         // CamelCase identifiers, cref attributes and code elements do not provide prose votes.
@@ -359,11 +352,18 @@ internal static class ProseDetector
         var words = Regex.Matches(prose, @"[\p{L}_][\p{L}\p{N}_.]*").Select(m => m.Value.TrimEnd('.'))
             .Where(w => !w.Contains('_') && !w.Contains('.') && !Regex.IsMatch(w, @"\p{Ll}\p{Lu}"))
             .Select(w => w.ToLowerInvariant()).ToArray();
-        var text = " " + string.Join(" ", words) + " ";
-        var phrase = Phrases.FirstOrDefault(p => text.Contains(" " + p + " ", StringComparison.Ordinal));
-        if (phrase != null) return phrase;
-        var hits = words.Where(Words.Contains).Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray();
-        return hits.Length >= 2 ? string.Join(", ", hits) : null;
+        if (words.Length < 3) return null;
+        var english = words.Count(English.Contains);
+        var dutch = words.Count(Dutch.Contains);
+        var german = words.Count(German.Contains);
+        var foreign = Math.Max(dutch, german);
+        var coverage = (double)foreign / words.Length;
+        var confidence = foreign == 0 ? 0 : (double)(foreign - english) / foreign;
+        if (foreign < 2 || coverage < 0.18 || confidence < 0.34) return null;
+        var language = dutch >= german ? "Dutch" : "German";
+        var lexicon = dutch >= german ? Dutch : German;
+        var hits = words.Where(lexicon.Contains).Distinct(StringComparer.Ordinal).Take(6);
+        return $"{language} confidence {confidence:0.00}, coverage {coverage:0.00}: {string.Join(", ", hits)}";
     }
     internal static string XmlText(string xml)
     {

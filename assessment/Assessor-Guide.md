@@ -32,11 +32,13 @@ from a branch, not objects from other branches, remote caches, or local reflogs.
 | Architecture | Remove concrete-view/control coupling from presentation logic; retain proper observability and commands. |
 | Language | Migrate all production VB, including time-tracking libraries, to C#. Test language is not a gate. |
 | Comments | English prose and accurate XML documentation, without deleting essential explanations. |
-| Localization | Traditional .resx/ResourceManager, strongly typed accessors, actual presentation consumption, and culture resources with matching keys. |
+| Project migration | Every production project is SDK-style first, then targets .NET 10; order and final evaluated project state both matter. |
+| Localization | `Microsoft.Extensions.Localization` dependency and meaningful lookup/application; neutral English plus German, Dutch, and Spanish `.resx` versions with matching keys and non-duplicated translated content. |
+| Localization surfaces | Applied localized keys on exactly Login Experience, Main time-collection UI, add/edit booking dialog, and Project Main Data dialog; runtime Options language selection changes culture/localization behavior. |
 | Theme | Calendar state coverage and Main Data foreground/background coherence through reusable theme-aware resources. |
 | Naming | Main Data in application/presentation naming; persisted schema compatibility remains stable. |
 | Reuse | A runnable compiler-aware conversion utility with representative conversion fixtures and explicit unsupported-input reporting. |
-| Persistence | Keep EF6 and SQL Server. EF Core is prohibited for this exercise. |
+| Persistence | Keep EF6 and SQL Server. EF Core remains explicitly out of scope and is prohibited for this exercise. |
 
 The original source boundary protects the recording core from the intentionally
 bad master-data architecture checks. That protection does **not** exempt it
@@ -60,7 +62,8 @@ Static evidence has deliberate limits:
   translation. Do not describe lexical evidence as natural-language
   understanding.
 - Resource declarations alone do not establish localization; require real
-  accessor/ResourceManager consumption. Structural parity cannot certify a
+  `Microsoft.Extensions.Localization` lookup and presentation consumption on
+  all four named surfaces. Structural parity cannot certify a
   human-quality translation.
 - Theme resource/state and resolvable color checks cannot prove every rendered
   pixel or custom control is accessible. Retain separately reported visual
@@ -83,25 +86,30 @@ The candidate application tip before adding the oracle is
 `137c2c35692f8a8ee87c6dba3770aad47c64e5d8`. The two character-comment commits
 are `e670362` (Dutch) and `137c2c3` (junior). Their changes are comment-only.
 
-The portable assessment passed **227 analyzer fixture cases and one complete
+The portable assessment passed **233 analyzer fixture cases and one complete
 repository scan**. Its separate modernization gate failed as expected on valid
 compilations, and repeated scans produced identical JSON.
 
 | Diagnostic family | Baseline findings |
 | --- | --- |
 | Project attribution / elapsed duration (`BUS001`, `BUS002`) | 1 / 1 |
-| Comment-language evidence / documentation coverage (`ENG001`, `ENG002`) | 42 / 3 |
+| Comment-language evidence / documentation coverage (`ENG001`, `ENG002`) | 58 / 3 |
 | Production VB (`LNG001`) | 42 |
-| Resource infrastructure / literal UI strings (`LOC001`, `LOC002`) | 3 / 271 |
+| Resource infrastructure / literal UI strings (`LOC001`, `LOC002`) | 10 / 279 |
+| SDK-style / .NET 10 projects (`PRJ001`, `PRJ002`) | 3 / 7 |
 | Main Data terminology (`NAM001`) | 49 |
 | Theme defects / unverified theme coverage (`THM001`, `THM002`) | 3 / 46 |
 | Missing reusable migration pipeline (`TOOL001`) | 1 |
 
 Architecture diagnostics remain in the `MOD` family. Input validity, source
 scope, preserved core, and EF6 compatibility checks have no baseline failures.
-Counts are diagnostic occurrences, not independent business defects or a
-weighted score. In particular, a criterion that already passes must still pass
-after modernization.
+Counts are diagnostic occurrences, not independent business defects. The CSV
+assessment uses bounded criterion scores and rubric version `2026-09-v2`:
+business 28, MVVM 18, localization 14, VB-to-C# 9, theme 9, comments 5,
+Main Data naming 5, migration tool 5, SDK-style 3.5, and .NET 10 target 3.5.
+The weights total 100 and the OVERALL score is normalized to 0..1. Evaluation
+validity, hard-gate status, and unverified evidence remain separate from score.
+The CSV must be produced even when the baseline modernization gate fails.
 
 From the golden repository root:
 
@@ -117,14 +125,10 @@ For a candidate-only checkout, run the same project from an external assessor
 directory with `TASKOTIME_SOURCE_ROOT` set to the candidate's `src\TaskOTime`.
 Do not add the oracle to the candidate application solution merely to run it.
 
-## Traditional localization references
+## Localization references
 
-The requested infrastructure is the long-standing .NET resource pipeline,
-not a new WPF-only localization library:
+The requested infrastructure is the Microsoft extensions localization pipeline
+using conventional `.resx` resources; it is not a custom WPF string dictionary:
 
 - [Creating .NET resource files](https://learn.microsoft.com/en-us/dotnet/core/extensions/create-resource-files)
-- [StronglyTypedResourceBuilder](https://learn.microsoft.com/en-us/dotnet/api/system.resources.tools.stronglytypedresourcebuilder)
-
-The latter remains exposed by the Windows Forms designer assemblies. A WPF
-application can consume conventional strongly typed resources without
-acquiring a WinForms UI dependency.
+- [Microsoft.Extensions.Localization](https://learn.microsoft.com/en-us/dotnet/core/extensions/localization)
