@@ -30,7 +30,7 @@ namespace TaskOTime.App
                 string.Equals(mode, "LocalDemo", StringComparison.OrdinalIgnoreCase))
             {
                 factory = TaskOTimeContextFactory.Create;
-                description = "Lokale SQL-Demo – LocalDB-Datenbank TaskOTime. Änderungen werden dauerhaft in der Datenbank gespeichert.";
+                description = "Lokale SQL-demo – LocalDB-database TaskOTime. Wijzigingen worden permanent in de database opgeslagen.";
             }
             else if (string.Equals(mode, "Production", StringComparison.OrdinalIgnoreCase))
             {
@@ -39,7 +39,7 @@ namespace TaskOTime.App
                     throw new InvalidOperationException("Production benötigt TASKOTIME_CONNECTION_STRING für eine eingerichtete Task-o-Time-Datenbank.");
                 var entityConnection = ResolveProductionConnection(connection);
                 factory = () => TaskOTimeContextFactory.Create(entityConnection);
-                description = "Produktionsdienste – konfigurierte SQL-Server-Datenbank. Änderungen werden dauerhaft in der Datenbank gespeichert.";
+                description = "Productiediensten – geconfigureerde SQL Server-database. Wijzigingen worden permanent in de database opgeslagen.";
             }
             else
             {

@@ -154,20 +154,20 @@ Namespace ViewModels
 
         Public ReadOnly Property TaskPanelTitle As String
             Get
-                Return "Aufgaben"
+                Return "Taken"
             End Get
         End Property
 
         Public ReadOnly Property TaskPanelSummary As String
             Get
-                Return "Listen oben, Aufgaben unten – vorbereitet für spätere AppServer-Daten."
+                Return "Lists above, taken below – ready for later AppServer data."
             End Get
         End Property
 
         Public ReadOnly Property SelectedListSummary As String
             Get
                 If SelectedTaskList Is Nothing Then
-                    Return "Keine Aufgabenliste ausgewählt."
+                    Return "Geen takenlijst geselecteerd."
                 End If
 
                 Return SelectedTaskList.ProgressSummary
@@ -177,7 +177,7 @@ Namespace ViewModels
         Public ReadOnly Property SelectedTaskSummary As String
             Get
                 If SelectedTaskItem Is Nothing Then
-                    Return "Keine Aufgabe ausgewählt."
+                    Return "No task selected."
                 End If
 
                 Return SelectedTaskItem.ActionHint

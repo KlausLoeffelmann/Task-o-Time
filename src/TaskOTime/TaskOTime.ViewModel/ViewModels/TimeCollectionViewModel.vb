@@ -194,19 +194,19 @@ Namespace ViewModels
 
         Public ReadOnly Property Heading As String
             Get
-                Return "Zeiterfassung"
+                Return "Time collection"
             End Get
         End Property
 
         Public ReadOnly Property DaySummary As String
             Get
                 If SelectedDayEntries.Count = 0 Then
-                    Return "Für diesen Tag sind noch keine Zeiten erfasst."
+                    Return "Voor deze dag zijn nog geen tijden geregistreerd."
                 End If
 
                 Return String.Format(
                     Globalization.CultureInfo.CurrentCulture,
-                    "{0} Einträge · {1} gebucht · {2} Pause · {3} offen",
+                    "{0} entries · {1} booked · {2} pauze · {3} open",
                     SelectedDayEntries.Count,
                     TimeEntryViewModel.FormatDuration(BookedTime),
                     TimeEntryViewModel.FormatDuration(WorkBreakTime),

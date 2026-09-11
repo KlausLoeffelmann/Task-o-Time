@@ -55,7 +55,7 @@ Namespace ViewModels
 
         Public ReadOnly Property ProgressSummary As String
             Get
-                Return $"{OpenTaskCount} offen · {DoneTaskCount} erledigt"
+                Return $"{OpenTaskCount} open · {DoneTaskCount} completed"
             End Get
         End Property
 
