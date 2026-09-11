@@ -1,0 +1,220 @@
+using System.Diagnostics;
+using System.Text;
+using System.Text.Json;
+using System.Xml.Linq;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.Text;
+using Microsoft.CodeAnalysis.VisualBasic;
+
+namespace Modernization.Analyzers.Tests;
+
+internal sealed record LoadedProject(string Path, string Name, string OutputPath, Compilation Compilation,
+    bool IsTest, bool IsTooling, string[] GeneratedPaths, AdditionalText[] AdditionalFiles, string? TargetRefPath = null);
+internal sealed record EvaluatedAssemblyReference(string[] AssemblyPaths, string[] SourceProjects);
+internal sealed class SourceCompilationException(string project, IEnumerable<Diagnostic> diagnostics)
+    : Exception("Source compilation failed for " + project)
+{
+    internal string Project { get; } = project;
+    internal Diagnostic[] Diagnostics { get; } = diagnostics.ToArray();
+}
+
+// MSBuild supplies the exact compiler arguments, including WPF-generated VB and framework references.
+// Project references are replaced by source compilations; stale frontend DLLs cannot decide the verdict.
+internal sealed class CompilerInputLoader(string intermediateRoot)
+{
+    internal List<LoadedProject> Projects { get; } = [];
+    private readonly HashSet<string> loading = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, byte[]> metadataImages = new(StringComparer.OrdinalIgnoreCase);
+
+    internal async Task<LoadedProject> Load(string projectPath)
+    {
+        projectPath = Path.GetFullPath(projectPath);
+        var cached = Projects.FirstOrDefault(p => string.Equals(p.Path, projectPath, StringComparison.OrdinalIgnoreCase));
+        if (cached is not null) return cached;
+        if (!loading.Add(projectPath)) throw new InvalidOperationException("Cyclic project reference: " + projectPath);
+        var directory = Path.GetDirectoryName(projectPath)!;
+        var intermediate = Path.Combine(intermediateRoot, Path.GetFileNameWithoutExtension(projectPath));
+        Directory.CreateDirectory(intermediate);
+        var start = new ProcessStartInfo("dotnet")
+        {
+            WorkingDirectory = directory,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false
+        };
+        start.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+        foreach (var argument in new[]
+        {
+            "msbuild", projectPath, "-target:PrepareResourceNames;Compile", "-verbosity:quiet", "-nologo", "-nodeReuse:false",
+            "-property:Configuration=Debug", "-property:BuildProjectReferences=false",
+            "-property:IntermediateOutputPath=" + intermediate + Path.DirectorySeparatorChar,
+            "-property:DesignTimeBuild=true", "-property:SkipCompilerExecution=true",
+            "-property:ProvideCommandLineArgs=true",
+            "-property:CustomAfterMicrosoftCommonTargets=" + Path.Combine(AppContext.BaseDirectory, "CompilerInputs.targets"),
+            "-getItem:CscCommandLineArgs,VbcCommandLineArgs,ProjectReference,Compile,Page,ApplicationDefinition,EmbeddedResource,ReferencePath,ReferencePathWithRefAssemblies,PackageReference,None,Content",
+            "-getProperty:TargetPath,TargetRefPath,AssemblyName,IsTestProject,TargetFramework,RootNamespace"
+        }) start.ArgumentList.Add(argument);
+        using var process = Process.Start(start) ?? throw new InvalidOperationException("Cannot start dotnet MSBuild.");
+        var outputTask = process.StandardOutput.ReadToEndAsync();
+        var errorTask = process.StandardError.ReadToEndAsync();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        try { await Task.WhenAll(process.WaitForExitAsync(), outputTask, errorTask).WaitAsync(timeout.Token); }
+        catch (OperationCanceledException)
+        {
+            if (!process.HasExited) process.Kill(entireProcessTree: true);
+            throw new InvalidOperationException("Compiler input extraction timed out for " + projectPath);
+        }
+        var output = await outputTask;
+        var errors = await errorTask;
+        if (process.ExitCode != 0)
+            throw new InvalidOperationException($"MSBuild compiler input extraction failed for {projectPath} (exit {process.ExitCode}):\n{errors}\n{output}");
+        using var json = JsonDocument.Parse(output);
+        var items = json.RootElement.GetProperty("Items");
+        var properties = json.RootElement.GetProperty("Properties");
+        var dependencies = new List<LoadedProject>();
+        foreach (var reference in items.GetProperty("ProjectReference").EnumerateArray())
+            dependencies.Add(await Load(reference.GetProperty("FullPath").GetString()!));
+        var vb = Path.GetExtension(projectPath).Equals(".vbproj", StringComparison.OrdinalIgnoreCase);
+        var arguments = items.GetProperty(vb ? "VbcCommandLineArgs" : "CscCommandLineArgs")
+            .EnumerateArray().Select(a => a.GetProperty("Identity").GetString()!).ToArray();
+        if (arguments.Length == 0) throw new InvalidOperationException("MSBuild returned no compiler arguments for " + projectPath);
+        var sdkPath = arguments.FirstOrDefault(a => a.StartsWith("/sdkpath:", StringComparison.OrdinalIgnoreCase))?
+            ["/sdkpath:".Length..].Trim('"');
+        CommandLineArguments parsed = vb
+            ? VisualBasicCommandLineParser.Default.Parse(arguments, directory, sdkPath)
+            : CSharpCommandLineParser.Default.Parse(arguments, directory, sdkDirectory: null);
+        var argumentErrors = parsed.Errors.Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+        if (argumentErrors.Length > 0)
+            throw new InvalidOperationException("Compiler argument errors for " + projectPath + ":\n" + string.Join("\n", argumentErrors.Select(d => d.ToString())));
+        var references = new List<MetadataReference>();
+        var replaced = new HashSet<LoadedProject>();
+        var evaluatedReferences = ReadEvaluatedReferences(items, directory);
+        foreach (var reference in parsed.MetadataReferences)
+        {
+            var referencePath = Path.GetFullPath(reference.Reference, directory);
+            var dependency = ResolveSourceProject(referencePath, Projects, evaluatedReferences);
+            if (dependency is not null)
+            {
+                references.Add(SourceReference(dependency, reference.Properties, referencePath));
+                replaced.Add(dependency);
+            }
+            else references.Add(MetadataReference.CreateFromFile(referencePath, reference.Properties));
+        }
+        foreach (var dependency in dependencies.Except(replaced))
+        {
+            // A missing compiler reference is evidence of broken inputs, not permission to guess a reference.
+            throw new InvalidOperationException($"Compiler input for {projectPath} omits project reference {dependency.OutputPath}");
+        }
+        // Unlike C#, VB's /nostdlib removes System.dll, not its implicit core library.
+        // The command-line driver adds mscorlib from /sdkpath after parsing the reference switches.
+        if (vb && !references.OfType<PortableExecutableReference>().Any(r =>
+                string.Equals(Path.GetFileName(r.FilePath), "mscorlib.dll", StringComparison.OrdinalIgnoreCase)))
+        {
+            if (sdkPath is null) throw new InvalidOperationException("VB compiler inputs have no /sdkpath for the implicit core library.");
+            references.Add(MetadataReference.CreateFromFile(Path.Combine(sdkPath, "mscorlib.dll")));
+        }
+        var trees = new List<SyntaxTree>();
+        foreach (var source in parsed.SourceFiles)
+        {
+            var path = Path.GetFullPath(source.Path, directory);
+            var text = SourceText.From(await File.ReadAllTextAsync(path), Encoding.UTF8);
+            // Retain documentation syntax even when the candidate does not request a /doc output.
+            trees.Add(vb ? VisualBasicSyntaxTree.ParseText(text, ((VisualBasicParseOptions)parsed.ParseOptions).WithDocumentationMode(DocumentationMode.Parse), path)
+                : CSharpSyntaxTree.ParseText(text, ((CSharpParseOptions)parsed.ParseOptions).WithDocumentationMode(DocumentationMode.Parse), path));
+        }
+        var name = properties.GetProperty("AssemblyName").GetString()!;
+        Compilation compilation = vb
+            ? VisualBasicCompilation.Create(name, trees, references, (VisualBasicCompilationOptions)parsed.CompilationOptions)
+            : CSharpCompilation.Create(name, trees, references, (CSharpCompilationOptions)parsed.CompilationOptions);
+        var test = properties.GetProperty("IsTestProject").GetString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true ||
+            compilation.ReferencedAssemblyNames.Any(a => a.Name is "xunit.core" or "Microsoft.VisualStudio.TestPlatform.TestFramework" or "nunit.framework") ||
+            name.Split('.').Any(s => s.EndsWith("Tests", StringComparison.Ordinal));
+        var tooling = compilation.ReferencedAssemblyNames.Any(a => a.Name == "Microsoft.CodeAnalysis.VisualBasic") && !test;
+        var generated = items.GetProperty("Compile").EnumerateArray().Where(a =>
+            a.TryGetProperty("AutoGen", out var v) && v.GetString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true)
+            .Select(a => a.GetProperty("FullPath").GetString()!).ToArray();
+        var additional = new List<AdditionalText>();
+        foreach (var itemName in new[] { "Page", "ApplicationDefinition", "EmbeddedResource", "None", "Content" })
+        foreach (var item in items.GetProperty(itemName).EnumerateArray())
+        {
+            var path = item.GetProperty("FullPath").GetString()!;
+            if (Path.GetExtension(path).ToLowerInvariant() is ".xaml" or ".resx" ||
+                tooling && Path.GetExtension(path).ToLowerInvariant() is ".vb" or ".cs")
+            {
+                if (!File.Exists(path)) throw new InvalidOperationException("Missing evaluated AdditionalFile: " + path);
+                additional.Add(new InputFile(path, await File.ReadAllTextAsync(path)));
+            }
+        }
+        var metadata = new XElement("Project", new XAttribute("Path", projectPath), new XAttribute("Name", name),
+            new XAttribute("Test", test), new XAttribute("Tooling", tooling),
+            items.GetProperty("ReferencePath").EnumerateArray().Select(a =>
+                new XElement("Reference", new XAttribute("Name", Path.GetFileNameWithoutExtension(a.GetProperty("Identity").GetString()!)))),
+            items.GetProperty("PackageReference").EnumerateArray().Select(a =>
+                new XElement("Package", new XAttribute("Name", a.GetProperty("Identity").GetString()!),
+                    new XAttribute("Version", a.TryGetProperty("Version", out var v) ? v.GetString() ?? "" : ""))),
+            dependencies.Select(d => new XElement("ProjectReference", new XAttribute("Path", d.Path))),
+            items.GetProperty("EmbeddedResource").EnumerateArray().Where(a =>
+                Path.GetExtension(a.GetProperty("FullPath").GetString()!).Equals(".resx", StringComparison.OrdinalIgnoreCase))
+                .Select(a => new XElement("Resource", new XAttribute("Path", a.GetProperty("FullPath").GetString()!),
+                    new XAttribute("BaseName", a.TryGetProperty("LogicalName", out var logical) && !string.IsNullOrEmpty(logical.GetString())
+                        ? Path.ChangeExtension(logical.GetString(), null)!
+                        : a.TryGetProperty("ManifestResourceName", out var manifest) ? manifest.GetString() ?? "" : ""))));
+        additional.Add(new InputFile(projectPath + ".assessment", metadata.ToString()));
+        var loaded = new LoadedProject(projectPath, name,
+            Path.GetFullPath(properties.GetProperty("TargetPath").GetString()!, directory),
+            compilation, test, tooling, generated, additional.DistinctBy(f => f.Path).ToArray(),
+            properties.TryGetProperty("TargetRefPath", out var targetRef) && !string.IsNullOrWhiteSpace(targetRef.GetString())
+                ? Path.GetFullPath(targetRef.GetString()!, directory) : null);
+        Projects.Add(loaded);
+        loading.Remove(projectPath);
+        return loaded;
+    }
+
+    internal static EvaluatedAssemblyReference[] ReadEvaluatedReferences(JsonElement items, string directory)
+    {
+        var result = new List<EvaluatedAssemblyReference>();
+        foreach (var itemName in new[] { "ReferencePath", "ReferencePathWithRefAssemblies" })
+        {
+            if (!items.TryGetProperty(itemName, out var references)) continue;
+            foreach (var item in references.EnumerateArray())
+            {
+                string[] Paths(string[] names, string[] extensions) => names
+                    .Select(name => item.TryGetProperty(name, out var value) ? value.GetString() : null)
+                    .OfType<string>().Where(value => extensions.Contains(Path.GetExtension(value), StringComparer.OrdinalIgnoreCase))
+                    .Select(value => Path.GetFullPath(value, directory)).Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+                result.Add(new(Paths(["Identity", "FullPath", "ReferenceAssembly", "OriginalItemSpec"], [".dll", ".exe", ".winmd"]),
+                    Paths(["MSBuildSourceProjectFile", "OriginalProjectReferenceItemSpec", "ProjectReferenceOriginalItemSpec"], [".csproj", ".vbproj"])));
+            }
+        }
+        return result.ToArray();
+    }
+
+    internal static LoadedProject? ResolveSourceProject(string compilerPath, IEnumerable<LoadedProject> projects,
+        IEnumerable<EvaluatedAssemblyReference> references)
+    {
+        static bool Same(string? a, string? b) => a != null && b != null && string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        var matches = references.Where(r => r.AssemblyPaths.Any(p => Same(p, compilerPath))).ToArray();
+        var candidates = projects.Where(p => Same(p.OutputPath, compilerPath) || Same(p.TargetRefPath, compilerPath) ||
+            matches.Any(r => r.SourceProjects.Any(source => Same(source, p.Path)) ||
+                r.AssemblyPaths.Any(path => Same(path, p.OutputPath) || Same(path, p.TargetRefPath)))).Distinct().ToArray();
+        if (candidates.Length > 1) throw new InvalidOperationException("Ambiguous evaluated source-project identity for " + compilerPath);
+        if (candidates.Length == 0 && matches.Any(r => r.SourceProjects.Length > 0))
+            throw new InvalidOperationException("Compiler reference names a source project absent from the loaded graph: " + compilerPath);
+        return candidates.SingleOrDefault();
+    }
+
+    internal PortableExecutableReference SourceReference(LoadedProject dependency, MetadataReferenceProperties properties, string compilerPath)
+    {
+        if (!metadataImages.TryGetValue(dependency.Path, out var image))
+        {
+            using var stream = new MemoryStream();
+            var emit = dependency.Compilation.Emit(stream);
+            if (!emit.Success) throw new SourceCompilationException(dependency.Name,
+                emit.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+            image = stream.ToArray();
+            metadataImages.Add(dependency.Path, image);
+        }
+        return MetadataReference.CreateFromImage(image, properties, filePath: compilerPath);
+    }
+}

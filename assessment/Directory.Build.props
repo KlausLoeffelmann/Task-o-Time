@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <AssessmentRoot Condition="'$(AssessmentRoot)' == ''">$(MSBuildThisFileDirectory)</AssessmentRoot>
+    <TaskOTimeSourceRoot Condition="'$(TaskOTimeSourceRoot)' == '' and '$(TASKOTIME_SOURCE_ROOT)' != ''">$(TASKOTIME_SOURCE_ROOT)</TaskOTimeSourceRoot>
+    <TaskOTimeSourceRoot Condition="'$(TaskOTimeSourceRoot)' == '' and Exists('$(AssessmentRoot)..\src\TaskOTime')">$(AssessmentRoot)..\src\TaskOTime</TaskOTimeSourceRoot>
+    <TaskOTimeSourceRoot Condition="'$(TaskOTimeSourceRoot)' == ''">Q:\git\Task-o-Time\src\TaskOTime</TaskOTimeSourceRoot>
+    <EvaluatorArtifactRoot Condition="'$(EvaluatorArtifactRoot)' == ''">$(AssessmentRoot)Artifacts</EvaluatorArtifactRoot>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="$(MSBuildThisFileDirectory)EvaluatorConfiguration.cs" Link="EvaluatorConfiguration.cs" />
+    <None Include="$(MSBuildThisFileDirectory)ScenarioScope.xml" Link="ScenarioScope.xml" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

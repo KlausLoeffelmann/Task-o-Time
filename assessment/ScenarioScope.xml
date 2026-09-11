@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScenarioScope>
+  <!-- Paths are relative to TaskOTimeSourceRoot. Assessment/Artifacts/bin/obj and tests
+       are excluded from production discovery. MIGRATION_TOOL_ROOT adds another root.
+       Tooling projects are discovered even without application project references. -->
+  <Discovery>
+    <Root>.</Root>
+    <Root>..\..\tools</Root>
+    <Root>..\..\tooling</Root>
+  </Discovery>
+  <Localization NeutralLanguage="en">
+    <RequiredLanguage>de</RequiredLanguage>
+    <RequiredLanguage>nl</RequiredLanguage>
+  </Localization>
+  <EF6 Context="TaskOTime.DataLayer.TaskOTimeContext" PackageVersion="6.5.1">
+    <Entity>TaskOTime.DTOs.Category</Entity>
+    <Entity>TaskOTime.DTOs.CategorySymbol</Entity>
+    <Entity>TaskOTime.DTOs.GuidReservation</Entity>
+    <Entity>TaskOTime.DTOs.LogItem</Entity>
+    <Entity>TaskOTime.DTOs.LookupItem</Entity>
+    <Entity>TaskOTime.DTOs.Note</Entity>
+    <Entity>TaskOTime.DTOs.Project</Entity>
+    <Entity>TaskOTime.DTOs.ProjectUserAssignment</Entity>
+    <Entity>TaskOTime.DTOs.SharableProject</Entity>
+    <Entity>TaskOTime.DTOs.Tag</Entity>
+    <Entity>TaskOTime.DTOs.TaskItem</Entity>
+    <Entity>TaskOTime.DTOs.TaskList</Entity>
+    <Entity>TaskOTime.DTOs.Tenant</Entity>
+    <Entity>TaskOTime.DTOs.TenantLead</Entity>
+    <Entity>TaskOTime.DTOs.TimeItem</Entity>
+    <Entity>TaskOTime.DTOs.User</Entity>
+    <Entity>TaskOTime.DTOs.WebLink</Entity>
+  </EF6>
+  <!-- Selection is external scenario data, never a diagnosis. Roslyn evaluates actual dependencies. -->
+  <MasterData>
+    <Type>TaskOTime.ViewModel.Views.MasterDataWindow</Type>
+    <Type>TaskOTime.ViewModel.Views.TenantUserView</Type>
+    <Type>TaskOTime.ViewModel.Views.ProjectView</Type>
+    <Type>TaskOTime.ViewModel.Views.CollaborationView</Type>
+    <Type>TaskOTime.ViewModel.Views.TaskWorkView</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.MasterDataViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.TenantUserViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.ProjectViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.CollaborationViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.MasterTaskViewModel</Type>
+    <Source>MasterDataWindow.xaml</Source>
+    <Source>MasterDataWindow.xaml.vb</Source>
+    <Source>MasterDataWindow.xaml.cs</Source>
+    <Source>TenantUserView.xaml</Source>
+    <Source>TenantUserView.xaml.vb</Source>
+    <Source>TenantUserView.xaml.cs</Source>
+    <Source>ProjectView.xaml</Source>
+    <Source>ProjectView.xaml.vb</Source>
+    <Source>ProjectView.xaml.cs</Source>
+    <Source>CollaborationView.xaml</Source>
+    <Source>CollaborationView.xaml.vb</Source>
+    <Source>CollaborationView.xaml.cs</Source>
+    <Source>TaskWorkView.xaml</Source>
+    <Source>TaskWorkView.xaml.vb</Source>
+    <Source>TaskWorkView.xaml.cs</Source>
+    <Source>MasterDataViewModel.vb</Source>
+    <Source>MasterDataViewModel.cs</Source>
+    <Source>TenantUserViewModel.vb</Source>
+    <Source>TenantUserViewModel.cs</Source>
+    <Source>ProjectViewModel.vb</Source>
+    <Source>ProjectViewModel.cs</Source>
+    <Source>CollaborationViewModel.vb</Source>
+    <Source>CollaborationViewModel.cs</Source>
+    <Source>MasterTaskViewModel.vb</Source>
+    <Source>MasterTaskViewModel.cs</Source>
+  </MasterData>
+  <ProtectedCore>
+    <Type>TaskOTime.ViewModel.ViewModels.VmMain</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.TimeItemsViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.TimeEntryViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.TimeCollectionViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.TaskManagementViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.TaskListViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.TaskItemViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.LoginViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.AppOptionsViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.BookedDateItemViewModel</Type>
+    <Type>TaskOTime.ViewModel.ViewModels.DialogShellViewModel</Type>
+    <Source>VmMain.vb</Source>
+    <Source>TimeItemsViewModel.vb</Source>
+    <Source>TimeEntryViewModel.vb</Source>
+    <Source>TimeCollectionViewModel.vb</Source>
+    <Source>TaskManagementViewModel.vb</Source>
+    <Source>TaskListViewModel.vb</Source>
+    <Source>TaskItemViewModel.vb</Source>
+    <Source>LoginViewModel.vb</Source>
+    <Source>AppOptionsViewModel.vb</Source>
+    <Source>BookedDateItemViewModel.vb</Source>
+    <Source>DialogShellViewModel.vb</Source>
+  </ProtectedCore>
+</ScenarioScope>

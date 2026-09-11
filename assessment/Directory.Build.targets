@@ -1,0 +1,6 @@
+<Project>
+  <Target Name="WriteEvaluatorConfiguration" AfterTargets="Build">
+    <WriteLinesToFile File="$(TargetDir)evaluator-paths.txt"
+                      Lines="$(TaskOTimeSourceRoot);$(EvaluatorArtifactRoot);$(AssessmentRoot)" Overwrite="true" />
+  </Target>
+</Project>
