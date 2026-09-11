@@ -35,6 +35,10 @@
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
     <Reference Include="System.Web.Extensions" />
+    <Reference Include="EntityFramework.SqlServer">
+      <HintPath>$(NuGetPackageRoot)entityframework\6.5.1\lib\net45\EntityFramework.SqlServer.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="DemoDataConfigLoader.cs" />
@@ -47,6 +51,9 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="EntityFramework">
+      <Version>6.5.1</Version>
+    </PackageReference>
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461">
       <Version>1.0.3</Version>
       <PrivateAssets>all</PrivateAssets>

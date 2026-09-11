@@ -176,6 +176,37 @@ namespace TaskOTime.AppServer.Tests
         }
 
         [TestMethod]
+        public void TimeBookingOptions_ErrandEventInfoOverridesStopCategory()
+        {
+            var errand = CreateItem(1, DayStart, LegacySystemTimeMarkerIds.StopMark);
+            errand.EventInfo = TimeBookingOptions.ErrandEventInfo;
+
+            var marker = new TimeBookingOptions().GetMarkerKind(errand);
+
+            Assert.AreEqual(SystemTimeMarkerKind.Errand, marker);
+        }
+
+        [TestMethod]
+        public void NormalizeBookingDay_WithErrand_PreservesContinuousNonWorkingTimeline()
+        {
+            var work = CreateItem(1, DayStart);
+            var errand = CreateItem(2, DayStart.AddHours(1), LegacySystemTimeMarkerIds.StopMark);
+            errand.EventInfo = TimeBookingOptions.ErrandEventInfo;
+            var nextWork = CreateItem(3, DayStart.AddHours(2));
+            var items = new List<TimeItem> { work, errand, nextWork };
+
+            var result = TimeBookingAlgorithm.NormalizeBookingDay(items);
+
+            CollectionAssert.AreEqual(
+                new[] { work.IdTimeItem, errand.IdTimeItem, nextWork.IdTimeItem },
+                result.TimelineItems.Select(item => item.IdTimeItem).ToArray());
+            Assert.AreEqual(0, result.RemovedItems.Count);
+            AssertLinked(work, errand, TimeSpan.FromHours(1));
+            AssertLinked(errand, nextWork, TimeSpan.FromHours(1));
+            Assert.AreEqual(SystemTimeMarkerKind.Errand, TimeBookingAlgorithm.GetMarkerKind(errand));
+        }
+
+        [TestMethod]
         public void NormalizeBookingDay_SetsDurationTicksConsistently()
         {
             var first = CreateItem(1, DayStart);

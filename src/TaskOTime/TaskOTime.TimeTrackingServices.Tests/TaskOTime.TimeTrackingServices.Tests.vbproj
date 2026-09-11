@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net461</TargetFramework>
+    <TargetFramework>net472</TargetFramework>
+    <UseWPF>true</UseWPF>
     <RootNamespace></RootNamespace>
     <OptionExplicit>On</OptionExplicit>
     <OptionInfer>On</OptionInfer>
@@ -11,14 +12,17 @@
 
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
     <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
     <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="TestDoubles\TaskOTime.TimeTrackingServices.TestDoubles.csproj" />
     <ProjectReference Include="..\TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj" />
     <ProjectReference Include="..\TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj" />
+    <ProjectReference Include="..\TaskOTime.AppServer\TaskOTime.AppServer.csproj" />
+    <ProjectReference Include="..\TaskOTime.App\TaskOTime.App.csproj" />
   </ItemGroup>
 
 </Project>

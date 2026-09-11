@@ -1,0 +1,27 @@
+<UserControl x:Class="Views.TaskWorkView"
+ xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+ xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+ <Grid Margin="8">
+  <Grid.RowDefinitions><RowDefinition Height="42"/><RowDefinition Height="*"/><RowDefinition Height="48"/></Grid.RowDefinitions>
+  <TextBlock x:Name="HeadingLabel" x:FieldModifier="public" Text="Listen und Aufgaben" FontFamily="Verdana" FontSize="18" Foreground="DarkGreen"/>
+  <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="240"/><ColumnDefinition Width="*"/><ColumnDefinition Width="280"/></Grid.ColumnDefinitions>
+   <ListBox x:Name="TaskListListBox" x:FieldModifier="public" DisplayMemberPath="TaskListName" Background="Honeydew"/>
+   <ListView x:Name="TaskListView" x:FieldModifier="public" Grid.Column="1" Margin="10,0,13,0">
+    <ListView.View><GridView><GridViewColumn Header="Aufgabe" DisplayMemberBinding="{Binding TaskItemName}" Width="220"/><GridViewColumn Header="Priorität" DisplayMemberBinding="{Binding Priority}" Width="75"/><GridViewColumn Header="Fällig" DisplayMemberBinding="{Binding DueDate}" Width="145"/></GridView></ListView.View>
+   </ListView>
+   <StackPanel Grid.Column="2">
+    <TextBlock Text="Aufgabendetails" FontWeight="Bold" FontSize="15"/>
+    <TextBox x:Name="TaskNameTextBox" x:FieldModifier="public" Margin="0,12,0,4" Height="27"/>
+    <TextBox x:Name="TaskDescriptionTextBox" x:FieldModifier="public" Height="115" AcceptsReturn="True" TextWrapping="Wrap"/>
+    <CheckBox x:Name="CompletedCheckBox" x:FieldModifier="public" Content="erledigt" Margin="0,13"/>
+    <Label x:Name="TaskStatusLabel" x:FieldModifier="public" Content="Keine Auswahl" Background="LightYellow"/>
+   </StackPanel>
+  </Grid>
+  <StackPanel Grid.Row="2" Orientation="Horizontal">
+   <Button x:Name="AddListButton" x:FieldModifier="public" Content="Neue Liste" Width="100" Margin="2,8"/>
+   <Button x:Name="AddTaskButton" x:FieldModifier="public" Content="Neue Aufgabe" Width="110" Margin="7,8"/>
+   <Button x:Name="SaveTaskButton" x:FieldModifier="public" Content="Aufgabe speichern" Width="140" Margin="2,8" Background="LightBlue"/>
+   <Button x:Name="DeleteTaskButton" x:FieldModifier="public" Content="Löschen" Width="85" Margin="12,8"/>
+  </StackPanel>
+ </Grid>
+</UserControl>

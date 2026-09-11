@@ -541,6 +541,7 @@
                           Command="{Binding ExportSelectedDayCommand}" />
                 <MenuItem Header="{StaticResource ExportPeriodMenuHeader}"
                           Command="{Binding ExportPeriodCommand}" />
+                <MenuItem Header="Abmelden" Click="OnLogoutClick" />
                 <MenuItem Header="{StaticResource QuitMenuHeader}" Click="OnQuitMenuItemClick" />
             </MenuItem>
             <MenuItem Header="{StaticResource MasterDataMenuHeader}">
@@ -589,7 +590,10 @@
                 <Button Command="{Binding TaskManagement.StartTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabe beginnen">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TimeCollection.CheckOutCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Ausbuchen">
+                <Button x:Name="CommandStripCheckOutButton"
+                        Click="OnCommandStripCheckOutClick"
+                        Style="{StaticResource CommandStripIconButtonStyle}"
+                        ToolTip="{StaticResource CheckOutButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <StackPanel Orientation="Horizontal"
@@ -615,11 +619,23 @@
                 <Button Command="{Binding TaskManagement.CompleteTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Aufgabe erledigt">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TimeCollection.InsertWorkBreakCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Pause">
+                <Button x:Name="CommandStripWorkBreakButton"
+                        Click="OnCommandStripWorkBreakClick"
+                        Style="{StaticResource CommandStripIconButtonStyle}"
+                        ToolTip="{StaticResource PauseButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TimeCollection.InsertDownTimeCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Ausfallzeit">
+                <Button x:Name="CommandStripDownTimeButton"
+                        Click="OnCommandStripDownTimeClick"
+                        Style="{StaticResource CommandStripIconButtonStyle}"
+                        ToolTip="{StaticResource DownTimeButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                </Button>
+                <Button x:Name="CommandStripErrandButton"
+                        Click="OnCommandStripErrandClick"
+                        Style="{StaticResource CommandStripIconButtonStyle}"
+                        ToolTip="{StaticResource ErrandButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
@@ -838,6 +854,14 @@
                                     ToolTip="{StaticResource InsertWorkBreakButtonText}">
                                 <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                             </Button>
+                            <Button Command="{Binding TimeCollection.InsertDownTimeCommand}"
+                                    ToolTip="{StaticResource InsertDownTimeButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                            </Button>
+                            <Button Command="{Binding TimeCollection.InsertErrandCommand}"
+                                    ToolTip="{StaticResource InsertErrandButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                            </Button>
                             <Button Command="{Binding TimeCollection.InsertStopMarkCommand}"
                                     Margin="0"
                                     ToolTip="{StaticResource InsertStopMarkButtonText}">
@@ -845,7 +869,7 @@
                             </Button>
                         </WrapPanel>
 
-                        <ListBox Grid.Row="4"
+                        <ListView Grid.Row="4"
                                  ItemTemplate="{StaticResource TimeEntryItemTemplate}"
                                  ItemsSource="{Binding TimeCollection.TimeItems}"
                                  MouseDoubleClick="OnTimeEntryDoubleClick"

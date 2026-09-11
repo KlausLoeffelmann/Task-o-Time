@@ -13,17 +13,20 @@ Namespace ViewModels
         Private _manualCompletionStartText As String = DateTime.Now.ToString("HH:mm")
         Private _manualCompletionDurationText As String = "00:30"
 
-        Public Sub New()
+        Public Sub New(Optional suppliedTimeCollection As TimeCollectionViewModel = Nothing,
+                       Optional suppliedTaskManagement As TaskManagementViewModel = Nothing)
             _selectedDate = DateTime.Today
             Options = New AppOptionsViewModel()
-            TimeCollection = New TimeCollectionViewModel(_selectedDate)
+            Me.TimeCollection = If(suppliedTimeCollection, New TimeCollectionViewModel(_selectedDate))
+            _selectedDate = Me.TimeCollection.BookingDate
             AddHandler TimeCollection.PropertyChanged, AddressOf OnTimeCollectionPropertyChanged
             AddHandler TimeCollection.TimeEntryCreated, AddressOf OnTimeEntryCreated
             AddHandler TimeCollection.TimeEntryEditRequested, AddressOf OnTimeEntryEditRequested
 
-            TaskManagement = New TaskManagementViewModel()
+            Me.TaskManagement = If(suppliedTaskManagement, New TaskManagementViewModel())
             AddHandler TaskManagement.PropertyChanged, AddressOf OnTaskManagementPropertyChanged
             AddHandler TaskManagement.TaskListEditRequested, AddressOf OnTaskListEditRequested
+            AddHandler TaskManagement.TaskCompletionRequested, AddressOf OnTaskCompletionRequested
 
             TodayCommand = New DelegateCommand(AddressOf SelectToday)
             YesterdayCommand = New DelegateCommand(AddressOf SelectYesterday)
@@ -44,6 +47,7 @@ Namespace ViewModels
         Public Event OptionsRequested As EventHandler(Of AppOptionsViewModel)
         Public Event TaskListEditRequested As EventHandler(Of TaskListEditRequestEventArgs)
         Public Event TimeEntryEditRequested As EventHandler(Of TimeEntryEditRequestEventArgs)
+        Public Event MasterDataRequested As EventHandler(Of Integer)
 
         Public Property SelectedDate As DateTime
             Get
@@ -230,39 +234,19 @@ Namespace ViewModels
         End Sub
 
         Private Sub ShowProjectsDialog()
-            RequestDialog(
-                "Projekte verwalten",
-                "Stammdaten: Projekte",
-                "Dialoghülle für Projektanlage, Bearbeitung und Archivierung.",
-                "Geplante Felder: Projektnummer, Name, Kunde, Status.",
-                "Spätere Datenanbindung kann über AppServer-Dienste erfolgen.")
+            RaiseEvent MasterDataRequested(Me, 1)
         End Sub
 
         Private Sub ShowTaskListsDialog()
-            RequestDialog(
-                "Aufgabenlisten verwalten",
-                "Stammdaten: Aufgabenlisten",
-                "Dialoghülle für Aufgabenlisten, Prioritäten und Reihenfolge.",
-                "Geplante Aktionen: Neu, Bearbeiten, Deaktivieren.",
-                "Die vorhandenen Beispiel-Listen bleiben bis zur Datenanbindung sichtbar.")
+            RaiseEvent MasterDataRequested(Me, 2)
         End Sub
 
         Private Sub ShowTasksDialog()
-            RequestDialog(
-                "Aufgaben verwalten",
-                "Stammdaten: Aufgaben",
-                "Dialoghülle für Aufgabenpflege und Zuordnung zu Listen oder Projekten.",
-                "Geplante Felder: Titel, Beschreibung, Fälligkeit, Status.",
-                "Die Befehlsbindung ist für spätere Bearbeitungsdialoge vorbereitet.")
+            RaiseEvent MasterDataRequested(Me, 2)
         End Sub
 
         Private Sub ShowUsersAdminDialog()
-            RequestDialog(
-                "Benutzer und Administration",
-                "Stammdaten: Benutzer/Admin",
-                "Dialoghülle für Benutzerverwaltung, Rollen und administrative Optionen.",
-                "Geplante Aktionen: Benutzer anlegen, Rollen prüfen, Zugriff sperren.",
-                "Mandantenweite Einstellungen können später hier ergänzt werden.")
+            RaiseEvent MasterDataRequested(Me, 0)
         End Sub
 
         Private Sub ShowDailyStatementDialog()
@@ -313,8 +297,37 @@ Namespace ViewModels
             RaiseEvent TimeEntryEditRequested(Me, e)
         End Sub
 
-        Private Sub OnTimeEntryCreated(sender As Object, completeTask As Boolean)
-            TaskManagement.StopRecordingAfterTimeEntry(If(TaskManagement.CompleteRecordingOnNextTimeEntry, True, completeTask))
+        Private Sub OnTimeEntryCreated(sender As Object, e As TimeEntryCreatedEventArgs)
+            TaskManagement.StopRecordingAfterTimeEntry(
+                TaskManagement.CompleteRecordingOnNextTimeEntry OrElse e.CompleteRunningTask, e.EntryTime)
+        End Sub
+
+        Private Sub OnTaskCompletionRequested(sender As Object, e As TaskCompletionRequestEventArgs)
+            ' de tijdgrens van de taak wordt door dezelfde boekingsstroom verwerkt als handmatige registraties.  daardoor gebruikt elke afsluiting dezelfde normalisatie.
+            If e.UseExistingBoundary Then
+                If Not e.Task.StartedAt.HasValue Then Throw New InvalidOperationException("Die Aufgabe hat keine Startzeit.")
+                TimeCollection.RecordTask(e.Task, e.Task.StartedAt.Value, e.CompletedAt, True)
+                SelectedDate = e.Task.StartedAt.Value.Date
+                Return
+            End If
+            Dim startTime As DateTime
+            Dim duration As TimeSpan
+            If e.Task.StartedAt.HasValue Then
+                startTime = e.Task.StartedAt.Value
+                duration = e.CompletedAt - startTime
+            Else
+                Dim start As TimeSpan
+                If Not TimeSpan.TryParse(ManualCompletionStartText, start) OrElse start < TimeSpan.Zero OrElse start >= TimeSpan.FromDays(1) Then
+                    Throw New InvalidOperationException("Startzeit bitte als HH:mm eingeben.")
+                End If
+                If Not TimeSpan.TryParse(ManualCompletionDurationText, duration) OrElse duration <= TimeSpan.Zero Then
+                    Throw New InvalidOperationException("Dauer bitte als HH:mm eingeben.")
+                End If
+                startTime = SelectedDate.Add(start)
+            End If
+            Dim endTime = startTime.AddMinutes(duration.Minutes)
+            TimeCollection.RecordTask(e.Task, startTime, endTime)
+            SelectedDate = startTime.Date
         End Sub
 
         Private Sub OnTimeCollectionPropertyChanged(sender As Object, e As PropertyChangedEventArgs)

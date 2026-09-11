@@ -9,8 +9,26 @@
     <Border Style="{StaticResource PanelBorderStyle}" Margin="12">
         <StackPanel>
             <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Zeitbuchung" />
+            <Grid Margin="0,0,0,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="12" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                    <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Projekt" />
+                    <ComboBox x:Name="ProjectSelection" Margin="0,2,0,0" DisplayMemberPath="ProjectName"
+                              ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject, Mode=TwoWay}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                    <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Kategorie" />
+                    <ComboBox x:Name="CategorySelection" Margin="0,2,0,0" DisplayMemberPath="CategoryName"
+                              IsEditable="False"
+                              ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"/>
+                </StackPanel>
+            </Grid>
             <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Startzeit" />
-            <TextBox Margin="0,2,0,8" Text="{Binding EntryTime, StringFormat={}{0:HH:mm}, UpdateSourceTrigger=PropertyChanged}" />
+            <TextBox x:Name="StartTimeTextBox" Margin="0,2,0,8" Text="{Binding EntryTime, StringFormat={}{0:HH:mm}, Mode=OneWay}" />
             <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Titel" />
             <TextBox Margin="0,2,0,8" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
             <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Beschreibung" />

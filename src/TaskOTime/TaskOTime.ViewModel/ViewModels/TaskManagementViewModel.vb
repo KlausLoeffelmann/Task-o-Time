@@ -20,9 +20,15 @@ Namespace ViewModels
         Private ReadOnly _startTaskCommand As DelegateCommand
         Private ReadOnly _completeTaskCommand As DelegateCommand
         Private ReadOnly _moreToDoCommand As DelegateCommand
+        Private ReadOnly _clock As Func(Of DateTime)
+        Private ReadOnly _saveTask As Action(Of TaskItemViewModel)
 
-        Public Sub New()
-            TaskLists = CreateSampleTaskLists()
+        Public Sub New(Optional lists As IEnumerable(Of TaskListViewModel) = Nothing,
+                       Optional clock As Func(Of DateTime) = Nothing,
+                       Optional saveTask As Action(Of TaskItemViewModel) = Nothing)
+            TaskLists = If(lists Is Nothing, CreateSampleTaskLists(), New ObservableCollection(Of TaskListViewModel)(lists))
+            _clock = If(clock, Function() DateTime.Now)
+            _saveTask = saveTask
 
             _newTaskCommand = New DelegateCommand(Sub(parameter) AddTask())
             _editTaskCommand = New DelegateCommand(Sub(parameter) EditSelectedTask(), Function(parameter) SelectedTaskItem IsNot Nothing)
@@ -36,6 +42,7 @@ Namespace ViewModels
         End Sub
 
         Public Event TaskListEditRequested As EventHandler(Of TaskListEditRequestEventArgs)
+        Public Event TaskCompletionRequested As EventHandler(Of TaskCompletionRequestEventArgs)
 
         Public ReadOnly Property TaskLists As ObservableCollection(Of TaskListViewModel)
 
@@ -271,7 +278,7 @@ Namespace ViewModels
                 ClearCurrentRecording()
             End If
 
-            SelectedTaskItem.MarkStarted()
+            SelectedTaskItem.MarkStarted(_clock())
             _currentRecordingTask = SelectedTaskItem
             AddHandler _currentRecordingTask.PropertyChanged, AddressOf OnRecordingTaskPropertyChanged
             OnPropertyChanged(NameOf(CurrentRecordingTask))
@@ -289,8 +296,11 @@ Namespace ViewModels
                 Return
             End If
 
+            ' de taakstatus verandert pas nadat de gekoppelde boekingsaanvraag zonder uitzondering is verwerkt.  zo blijft de zichtbare status gelijk aan de opgeslagen toestand.
+            RaiseEvent TaskCompletionRequested(Me, New TaskCompletionRequestEventArgs(SelectedTaskItem, _clock()))
             SelectedTaskItem.MarkDone()
-            ClearCurrentRecording()
+            If _saveTask IsNot Nothing Then _saveTask(SelectedTaskItem)
+            If CurrentRecordingTask Is SelectedTaskItem Then ClearCurrentRecording()
             RefreshSelectedTaskState()
         End Sub
 
@@ -308,13 +318,15 @@ Namespace ViewModels
             RefreshSelectedTaskState()
         End Sub
 
-        Public Sub StopRecordingAfterTimeEntry(completeTask As Boolean)
+        Public Sub StopRecordingAfterTimeEntry(completeTask As Boolean, boundaryTime As DateTime)
             If CurrentRecordingTask Is Nothing Then
                 Return
             End If
 
+            RaiseEvent TaskCompletionRequested(Me, New TaskCompletionRequestEventArgs(CurrentRecordingTask, boundaryTime, True))
             If completeTask Then
                 CurrentRecordingTask.MarkDone()
+                If _saveTask IsNot Nothing Then _saveTask(CurrentRecordingTask)
             Else
                 CurrentRecordingTask.StopRecordingWithoutFinishing()
             End If

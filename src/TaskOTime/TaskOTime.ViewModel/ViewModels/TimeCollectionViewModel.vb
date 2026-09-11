@@ -1,5 +1,9 @@
 Imports System.Collections.ObjectModel
 Imports System.Windows.Input
+Imports TaskOTime.AppServer.Models
+Imports TaskOTime.AppServer.Services
+Imports TaskOTime.AppServer.TimeBooking
+Imports TaskOTime.DTOs
 Imports TaskOTime.ViewModel.Base
 
 Namespace ViewModels
@@ -13,12 +17,32 @@ Namespace ViewModels
         Private _historyRangeUnit As String = "Tage"
         Private _bookingDate As DateTime
         Private _selectedEntry As TimeEntryViewModel
+        Private ReadOnly _service As ITimeBookingService
+        Private ReadOnly _access As TimeBookingAccessContextDto
+        Private ReadOnly _categoryId As Guid
+        Private ReadOnly _clock As Func(Of DateTime)
+        Private _selectedProject As ProjectMainDataDto
+        Private _selectedCategory As CategoryMasterDataDto
 
         Public Sub New()
             Me.New(DateTime.Today)
         End Sub
 
-        Public Sub New(bookingDate As DateTime)
+        Public Sub New(bookingDate As DateTime,
+                       Optional service As ITimeBookingService = Nothing,
+                       Optional access As TimeBookingAccessContextDto = Nothing,
+                       Optional projects As IEnumerable(Of ProjectMainDataDto) = Nothing,
+                       Optional categoryId As Guid = Nothing,
+                       Optional clock As Func(Of DateTime) = Nothing,
+                       Optional categories As IEnumerable(Of CategoryMasterDataDto) = Nothing)
+            _service = service
+            _access = access
+            _categoryId = categoryId
+            _clock = If(clock, Function() DateTime.Now)
+            Me.Projects = New ObservableCollection(Of ProjectMainDataDto)(If(projects, Enumerable.Empty(Of ProjectMainDataDto)()))
+            SelectedProject = Me.Projects.FirstOrDefault()
+            Me.Categories = New ObservableCollection(Of CategoryMasterDataDto)()
+            RefreshCategories(categories)
             _entriesByDate = New Dictionary(Of DateTime, List(Of TimeEntrySeed))()
             TimeItems = New TimeItemsViewModel()
             BookedDateItems = New ObservableCollection(Of BookedDateItemViewModel)()
@@ -29,15 +53,39 @@ Namespace ViewModels
             InsertWorkBreakCommand = New DelegateCommand(Sub(parameter) UpsertLatestSystemMarker(TimeEntryMarkerKind.WorkBreak))
             InsertStopMarkCommand = New DelegateCommand(Sub(parameter) InsertSystemMarker(TimeEntryMarkerKind.StopMark))
             InsertDownTimeCommand = New DelegateCommand(Sub(parameter) UpsertLatestSystemMarker(TimeEntryMarkerKind.DownTime))
+            InsertErrandCommand = New DelegateCommand(Sub(parameter) UpsertLatestSystemMarker(TimeEntryMarkerKind.Errand))
             CheckOutCommand = New DelegateCommand(Sub(parameter) UpsertLatestSystemMarker(TimeEntryMarkerKind.StopMark))
 
-            SeedSampleData()
+            If _service Is Nothing Then SeedSampleData()
             RebuildBookedDates()
             _bookingDate = bookingDate.Date
+            LoadBookingDate()
             RefreshEntries()
         End Sub
 
-        Public Event TimeEntryCreated As EventHandler(Of Boolean)
+        Public ReadOnly Property Projects As ObservableCollection(Of ProjectMainDataDto)
+
+        Public ReadOnly Property Categories As ObservableCollection(Of CategoryMasterDataDto)
+
+        Public Property SelectedProject As ProjectMainDataDto
+            Get
+                Return _selectedProject
+            End Get
+            Set(value As ProjectMainDataDto)
+                SetProperty(_selectedProject, value, NameOf(SelectedProject))
+            End Set
+        End Property
+
+        Public Property SelectedCategory As CategoryMasterDataDto
+            Get
+                Return _selectedCategory
+            End Get
+            Set(value As CategoryMasterDataDto)
+                SetProperty(_selectedCategory, value, NameOf(SelectedCategory))
+            End Set
+        End Property
+
+        Public Event TimeEntryCreated As EventHandler(Of TimeEntryCreatedEventArgs)
 
         Public Event TimeEntryEditRequested As EventHandler(Of TimeEntryEditRequestEventArgs)
 
@@ -47,6 +95,7 @@ Namespace ViewModels
             End Get
             Set(value As DateTime)
                 If SetProperty(_bookingDate, value.Date, NameOf(BookingDate)) Then
+                    LoadBookingDate()
                     RefreshEntries()
                     OnPropertyChanged(NameOf(Heading))
                 End If
@@ -94,6 +143,8 @@ Namespace ViewModels
         Public ReadOnly Property InsertStopMarkCommand As ICommand
 
         Public ReadOnly Property InsertDownTimeCommand As ICommand
+
+        Public ReadOnly Property InsertErrandCommand As ICommand
 
         Public ReadOnly Property CheckOutCommand As ICommand
 
@@ -173,7 +224,27 @@ Namespace ViewModels
             RebuildBookedDates()
         End Sub
 
+        Public Sub RefreshCategories(categories As IEnumerable(Of CategoryMasterDataDto))
+            Dim selectedId = If(SelectedCategory Is Nothing, _categoryId, SelectedCategory.IdCategory)
+            Me.Categories.Clear()
+            If categories IsNot Nothing Then
+                For Each category In categories
+                    If category.IdCategory <> SystemTimeMarkerIds.WorkBreakCategoryId AndAlso
+                       category.IdCategory <> SystemTimeMarkerIds.StopMarkCategoryId Then
+                        Me.Categories.Add(category)
+                    End If
+                Next
+            End If
+
+            SelectedCategory = Me.Categories.FirstOrDefault(Function(category) category.IdCategory = selectedId)
+            If SelectedCategory Is Nothing Then SelectedCategory = Me.Categories.FirstOrDefault()
+        End Sub
+
         Private Sub RequestAddEntry()
+            If SelectedCategory Is Nothing Then
+                Throw New InvalidOperationException("Es ist keine buchbare Kategorie vorhanden.")
+            End If
+
             Dim entryTime = GetNextEntryTime()
             RaiseEvent TimeEntryEditRequested(
                 Me,
@@ -190,17 +261,20 @@ Namespace ViewModels
         Private Sub AddEntryFromDialog(entryTime As DateTime, title As String, description As String, markerKind As TimeEntryMarkerKind, completeRunningTask As Boolean)
             Dim idTimeItem = Guid.NewGuid()
 
-            GetOrCreateSeeds(BookingDate).Add(New TimeEntrySeed With {
+            Dim seed = New TimeEntrySeed With {
                 .IdTimeItem = idTimeItem,
-                .EntryTime = entryTime,
+                .EntryTime = BookingDate.Add(entryTime.TimeOfDay),
                 .Title = If(String.IsNullOrWhiteSpace(title), "Neue Zeitbuchung", title.Trim()),
                 .Description = If(String.IsNullOrWhiteSpace(description), "Beschreibung ergänzen", description.Trim()),
-                .MarkerKind = markerKind
-            })
+                .MarkerKind = markerKind,
+                .IdCategory = CategoryFor(markerKind),
+                .IdProject = If(SelectedProject Is Nothing, Guid.Empty, SelectedProject.IdProject)
+            }
+            SaveSeed(seed, False)
 
             RebuildBookedDates()
             RefreshEntries(idTimeItem)
-            RaiseEvent TimeEntryCreated(Me, completeRunningTask)
+            RaiseEvent TimeEntryCreated(Me, New TimeEntryCreatedEventArgs(seed.EntryTime, completeRunningTask))
         End Sub
 
         Private Sub RequestEditEntry()
@@ -212,6 +286,10 @@ Namespace ViewModels
             If seed Is Nothing Then
                 Return
             End If
+            SelectedProject = Projects.FirstOrDefault(Function(project) project.IdProject = seed.IdProject)
+            If seed.MarkerKind = TimeEntryMarkerKind.Normal Then
+                SelectedCategory = Categories.FirstOrDefault(Function(category) category.IdCategory = seed.IdCategory)
+            End If
 
             RaiseEvent TimeEntryEditRequested(
                 Me,
@@ -221,12 +299,20 @@ Namespace ViewModels
                     seed.Description,
                     False,
                     Sub(savedTime, savedTitle, savedDescription, completeRunningTask)
-                        seed.EntryTime = savedTime
-                        seed.Title = If(String.IsNullOrWhiteSpace(savedTitle), seed.Title, savedTitle.Trim())
-                        seed.Description = If(String.IsNullOrWhiteSpace(savedDescription), seed.Description, savedDescription.Trim())
+                        Dim edited = seed.Copy()
+                        edited.EntryTime = BookingDate.Add(savedTime.TimeOfDay)
+                        edited.Title = If(String.IsNullOrWhiteSpace(savedTitle), seed.Title, savedTitle.Trim())
+                        edited.Description = If(String.IsNullOrWhiteSpace(savedDescription), seed.Description, savedDescription.Trim())
+                        edited.IdProject = If(SelectedProject Is Nothing, seed.IdProject, SelectedProject.IdProject)
+                        If edited.MarkerKind = TimeEntryMarkerKind.Normal Then
+                            edited.IdCategory = If(SelectedCategory Is Nothing, seed.IdCategory, SelectedCategory.IdCategory)
+                        Else
+                            edited.IdCategory = CategoryFor(edited.MarkerKind)
+                        End If
+                        SaveSeed(edited, True)
                         RefreshEntries(seed.IdTimeItem)
                         If completeRunningTask Then
-                            RaiseEvent TimeEntryCreated(Me, True)
+                            RaiseEvent TimeEntryCreated(Me, New TimeEntryCreatedEventArgs(edited.EntryTime, True))
                         End If
                     End Sub))
         End Sub
@@ -244,7 +330,7 @@ Namespace ViewModels
         End Sub
 
         Private Sub UpsertLatestSystemMarker(markerKind As TimeEntryMarkerKind)
-            Dim nowTime = RoundUpToQuarterHour(DateTime.Now)
+            Dim nowTime = BookingDate.Add(RoundUpToQuarterHour(_clock()).TimeOfDay)
             Dim seeds = GetOrCreateSeeds(BookingDate)
             Dim latest = seeds.
                 Where(Function(seed) seed.MarkerKind = markerKind).
@@ -257,22 +343,28 @@ Namespace ViewModels
                     If(
                         markerKind = TimeEntryMarkerKind.DownTime,
                         "Ausfallzeit",
-                        If(markerKind = TimeEntryMarkerKind.WorkBreak,
-                            "Pause",
-                            "Ausbuchen")),
+                        If(markerKind = TimeEntryMarkerKind.Errand,
+                            "Besorgung",
+                            If(markerKind = TimeEntryMarkerKind.WorkBreak,
+                                "Pause",
+                                "Ausbuchen"))),
                     If(markerKind = TimeEntryMarkerKind.DownTime,
                         "Ausfallzeit nachgetragen.",
-                        If(markerKind = TimeEntryMarkerKind.WorkBreak,
-                            "Pause aktualisiert.",
-                            "Tagesende aktualisiert.")),
+                        If(markerKind = TimeEntryMarkerKind.Errand,
+                            "Besorgung nachgetragen.",
+                            If(markerKind = TimeEntryMarkerKind.WorkBreak,
+                                "Pause aktualisiert.",
+                                "Tagesende aktualisiert."))),
                     markerKind,
                     False)
                 Return
             End If
 
-            latest.EntryTime = MoveToFreeMinute(nowTime)
+            Dim updated = latest.Copy()
+            updated.EntryTime = MoveToFreeMinute(nowTime)
+            SaveSeed(updated, True)
             RefreshEntries(latest.IdTimeItem)
-            RaiseEvent TimeEntryCreated(Me, False)
+            RaiseEvent TimeEntryCreated(Me, New TimeEntryCreatedEventArgs(updated.EntryTime, False))
         End Sub
 
         Private Sub DeleteEntry()
@@ -285,7 +377,13 @@ Namespace ViewModels
                 Return
             End If
 
-            seeds.RemoveAll(Function(seed) seed.IdTimeItem = SelectedEntry.IdTimeItem)
+            If _service IsNot Nothing Then
+                ApplyMutation(Require(_service.DeleteTimeBooking(New DeleteTimeBookingRequest With {
+                    .AccessContext = _access, .IdTimeItem = SelectedEntry.IdTimeItem, .BookingDate = BookingDate
+                })))
+            Else
+                seeds.RemoveAll(Function(seed) seed.IdTimeItem = SelectedEntry.IdTimeItem)
+            End If
             If seeds.Count = 0 Then
                 _entriesByDate.Remove(BookingDate)
             End If
@@ -295,6 +393,7 @@ Namespace ViewModels
         End Sub
 
         Private Sub RefreshEntries(Optional selectedId As Guid? = Nothing)
+            ' de collectie-instantie blijft behouden zodat selectie en duurkoppelingen na een servicereactie geldig blijven.  vervanging zou de bestaande bindingen verbreken.
             SelectedDayEntries.Clear()
 
             Dim seeds = GetExistingSeeds(BookingDate)
@@ -350,7 +449,7 @@ Namespace ViewModels
             Dim seeds = GetExistingSeeds(BookingDate)
             If seeds Is Nothing OrElse seeds.Count = 0 Then
                 If BookingDate = DateTime.Today Then
-                    Return RoundUpToQuarterHour(DateTime.Now)
+                    Return RoundUpToQuarterHour(_clock())
                 End If
 
                 Return BookingDate.AddHours(8).AddMinutes(30)
@@ -472,7 +571,8 @@ Namespace ViewModels
                 .EntryTime = bookingDate.Date.AddHours(hour).AddMinutes(minute),
                 .Title = title,
                 .Description = description,
-                .MarkerKind = markerKind
+                .MarkerKind = markerKind,
+                .IdCategory = CategoryFor(markerKind)
             })
         End Sub
 
@@ -482,6 +582,155 @@ Namespace ViewModels
             Public Property Title As String
             Public Property Description As String
             Public Property MarkerKind As TimeEntryMarkerKind
+            Public Property IdProject As Guid
+            Public Property IdTask As Guid?
+            Public Property IdCategory As Guid
+            Public Function Copy() As TimeEntrySeed
+                Return DirectCast(MemberwiseClone(), TimeEntrySeed)
+            End Function
         End Class
+
+        Public Sub RecordTask(task As TaskItemViewModel, startTime As DateTime, endTime As DateTime,
+                              Optional useExistingBoundary As Boolean = False)
+            BookingDate = startTime.Date
+            Dim existingBoundary = GetOrCreateSeeds(BookingDate).FirstOrDefault(Function(seed) seed.EntryTime = endTime)
+            If useExistingBoundary AndAlso existingBoundary Is Nothing Then
+                Throw New InvalidOperationException("Die Abschlussbuchung ist nicht mehr vorhanden.")
+            End If
+            If useExistingBoundary AndAlso endTime <= startTime Then
+                Throw New InvalidOperationException("Die Abschlusszeit muss nach dem Aufgabenstart liegen.")
+            End If
+            Dim existingStart = GetOrCreateSeeds(BookingDate).FirstOrDefault(Function(seed) seed.EntryTime = startTime)
+            If existingStart IsNot Nothing AndAlso existingStart.MarkerKind <> TimeEntryMarkerKind.Normal Then
+                Throw New InvalidOperationException("Die Aufgabenstartzeit ist bereits durch eine Systembuchung belegt.")
+            End If
+            Dim startSeed = New TimeEntrySeed With {
+                .IdTimeItem = If(existingStart Is Nothing, Guid.NewGuid(), existingStart.IdTimeItem), .EntryTime = startTime,
+                .Title = task.Title, .Description = task.Description,
+                .IdProject = If(task.IdProject = Guid.Empty AndAlso SelectedProject IsNot Nothing, SelectedProject.IdProject, task.IdProject),
+                .IdTask = If(task.IdTask = Guid.Empty, CType(Nothing, Guid?), task.IdTask),
+                .MarkerKind = TimeEntryMarkerKind.Normal,
+                .IdCategory = If(existingStart Is Nothing, CategoryFor(TimeEntryMarkerKind.Normal), existingStart.IdCategory)
+            }
+            Dim endSeed = New TimeEntrySeed With {
+                .IdTimeItem = Guid.NewGuid(), .EntryTime = MoveToFreeMinute(endTime),
+                .Title = "Stopp", .Description = task.Title,
+                .IdProject = startSeed.IdProject, .IdTask = startSeed.IdTask,
+                .MarkerKind = TimeEntryMarkerKind.StopMark,
+                .IdCategory = CategoryFor(TimeEntryMarkerKind.StopMark)
+            }
+            If endSeed.EntryTime <= startSeed.EntryTime Then endSeed.EntryTime = startSeed.EntryTime.AddMinutes(1)
+            SaveSeed(startSeed, existingStart IsNot Nothing)
+            Try
+                If existingBoundary Is Nothing Then SaveSeed(endSeed, False)
+            Catch
+                If existingStart IsNot Nothing Then
+                    SaveSeed(existingStart, True)
+                ElseIf _service IsNot Nothing Then
+                    ApplyMutation(Require(_service.DeleteTimeBooking(New DeleteTimeBookingRequest With {
+                        .AccessContext = _access, .IdTimeItem = startSeed.IdTimeItem, .BookingDate = BookingDate
+                    })))
+                Else
+                    GetOrCreateSeeds(BookingDate).Remove(startSeed)
+                End If
+                Throw
+            End Try
+            RebuildBookedDates()
+            RefreshEntries(startSeed.IdTimeItem)
+        End Sub
+
+        Private Sub SaveSeed(seed As TimeEntrySeed, edit As Boolean)
+            If GetOrCreateSeeds(BookingDate).Any(Function(item) item.IdTimeItem <> seed.IdTimeItem AndAlso item.EntryTime = seed.EntryTime) Then
+                Throw New InvalidOperationException("Für diese Uhrzeit ist bereits eine Buchung vorhanden.")
+            End If
+            If _service Is Nothing Then
+                Dim seeds = GetOrCreateSeeds(BookingDate)
+                If edit Then
+                    Dim index = seeds.FindIndex(Function(item) item.IdTimeItem = seed.IdTimeItem)
+                    If index < 0 Then Throw New InvalidOperationException("Die Buchung ist nicht mehr vorhanden.")
+                    seeds(index) = seed
+                Else
+                    seeds.Add(seed)
+                End If
+                Return
+            End If
+            Dim request = New SaveTimeBookingRequest With {
+                .AccessContext = _access,
+                .Item = New TimeBookingItemDto With {
+                    .IdTimeItem = seed.IdTimeItem, .IdTenant = _access.IdTenant, .IdUser = _access.IdBookingUser,
+                    .IdProject = Projects.First().IdProject, .IdTask = seed.IdTask, .IdCategory = seed.IdCategory,
+                    .ShortTitle = seed.Title, .Description = seed.Description,
+                    .BookingDate = BookingDate, .EventTime = New DateTimeOffset(seed.EntryTime),
+                    .MarkerKind = CType(seed.MarkerKind, SystemTimeMarkerKind),
+                    .EventInfo = EventInfoFor(seed.MarkerKind)
+                }
+            }
+            Dim mutation = Require(If(edit, _service.EditTimeBooking(request), _service.AddTimeBooking(request)))
+            Dim saved = mutation.AffectedItem
+            seed.IdTimeItem = saved.IdTimeItem
+            seed.IdProject = saved.IdProject
+            ApplyMutation(mutation)
+        End Sub
+
+        Private Sub LoadBookingDate()
+            If _service Is Nothing Then Return
+            Dim day = Require(_service.GetBookingDay(New GetBookingDayRequest With {
+                .AccessContext = _access, .BookingDate = BookingDate
+            }))
+            ApplyBookingDay(day)
+        End Sub
+
+        Private Sub ApplyMutation(mutation As TimeBookingMutationResult)
+            If mutation.BookingDay Is Nothing Then Throw New InvalidOperationException("Der Buchungsdienst hat keinen Buchungstag zurückgegeben.")
+            ApplyBookingDay(mutation.BookingDay)
+            If mutation.RemovedItems IsNot Nothing Then
+                Dim removedIds = New HashSet(Of Guid)(mutation.RemovedItems.Select(Function(item) item.IdTimeItem))
+                GetOrCreateSeeds(mutation.BookingDay.BookingDate).RemoveAll(Function(seed) removedIds.Contains(seed.IdTimeItem))
+            End If
+        End Sub
+
+        Private Sub ApplyBookingDay(day As TimeBookingDayDto)
+            Dim seeds = GetOrCreateSeeds(day.BookingDate)
+            seeds.Clear()
+            For Each item In day.Items
+                If item.EventTime.HasValue AndAlso Not item.IsItemDeleted Then
+                    seeds.Add(New TimeEntrySeed With {
+                        .IdTimeItem = item.IdTimeItem, .EntryTime = item.EventTime.Value.DateTime,
+                        .Title = item.ShortTitle, .Description = item.Description,
+                        .MarkerKind = CType(item.MarkerKind, TimeEntryMarkerKind),
+                        .IdProject = item.IdProject, .IdTask = item.IdTask, .IdCategory = item.IdCategory
+                    })
+                End If
+            Next
+            RebuildBookedDates()
+        End Sub
+
+        Private Shared Function Require(Of T)(result As ServiceResult(Of T)) As T
+            If result Is Nothing Then Throw New InvalidOperationException("Keine Antwort vom Buchungsdienst.")
+            If Not result.Success Then Throw New InvalidOperationException(result.ErrorCode & ": " & result.ErrorMessage)
+            Return result.Value
+        End Function
+
+        Private Function CategoryFor(marker As TimeEntryMarkerKind) As Guid
+            Select Case marker
+                Case TimeEntryMarkerKind.WorkBreak
+                    Return SystemTimeMarkerIds.WorkBreakCategoryId
+                Case TimeEntryMarkerKind.StopMark, TimeEntryMarkerKind.DownTime, TimeEntryMarkerKind.Errand
+                    Return SystemTimeMarkerIds.StopMarkCategoryId
+                Case Else
+                    Return If(SelectedCategory Is Nothing, _categoryId, SelectedCategory.IdCategory)
+            End Select
+        End Function
+
+        Private Shared Function EventInfoFor(marker As TimeEntryMarkerKind) As String
+            Select Case marker
+                Case TimeEntryMarkerKind.DownTime
+                    Return TimeBookingOptions.DownTimeEventInfo
+                Case TimeEntryMarkerKind.Errand
+                    Return TimeBookingOptions.ErrandEventInfo
+                Case Else
+                    Return Nothing
+            End Select
+        End Function
     End Class
 End Namespace

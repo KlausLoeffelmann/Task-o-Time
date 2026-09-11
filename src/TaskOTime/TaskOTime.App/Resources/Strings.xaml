@@ -19,6 +19,7 @@
     <sys:String x:Key="CompleteTaskButtonText">Aufgabe erledigt</sys:String>
     <sys:String x:Key="PauseButtonText">Pause</sys:String>
     <sys:String x:Key="DownTimeButtonText">Ausfallzeit</sys:String>
+    <sys:String x:Key="ErrandButtonText">Besorgung</sys:String>
     <sys:String x:Key="ManageProjectsMenuHeader">Projekte...</sys:String>
     <sys:String x:Key="ManageTaskListsMenuHeader">Aufgabenlisten...</sys:String>
     <sys:String x:Key="ManageTasksMenuHeader">Aufgaben...</sys:String>
@@ -34,6 +35,8 @@
     <sys:String x:Key="EditTimeEntryButtonText">Bearbeiten</sys:String>
     <sys:String x:Key="DeleteTimeEntryButtonText">Löschen</sys:String>
     <sys:String x:Key="InsertWorkBreakButtonText">Pause einfügen</sys:String>
+    <sys:String x:Key="InsertDownTimeButtonText">Ausfallzeit einfügen</sys:String>
+    <sys:String x:Key="InsertErrandButtonText">Besorgung</sys:String>
     <sys:String x:Key="InsertStopMarkButtonText">Stoppmarke</sys:String>
     <sys:String x:Key="BookedDaysHeader">Tage mit Buchungen</sys:String>
     <sys:String x:Key="CompleteRecordingTaskCheckBoxText">Aufgabe wird erledigt.</sys:String>

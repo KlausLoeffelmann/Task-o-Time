@@ -9,6 +9,20 @@ namespace TaskOTime.DataLayer
 {
     public sealed class DemoDataGenerator
     {
+        private readonly Func<TaskOTimeContext> contextFactory;
+        private readonly Func<DateTimeOffset> clock;
+
+        public DemoDataGenerator()
+            : this(TaskOTimeContextFactory.Create, () => DateTimeOffset.Now)
+        {
+        }
+
+        public DemoDataGenerator(Func<TaskOTimeContext> contextFactory, Func<DateTimeOffset> clock)
+        {
+            this.contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
+            this.clock = clock ?? throw new ArgumentNullException(nameof(clock));
+        }
+
         public DemoDataSmokeReport CreateDemoData(DemoDataOptions options)
         {
             if (options == null)
@@ -18,7 +32,7 @@ namespace TaskOTime.DataLayer
 
             options.Validate();
 
-            using (var context = TaskOTimeContextFactory.Create())
+            using (var context = contextFactory())
             {
                 var handles = options.Users.Select(u => u.Handle).ToArray();
                 if (context.User.Any(u => handles.Contains(u.UserIdent)))
@@ -28,7 +42,8 @@ namespace TaskOTime.DataLayer
 
                 using (var transaction = context.Database.BeginTransaction())
                 {
-                    var now = DateTimeOffset.Now;
+                    var now = clock();
+                    var referenceDate = now.Date;
                     var catalog = new DemoTextCatalog(options.Text);
                     SystemTimeMarkerSeed.EnsureLookupItems(context);
                     var tenants = CreateTenants(context, options.Tenants, now, catalog);
@@ -41,7 +56,7 @@ namespace TaskOTime.DataLayer
                     var lists = CreateTaskLists(context, users, projects, symbols, options.Lists, catalog);
                     var tags = CreateTags(context, users, options.Tasks.Total, catalog);
                     var tasks = CreateTasks(context, users, projects, lists, symbols, tags, options.Tasks, now, catalog);
-                    CreateTimeItems(context, users, projects, assignments, categories, tasks, options.TimeItems, now, catalog);
+                    var timeItemLinks = CreateTimeItems(context, users, projects, assignments, categories, tasks, options.TimeItems, options.TimeItemDates, referenceDate, now, catalog);
                     CreateNotes(context, users, projects, tasks, tags, now, catalog);
                     CreateWebLinks(context, users, projects, tags, now, catalog);
                     CreateSharableProjects(context, users, projects, categories, now);
@@ -49,8 +64,10 @@ namespace TaskOTime.DataLayer
                     CreateLogItems(context, users, now, catalog);
 
                     context.SaveChanges();
-                    var report = DemoDataSmokeReport.Collect(context);
-                    report.Validate();
+                    ApplyTimeItemLinks(timeItemLinks);
+                    context.SaveChanges();
+                    var report = DemoDataSmokeReport.Collect(context, referenceDate);
+                    report.Validate(options.TimeItemDates, referenceDate);
                     transaction.Commit();
                     return report;
                 }
@@ -434,7 +451,7 @@ namespace TaskOTime.DataLayer
             return tasks;
         }
 
-        private static void CreateTimeItems(
+        private static List<TimeItemLink> CreateTimeItems(
             TaskOTimeContext context,
             IReadOnlyList<User> users,
             IReadOnlyList<Project> projects,
@@ -442,6 +459,8 @@ namespace TaskOTime.DataLayer
             IReadOnlyList<Category> categories,
             IReadOnlyList<TaskItem> tasks,
             int count,
+            DemoTimeItemDateOptions dateOptions,
+            DateTime referenceDate,
             DateTimeOffset now,
             DemoTextCatalog catalog)
         {
@@ -464,13 +483,20 @@ namespace TaskOTime.DataLayer
                 throw new InvalidOperationException("Demo time bookings require at least one active project assignment with booking permission.");
             }
 
+            var links = new List<TimeItemLink>();
+            var bookingDates = dateOptions.GetBookingDates(referenceDate);
+            var latestTimeItemsByUserAndDate = new Dictionary<Tuple<Guid, DateTime>, TimeItem>();
+            var eventSlotsByUserAndDate = new Dictionary<Tuple<Guid, DateTime>, int>();
             for (var i = 0; i < count; i++)
             {
-                var assignment = bookableAssignments[i % bookableAssignments.Count];
+                var bookingDateIndex = i % bookingDates.Count;
+                var bookingDateOccurrence = i / bookingDates.Count;
+                var assignmentGroup = bookingDateOccurrence / DemoTimeItemDateOptions.MinimumTimeItemsPerDate;
+                var assignment = bookableAssignments[(bookingDateIndex + assignmentGroup) % bookableAssignments.Count];
                 var project = projectById[assignment.IdProject];
                 var user = userById[assignment.IdUser];
                 var cycle = i / bookableAssignments.Count;
-                var bookingDate = DateTime.Today.AddDays(-(cycle % 3));
+                var bookingDate = bookingDates[bookingDateIndex];
                 var projectTasks = tasksByProject.TryGetValue(project.IdProject, out var matchingTasks) && matchingTasks.Count > 0
                     ? matchingTasks
                     : tasks.ToList();
@@ -479,7 +505,23 @@ namespace TaskOTime.DataLayer
                     ? matchingCategories
                     : categories.ToList();
                 var category = userCategories[(cycle + i) % userCategories.Count];
-                var duration = TimeSpan.FromMinutes(15 + (i % 8) * 15);
+                var eventSlotKey = Tuple.Create(user.IdUser, bookingDate);
+                eventSlotsByUserAndDate.TryGetValue(eventSlotKey, out var eventSlot);
+                eventSlotsByUserAndDate[eventSlotKey] = eventSlot + 1;
+                var eventTime = new DateTimeOffset(bookingDate, now.Offset).AddHours(8);
+                TimeItem previousTimeItem = null;
+                TimeSpan? durationFromPrevious = null;
+                if (latestTimeItemsByUserAndDate.TryGetValue(eventSlotKey, out previousTimeItem))
+                {
+                    durationFromPrevious = GetBookingInterval(bookingDate, eventSlot - 1);
+                    eventTime = previousTimeItem.EventTime.Value.Add(durationFromPrevious.Value);
+                    if (eventTime.Date != bookingDate || eventTime.TimeOfDay > TimeSpan.FromHours(20))
+                    {
+                        throw new InvalidOperationException(
+                            "The configured demo bookings cannot be spaced within a realistic 08:00-20:00 booking day. Reduce TimeItems or increase timeItemDates.days.");
+                    }
+                }
+
                 var item = new TimeItem
                 {
                     IdTimeItem = Guid.NewGuid(),
@@ -489,21 +531,17 @@ namespace TaskOTime.DataLayer
                     IdCategory = category.IdCategory,
                     ShortTitle = catalog.TimeShortTitle(i),
                     Description = catalog.TimeDescription(i),
-                    EventTime = new DateTimeOffset(bookingDate).AddHours(8 + (cycle % 9)).AddMinutes((i % 4) * 15),
+                    EventTime = eventTime,
                     BookingDate = bookingDate,
                     EventInfo = catalog.EventInfo(i),
                     EventTypeInfo = 1,
-                    DurationToNext = duration,
-                    DurationTicksToNext = duration.Ticks,
                     Scope = 0,
                     IsItemCompleted = true,
                     IsItemDeleted = false,
                     IsStartAction = i % 2 == 0,
                     IsEndAction = i % 2 != 0,
-                    Value = (decimal)duration.TotalHours,
                     Priority = i % 4,
                     MachineID = Environment.MachineName,
-                    DateItemFinished = new DateTimeOffset(bookingDate).AddHours(8 + (cycle % 9)).AddMinutes((i % 4) * 15).Add(duration),
                     DateCreated = now.AddDays(-(cycle % 7)),
                     DateModified = now,
                     SyncId = Guid.NewGuid(),
@@ -511,8 +549,50 @@ namespace TaskOTime.DataLayer
                     ExternalId = "demo-time-" + i
                 };
 
+                if (previousTimeItem != null)
+                {
+                    var duration = durationFromPrevious.Value;
+                    previousTimeItem.DurationToNext = duration;
+                    previousTimeItem.DurationTicksToNext = duration.Ticks;
+                    previousTimeItem.Value = (decimal)duration.TotalHours;
+                    previousTimeItem.DateItemFinished = eventTime;
+                    item.DurationToPrevious = duration;
+                    item.DurationTicksToPrevious = duration.Ticks;
+                    links.Add(new TimeItemLink(previousTimeItem, item));
+                }
+
                 context.TimeItem.Add(item);
+                latestTimeItemsByUserAndDate[eventSlotKey] = item;
             }
+
+            return links;
+        }
+
+        private static void ApplyTimeItemLinks(IEnumerable<TimeItemLink> links)
+        {
+            foreach (var link in links)
+            {
+                link.Previous.IdNextItem = link.Next.IdTimeItem;
+                link.Next.IdPreviousItem = link.Previous.IdTimeItem;
+            }
+        }
+
+        private sealed class TimeItemLink
+        {
+            public TimeItemLink(TimeItem previous, TimeItem next)
+            {
+                Previous = previous;
+                Next = next;
+            }
+
+            public TimeItem Previous { get; }
+            public TimeItem Next { get; }
+        }
+
+        private static TimeSpan GetBookingInterval(DateTime bookingDate, int intervalIndex)
+        {
+            var intervalSteps = (bookingDate.Day + intervalIndex) % 5;
+            return TimeSpan.FromMinutes(30 + intervalSteps * 15);
         }
 
         private static void CreateNotes(TaskOTimeContext context, IReadOnlyList<User> users, IReadOnlyList<Project> projects, IReadOnlyList<TaskItem> tasks, IReadOnlyList<Tag> tags, DateTimeOffset now, DemoTextCatalog catalog)

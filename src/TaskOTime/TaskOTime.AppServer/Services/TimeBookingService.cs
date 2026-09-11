@@ -822,7 +822,7 @@ namespace TaskOTime.AppServer.Services
                 {
                     workBreakTime = workBreakTime.Add(duration);
                 }
-                else
+                else if (options.GetMarkerKind(item) == SystemTimeMarkerKind.Normal)
                 {
                     totalBookedTime = totalBookedTime.Add(duration);
                 }

@@ -7,10 +7,12 @@ namespace TaskOTime.App;
 
 public partial class TimeEntryEditDialog : Window
 {
-    public TimeEntryEditDialog(TimeEntryEditRequestEventArgs request)
+    public TimeEntryEditDialog(TimeEntryEditRequestEventArgs request, TimeCollectionViewModel timeCollection)
     {
         InitializeComponent();
         DataContext = request;
+        ProjectSelection.DataContext = timeCollection;
+        CategorySelection.DataContext = timeCollection;
     }
 
     public TimeEntryEditRequestEventArgs Request => (TimeEntryEditRequestEventArgs)DataContext;
@@ -25,11 +27,13 @@ public partial class TimeEntryEditDialog : Window
 
     private bool TryNormalizeEntryTime()
     {
-        if (Request.EntryTime.Date != DateTime.MinValue.Date)
+        if (TimeSpan.TryParseExact(StartTimeTextBox.Text, new[] { @"h\:mm", @"hh\:mm" },
+            CultureInfo.InvariantCulture, out var time) && time >= TimeSpan.Zero && time < TimeSpan.FromDays(1))
         {
+            Request.EntryTime = Request.EntryTime.Date.Add(time);
             return true;
         }
-
-        return DateTime.TryParse(Request.EntryTime.ToString("HH:mm", CultureInfo.CurrentCulture), out _);
+        MessageBox.Show(this, "Startzeit bitte als HH:mm eingeben.", "Zeitbuchung", MessageBoxButton.OK, MessageBoxImage.Warning);
+        return false;
     }
 }

@@ -59,8 +59,9 @@ namespace TaskOTime.Cli
 
             if (options.ValidateDemoData)
             {
+                var demoOptions = DemoDataConfigLoader.Load(options.ValidateDemoDataConfigPath);
                 var report = ExecuteWithCliDirectory(DemoDataSmokeReport.Collect);
-                report.Validate();
+                report.Validate(demoOptions.TimeItemDates, DateTime.Today);
                 Console.WriteLine("Demo data smoke validation passed. " + report.ToSummaryString());
             }
 
@@ -118,7 +119,8 @@ namespace TaskOTime.Cli
             Console.WriteLine("TaskOTime.Cli");
             Console.WriteLine("  --new");
             Console.WriteLine("  --createDemoData[:demodataconfig.json]");
-            Console.WriteLine("  --validateDemoData");
+            Console.WriteLine("  --validateDemoData[:demodataconfig.json]");
+            Console.WriteLine("  Demo booking dates: timeItemDates { days: 30, includeToday: true, skipWeekends: false }");
             Console.WriteLine("  --export:all");
             Console.WriteLine("  --export:tables table1, table2, table3");
             Console.WriteLine("  --backup:\"path-and-filename.bak\"");
@@ -146,6 +148,7 @@ namespace TaskOTime.Cli
             public bool CreateDemoData { get; private set; }
             public bool ValidateDemoData { get; private set; }
             public string DemoDataConfigPath { get; private set; }
+            public string ValidateDemoDataConfigPath { get; private set; }
             public ExportMode ExportMode { get; private set; }
             public IReadOnlyList<string> ExportTables { get; private set; }
             public string BackupPath { get; private set; }
@@ -184,9 +187,14 @@ namespace TaskOTime.Cli
                             options.DemoDataConfigPath = ReadOptionalFollowingValue(args, ref i);
                         }
                     }
-                    else if (IsOption(arg, "--validateDemoData"))
+                    else if (StartsWithOption(arg, "--validateDemoData"))
                     {
                         options.ValidateDemoData = true;
+                        options.ValidateDemoDataConfigPath = ReadOptionValue(arg, "--validateDemoData");
+                        if (string.IsNullOrWhiteSpace(options.ValidateDemoDataConfigPath))
+                        {
+                            options.ValidateDemoDataConfigPath = ReadOptionalFollowingValue(args, ref i);
+                        }
                     }
                     else if (StartsWithOption(arg, "--backup"))
                     {

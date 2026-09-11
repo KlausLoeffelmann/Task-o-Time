@@ -16,6 +16,7 @@ namespace TaskOTime.DataLayer
         public int Lists { get; set; } = 4;
         public DemoTaskOptions Tasks { get; set; } = new DemoTaskOptions();
         public int TimeItems { get; set; } = 100;
+        public DemoTimeItemDateOptions TimeItemDates { get; set; } = new DemoTimeItemDateOptions();
         public DemoProjectAssignmentOptions ProjectAssignments { get; set; } = new DemoProjectAssignmentOptions();
         public DemoTextOptions Text { get; set; } = new DemoTextOptions();
 
@@ -26,6 +27,13 @@ namespace TaskOTime.DataLayer
             RequireRange(Categories, 10, 50, nameof(Categories));
             RequireRange(Lists, 2, 10, nameof(Lists));
             RequireRange(TimeItems, 50, 1000, nameof(TimeItems));
+
+            if (TimeItemDates == null)
+            {
+                throw new InvalidOperationException("Time item date settings are required.");
+            }
+
+            TimeItemDates.Validate(TimeItems);
 
             if (Tasks == null)
             {
@@ -89,6 +97,47 @@ namespace TaskOTime.DataLayer
             {
                 throw new InvalidOperationException(name + " must be between " + min + " and " + max + ".");
             }
+        }
+    }
+
+    public sealed class DemoTimeItemDateOptions
+    {
+        internal const int MinimumTimeItemsPerDate = 3;
+
+        public int Days { get; set; } = 30;
+        public bool IncludeToday { get; set; } = true;
+        public bool SkipWeekends { get; set; }
+
+        public IReadOnlyList<DateTime> GetBookingDates(DateTime referenceDate)
+        {
+            var today = referenceDate.Date;
+            return Enumerable.Range(0, Days)
+                .Select(dayOffset => today.AddDays(-dayOffset))
+                .Where(date => date == today || !SkipWeekends || !IsWeekend(date))
+                .ToArray();
+        }
+
+        public void Validate(int timeItemCount)
+        {
+            if (Days < 1 || Days > 365)
+            {
+                throw new InvalidOperationException("Time item date Days must be between 1 and 365.");
+            }
+
+            if (!IncludeToday)
+            {
+                throw new InvalidOperationException("Time item dates must include today so current-day analysis and UI views contain bookings.");
+            }
+
+            if (timeItemCount < Days * MinimumTimeItemsPerDate)
+            {
+                throw new InvalidOperationException("TimeItems must be at least three times timeItemDates.days so every configured date has multiple completed booking intervals.");
+            }
+        }
+
+        private static bool IsWeekend(DateTime date)
+        {
+            return date.DayOfWeek == DayOfWeek.Saturday || date.DayOfWeek == DayOfWeek.Sunday;
         }
     }
 

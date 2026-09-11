@@ -45,7 +45,12 @@
     "open": 15,
     "closed": 20
   },
-  "timeItems": 180,
+  "timeItems": 360,
+  "timeItemDates": {
+    "days": 45,
+    "includeToday": true,
+    "skipWeekends": false
+  },
   "projectAssignments": {
     "mode": "Deterministic",
     "usersPerProject": 2,

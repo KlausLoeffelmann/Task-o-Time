@@ -5,6 +5,8 @@ Namespace ViewModels
         Inherits ViewModelBase
 
         Private ReadOnly _id As Guid
+        Public Property IdProject As Guid
+        Public Property IdTask As Guid
         Private _title As String
         Private _description As String
         Private _dueText As String

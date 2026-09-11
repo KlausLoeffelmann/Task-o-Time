@@ -160,6 +160,18 @@ namespace TaskOTime.AppServer.Tests
                 EventTime = WorkDayStart.AddHours(4),
                 DurationTicksToNext = TimeSpan.FromHours(1).Ticks
             });
+            context.TimeItem.Add(new TimeItem
+            {
+                IdTimeItem = GuidFromSuffix(13),
+                IdUser = RegularUserId,
+                IdProject = ProjectId,
+                IdCategory = LegacySystemTimeMarkerIds.StopMark,
+                EventTypeInfo = (int)TimeBookingEventType.Time,
+                EventInfo = TimeBookingOptions.ErrandEventInfo,
+                BookingDate = WorkDayStart.Date,
+                EventTime = WorkDayStart.AddHours(5),
+                DurationTicksToNext = TimeSpan.FromHours(2).Ticks
+            });
             var service = new AnalysisService(() => context, new Pbkdf2PasswordHasher());
 
             var result = service.GetCurrentUserDayProjectHours(new UserAnalysisRequest
@@ -216,6 +228,71 @@ namespace TaskOTime.AppServer.Tests
             Assert.IsTrue(SystemTimeMarkerSeed.HasSeededCategories(context));
             Assert.AreEqual(1, context.Category.Count(category => category.IdCategory == SystemTimeMarkerIds.WorkBreakCategoryId));
             Assert.AreEqual(1, context.Category.Count(category => category.IdCategory == SystemTimeMarkerIds.StopMarkCategoryId));
+        }
+
+        [TestMethod]
+        public void TimeBooking_AddErrand_PreservesTimelineAndExcludesItsDuration()
+        {
+            var context = CreateTenantContext();
+            AddProjectWithAssignment(context, RegularUserId, canBookTime: true);
+            context.Category.Add(new Category
+            {
+                IdCategory = CategoryId,
+                IdUser = RegularUserId,
+                CategoryName = "Development"
+            });
+            context.Category.Add(new Category
+            {
+                IdCategory = SystemTimeMarkerIds.StopMarkCategoryId,
+                IdUser = RegularUserId,
+                CategoryName = SystemTimeMarkerIds.StopMarkCategoryName
+            });
+            var firstWork = CreateTimeItem(20, TimeSpan.Zero);
+            firstWork.EventTime = WorkDayStart;
+            context.TimeItem.Add(firstWork);
+            var service = new TimeBookingService(() => context, new Pbkdf2PasswordHasher());
+            var accessContext = CreateAccessContext(RegularUserId, RegularUserId);
+
+            var errandResult = service.AddTimeBooking(new SaveTimeBookingRequest
+            {
+                AccessContext = accessContext,
+                Item = new TimeBookingItemDto
+                {
+                    IdTimeItem = GuidFromSuffix(21),
+                    IdTenant = TenantId,
+                    IdUser = RegularUserId,
+                    IdProject = ProjectId,
+                    IdCategory = SystemTimeMarkerIds.StopMarkCategoryId,
+                    ShortTitle = "Errand",
+                    EventInfo = TimeBookingOptions.ErrandEventInfo,
+                    EventTime = WorkDayStart.AddHours(1),
+                    BookingDate = WorkDayStart.Date
+                }
+            });
+            var nextWorkResult = service.AddTimeBooking(new SaveTimeBookingRequest
+            {
+                AccessContext = accessContext,
+                Item = new TimeBookingItemDto
+                {
+                    IdTimeItem = GuidFromSuffix(22),
+                    IdTenant = TenantId,
+                    IdUser = RegularUserId,
+                    IdProject = ProjectId,
+                    IdCategory = CategoryId,
+                    ShortTitle = "Work resumed",
+                    EventTime = WorkDayStart.AddHours(2),
+                    BookingDate = WorkDayStart.Date
+                }
+            });
+
+            Assert.IsTrue(errandResult.Success, errandResult.ErrorMessage);
+            Assert.IsTrue(nextWorkResult.Success, nextWorkResult.ErrorMessage);
+            var day = nextWorkResult.Value.BookingDay;
+            Assert.AreEqual(SystemTimeMarkerKind.Errand, day.Items[1].MarkerKind);
+            Assert.AreEqual(TimeBookingOptions.ErrandEventInfo, day.Items[1].EventInfo);
+            Assert.AreEqual(SystemTimeMarkerIds.StopMarkCategoryId, day.Items[1].IdCategory);
+            Assert.AreEqual(TimeSpan.FromHours(1), day.Items[1].DurationToNext);
+            Assert.AreEqual(TimeSpan.FromHours(1), day.TotalBookedTime);
         }
 
         private static TaskOTimeContext CreateTenantContext()

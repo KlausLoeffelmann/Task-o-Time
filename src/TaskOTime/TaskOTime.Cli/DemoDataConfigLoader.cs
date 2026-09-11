@@ -20,8 +20,13 @@ namespace TaskOTime.Cli
                 throw new FileNotFoundException("The demo data configuration file was not found.", path);
             }
 
+            return LoadJson(File.ReadAllText(path));
+        }
+
+        internal static DemoDataOptions LoadJson(string json)
+        {
             var serializer = new JavaScriptSerializer();
-            var root = serializer.DeserializeObject(File.ReadAllText(path)) as Dictionary<string, object>;
+            var root = serializer.DeserializeObject(json) as Dictionary<string, object>;
             if (root == null)
             {
                 throw new InvalidOperationException("The demo data configuration must be a JSON object.");
@@ -34,6 +39,7 @@ namespace TaskOTime.Cli
                 Categories = GetInt(root, "categories", 20),
                 Lists = GetInt(root, "lists", 4),
                 TimeItems = GetInt(root, "timeItems", 100),
+                TimeItemDates = ReadTimeItemDates(root),
                 Tasks = ReadTasks(root),
                 Users = ReadUsers(root),
                 ProjectAssignments = ReadProjectAssignments(root),
@@ -42,6 +48,22 @@ namespace TaskOTime.Cli
 
             options.Validate();
             return options;
+        }
+
+        private static DemoTimeItemDateOptions ReadTimeItemDates(Dictionary<string, object> root)
+        {
+            var dates = GetObject(root, "timeItemDates");
+            if (dates == null)
+            {
+                return new DemoTimeItemDateOptions();
+            }
+
+            return new DemoTimeItemDateOptions
+            {
+                Days = GetInt(dates, "days", 30),
+                IncludeToday = GetBool(dates, "includeToday", true),
+                SkipWeekends = GetBool(dates, "skipWeekends", false)
+            };
         }
 
         private static DemoTaskOptions ReadTasks(Dictionary<string, object> root)
@@ -165,7 +187,18 @@ namespace TaskOTime.Cli
 
         private static Dictionary<string, object> GetObject(Dictionary<string, object> values, string name)
         {
-            return values.TryGetValue(name, out var value) ? value as Dictionary<string, object> : null;
+            if (!values.TryGetValue(name, out var value) || value == null)
+            {
+                return null;
+            }
+
+            var result = value as Dictionary<string, object>;
+            if (result == null)
+            {
+                throw new InvalidOperationException("The " + name + " setting must be a JSON object.");
+            }
+
+            return result;
         }
 
         private static string GetString(Dictionary<string, object> values, string name, string defaultValue)

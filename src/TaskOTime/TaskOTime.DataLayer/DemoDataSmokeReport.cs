@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace TaskOTime.DataLayer
@@ -24,8 +25,12 @@ namespace TaskOTime.DataLayer
         public int AnalysisBookingUserCount { get; private set; }
         public int AnalysisBookingProjectCount { get; private set; }
         public int AnalysisBookingDateCount { get; private set; }
+        public IReadOnlyList<DateTime> AnalysisBookingDates { get; private set; } = Array.Empty<DateTime>();
+        public DateTime? FirstAnalysisBookingDate { get; private set; }
+        public DateTime? LastAnalysisBookingDate { get; private set; }
         public int CurrentDayAnalysisBookingCount { get; private set; }
         public int MultiBookingUserProjectDateGroupCount { get; private set; }
+        public int MultiBookingDateCount { get; private set; }
         public decimal AnalysisBookedHours { get; private set; }
 
         public static DemoDataSmokeReport Collect()
@@ -37,6 +42,11 @@ namespace TaskOTime.DataLayer
         }
 
         public static DemoDataSmokeReport Collect(TaskOTimeContext context)
+        {
+            return Collect(context, DateTime.Today);
+        }
+
+        public static DemoDataSmokeReport Collect(TaskOTimeContext context, DateTime referenceDate)
         {
             if (context == null)
             {
@@ -54,7 +64,16 @@ namespace TaskOTime.DataLayer
                     item.DurationTicksToNext.Value > 0)
                 .ToList();
 
-            var today = DateTime.Today;
+            var bookingDates = normalTimeItems
+                .Select(item => item.BookingDate.Value.Date)
+                .Distinct()
+                .OrderBy(date => date)
+                .ToArray();
+            var multiBookingGroups = normalTimeItems
+                .GroupBy(item => new { item.IdUser, item.IdProject, BookingDate = item.BookingDate.Value.Date })
+                .Where(group => group.Count() > 1)
+                .ToArray();
+            var today = referenceDate.Date;
             return new DemoDataSmokeReport
             {
                 TenantCount = context.Tenant.Count(tenant => tenant.IsActive && !tenant.IsDeleted),
@@ -73,11 +92,13 @@ namespace TaskOTime.DataLayer
                 AnalysisBookingCount = normalTimeItems.Count,
                 AnalysisBookingUserCount = normalTimeItems.Select(item => item.IdUser).Distinct().Count(),
                 AnalysisBookingProjectCount = normalTimeItems.Select(item => item.IdProject).Distinct().Count(),
-                AnalysisBookingDateCount = normalTimeItems.Select(item => item.BookingDate.Value.Date).Distinct().Count(),
+                AnalysisBookingDateCount = bookingDates.Length,
+                AnalysisBookingDates = bookingDates,
+                FirstAnalysisBookingDate = bookingDates.Length == 0 ? (DateTime?)null : bookingDates[0],
+                LastAnalysisBookingDate = bookingDates.Length == 0 ? (DateTime?)null : bookingDates[bookingDates.Length - 1],
                 CurrentDayAnalysisBookingCount = normalTimeItems.Count(item => item.BookingDate.Value.Date == today),
-                MultiBookingUserProjectDateGroupCount = normalTimeItems
-                    .GroupBy(item => new { item.IdUser, item.IdProject, BookingDate = item.BookingDate.Value.Date })
-                    .Count(group => group.Count() > 1),
+                MultiBookingUserProjectDateGroupCount = multiBookingGroups.Length,
+                MultiBookingDateCount = multiBookingGroups.Select(group => group.Key.BookingDate).Distinct().Count(),
                 AnalysisBookedHours = normalTimeItems.Sum(item => item.DurationTicksToNext.Value) / (decimal)TimeSpan.TicksPerHour
             };
         }
@@ -113,6 +134,29 @@ namespace TaskOTime.DataLayer
             }
         }
 
+        public void Validate(DemoTimeItemDateOptions dateOptions, DateTime referenceDate)
+        {
+            if (dateOptions == null)
+            {
+                throw new ArgumentNullException(nameof(dateOptions));
+            }
+
+            Validate();
+
+            var expectedDates = dateOptions.GetBookingDates(referenceDate)
+                .OrderBy(date => date)
+                .ToArray();
+            if (!expectedDates.SequenceEqual(AnalysisBookingDates))
+            {
+                throw new InvalidOperationException("Demo data smoke validation failed because bookings do not cover the configured date range.");
+            }
+
+            if (MultiBookingDateCount != expectedDates.Length)
+            {
+                throw new InvalidOperationException("Demo data smoke validation failed because each configured booking date must contain a multi-booking user/project group.");
+            }
+        }
+
         public string ToSummaryString()
         {
             return "Tenants=" + TenantCount +
@@ -130,9 +174,16 @@ namespace TaskOTime.DataLayer
                 ", BookingUsers=" + AnalysisBookingUserCount +
                 ", BookingProjects=" + AnalysisBookingProjectCount +
                 ", BookingDates=" + AnalysisBookingDateCount +
+                " (" + FormatDate(FirstAnalysisBookingDate) + ".." + FormatDate(LastAnalysisBookingDate) + ")" +
                 ", TodayBookings=" + CurrentDayAnalysisBookingCount +
                 ", MultiUserProjectDateGroups=" + MultiBookingUserProjectDateGroupCount +
+                ", MultiBookingDates=" + MultiBookingDateCount +
                 ", CrossTenantAssignments=" + CrossTenantProjectAssignmentCount;
+        }
+
+        private static string FormatDate(DateTime? date)
+        {
+            return date.HasValue ? date.Value.ToString("yyyy-MM-dd") : "none";
         }
 
         private static int CountCrossTenantProjectAssignments(TaskOTimeContext context)
