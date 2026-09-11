@@ -246,6 +246,12 @@ Namespace TaskOTime.TimeTrackingServices.Tests
         End Sub
 
         Private Shared Sub AssertMasterDataHandlers(master As MasterDataWindow)
+            Assert.AreEqual("Projects", DirectCast(master.WorkspaceTabs.Items(1), TabItem).Header)
+            Assert.AreEqual("Project Main Data", master.ProjectScreen.HeadingLabel.Content)
+            Assert.AreEqual("New", master.ProjectScreen.NewButton.Content)
+            Assert.AreEqual("Save", master.ProjectScreen.SaveButton.Content)
+            Assert.AreEqual("Archive", master.ProjectScreen.DeleteButton.Content)
+
             Dim buttons = {
                 master.AboutButton,
                 master.TenantUserScreen.AddUserButton,

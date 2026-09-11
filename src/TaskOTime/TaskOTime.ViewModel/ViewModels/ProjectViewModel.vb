@@ -38,7 +38,7 @@ Namespace ViewModels
             _view.IdentifierTextBox.Text = If(project Is Nothing, "", project.ProjectIdentifier)
             _view.DescriptionTextBox.Text = If(project Is Nothing, "", project.ProjectDescription)
             _view.ActiveCheckBox.IsChecked = project IsNot Nothing AndAlso project.IsActive
-            _view.AssignmentLabel.Text = If(project Is Nothing, "Keine Zuordnungen", "Projekt ausgewählt")
+            _view.AssignmentLabel.Text = If(project Is Nothing, "No assignments", "Project selected")
             _view.SaveButton.IsEnabled = project IsNot Nothing
         End Sub
 
@@ -46,18 +46,18 @@ Namespace ViewModels
             ' Erst anlegen und dann die neue Zeile auswaehlen, damit man sofort weitertippen kan
             Dim project = New ProjectMainDataDto With {
                 .IdTenant = _store.Tenant.IdTenant, .IdUser = _store.ActingUserId,
-                .ProjectName = "Neues Projekt", .ProjectIdentifier = "NEU",
+                .ProjectName = "New project", .ProjectIdentifier = "NEW",
                 .IsActive = True, .DateCreated = DateTimeOffset.Now, .DateModified = DateTimeOffset.Now
             }
             Try
                 Dim created = ServiceWorkspace.Require(
                     _store.AdminService.CreateProject(New SaveProjectRequest With {
                         .IdTenant = _store.Tenant.IdTenant, .IdActingUser = _store.ActingUserId, .Item = project
-                    }), "Projekt anlegen")
+                    }), "Create project")
                 _store.Projects.Add(created)
                 _view.ProjectListView.SelectedItem = created
             Catch ex As InvalidOperationException
-                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Servicefehler")
+                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Service error")
             End Try
         End Sub
 
@@ -78,11 +78,11 @@ Namespace ViewModels
             Try
                 ServiceWorkspace.Require(_store.AdminService.UpdateProject(New SaveProjectRequest With {
                     .IdTenant = _store.Tenant.IdTenant, .IdActingUser = _store.ActingUserId, .Item = project
-                }), "Projekt speichern")
+                }), "Save project")
                 _view.ProjectListView.Items.Refresh()
-                MessageBox.Show(Window.GetWindow(_view), "Projekt aktualisiert.", "Projekt")
+                MessageBox.Show(Window.GetWindow(_view), "Project updated.", "Project")
             Catch ex As InvalidOperationException
-                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Servicefehler")
+                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Service error")
             End Try
         End Sub
 
@@ -100,11 +100,11 @@ Namespace ViewModels
                 ServiceWorkspace.Require(_store.AdminService.DeleteProject(New DeleteMasterDataRequest With {
                     .IdTenant = _store.Tenant.IdTenant, .IdActingUser = _store.ActingUserId,
                     .IdItem = project.IdProject, .HardDelete = False
-                }), "Projekt archivieren")
+                }), "Archive project")
                 _store.Projects.Remove(project)
-                MessageBox.Show(Window.GetWindow(_view), "Projekt archiviert.", "Archivieren")
+                MessageBox.Show(Window.GetWindow(_view), "Project archived.", "Archive")
             Catch ex As InvalidOperationException
-                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Servicefehler")
+                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Service error")
             End Try
         End Sub
     End Class

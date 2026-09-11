@@ -20,7 +20,7 @@
         </Border>
         <TabControl x:Name="WorkspaceTabs" x:FieldModifier="public" Grid.Row="1" Margin="0,9,0,4" Background="WhiteSmoke">
             <TabItem Header="Mandanten / Benutzer"><local:TenantUserView x:Name="TenantUserScreen" x:FieldModifier="public"/></TabItem>
-            <TabItem Header="Projekte"><local:ProjectView x:Name="ProjectScreen" x:FieldModifier="public"/></TabItem>
+            <TabItem Header="Projects"><local:ProjectView x:Name="ProjectScreen" x:FieldModifier="public"/></TabItem>
             <TabItem Header="Aufgaben"><local:TaskWorkView x:Name="TaskScreen" x:FieldModifier="public"/></TabItem>
             <TabItem Header="Kategorien &amp; Anhänge"><local:CollaborationView x:Name="CollaborationScreen" x:FieldModifier="public"/></TabItem>
         </TabControl>
