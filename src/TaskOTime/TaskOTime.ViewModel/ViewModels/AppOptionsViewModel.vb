@@ -1,12 +1,14 @@
 Imports TaskOTime.ViewModel.Base
 
 Namespace ViewModels
+    ' Die Optionen zusammen halten, dann weiss das Binding an einer Stelle wie die Ansicht aussehen soll
     Public Class AppOptionsViewModel
         Inherits ViewModelBase
 
         Private _restoreMainWindowPlacement As Boolean = True
         Private _saturdayIsWorkday As Boolean
         Private _sundayIsWorkday As Boolean
+      ' Zwei Wochen als Startwert erschien mir erstmal uebersichtlicher.
         Private _bookedDateRangeCount As Integer = 14
         Private _bookedDateRangeUnit As String = "Tage"
 
@@ -15,10 +17,12 @@ Namespace ViewModels
                 Return _restoreMainWindowPlacement
             End Get
             Set(value As Boolean)
+                ' Mit der Meldung merkt sich das Fenster seine Position dann vermutlich auch gleich dauerhaft.
                 SetProperty(_restoreMainWindowPlacement, value, NameOf(RestoreMainWindowPlacement))
             End Set
         End Property
 
+        ' Beide Wochenend-Haekchen getrennt, sonst kann man den Samstag garnicht einzeln waehlen.
         Public Property SaturdayIsWorkday As Boolean
             Get
                 Return _saturdayIsWorkday
@@ -42,6 +46,7 @@ Namespace ViewModels
                 Return _bookedDateRangeCount
             End Get
             Set(value As Integer)
+              ' Eingabe erstmal zwischen 3 und 56 halten, die Zahl kommt ja direkt aus dem Dialog..
                 Dim normalized = Math.Max(3, Math.Min(56, value))
                 If SetProperty(_bookedDateRangeCount, normalized, NameOf(BookedDateRangeCount)) Then
                     OnPropertyChanged(NameOf(BookedDateRangeDescription))
@@ -54,6 +59,7 @@ Namespace ViewModels
                 Return _bookedDateRangeUnit
             End Get
             Set(value As String)
+                ' Nur Wochen extra erkennen; alles andere bleibt die Tagesauswahl
                 Dim normalized = If(String.Equals(value, "Wochen", StringComparison.OrdinalIgnoreCase), "Wochen", "Tage")
                 If SetProperty(_bookedDateRangeUnit, normalized, NameOf(BookedDateRangeUnit)) Then
                     NormalizeRangeForUnit()
@@ -62,6 +68,7 @@ Namespace ViewModels
             End Set
         End Property
 
+        ' Der Getter liest die Optionen, also muesste MVVM den Text doch schon dadurch mit beobachten.
         Public ReadOnly Property BookedDateRangeDescription As String
             Get
                 Return $"{BookedDateRangeCount} {BookedDateRangeUnit} anzeigen, die Buchungen aufweisen."
@@ -74,6 +81,7 @@ Namespace ViewModels
             End Get
         End Property
 
+         ' Eigene Kopie fuer den Dialog machen, damit Abbrechen nicht schon alle Felder ueberschreibt.
         Public Function Clone() As AppOptionsViewModel
             Return New AppOptionsViewModel With {
                 .RestoreMainWindowPlacement = RestoreMainWindowPlacement,
@@ -84,6 +92,9 @@ Namespace ViewModels
             }
         End Function
 
+        ' TODO: Beser bei Dutch nochmal nachfragen, weil, hier koennte das vielleicht sogar umgekehrt besser sein.
+    'Aber aufpassen, dass man einen Moment erwischt wo er wirklich zeit hat, und mach Notitsen!!
+        ' Vielleicht lieber erst alle Fragen sammeln; wegen so einer kleinen Sache moechte ich nicht stoeren.
         Private Sub NormalizeRangeForUnit()
             If BookedDateRangeUnit = "Wochen" Then
                 _bookedDateRangeCount = Math.Max(1, Math.Min(8, _bookedDateRangeCount))

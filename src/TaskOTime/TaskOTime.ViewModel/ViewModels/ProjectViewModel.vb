@@ -7,6 +7,11 @@ Namespace ViewModels
     Public Class ProjectViewModel
         Private ReadOnly _view As ProjectView
         Private ReadOnly _store As ServiceWorkspace
+        ''' <summary>
+        ''' Connects the project view so controls has one place for actions.
+        ''' </summary>
+        ''' <param name="view">The view which its fields gets handled here.</param>
+        ''' <param name="store">The workspace where projects is coming from.</param>
         Friend Sub New(view As ProjectView, store As ServiceWorkspace)
             _view = view
             _store = store
@@ -20,8 +25,15 @@ Namespace ViewModels
             _view.ProjectListView.SelectedIndex = 0
         End Sub
 
+        ''' <summary>
+        ''' Puts selected project values into fields what user can editing.
+        ''' </summary>
+        ''' <remarks>
+        ''' Empty selection have empty text, so old project is not showing still.
+        ''' </remarks>
         Private Sub SelectedProjectChanged(sender As Object, e As Controls.SelectionChangedEventArgs)
             Dim project = TryCast(_view.ProjectListView.SelectedItem, ProjectMainDataDto)
+          ' Auswahl direkt in die Controls schreiben, das zaehlt fuer mich als Binding ohne den Umweg.
             _view.ProjectNameTextBox.Text = If(project Is Nothing, "", project.ProjectName)
             _view.IdentifierTextBox.Text = If(project Is Nothing, "", project.ProjectIdentifier)
             _view.DescriptionTextBox.Text = If(project Is Nothing, "", project.ProjectDescription)
@@ -31,6 +43,7 @@ Namespace ViewModels
         End Sub
 
         Private Sub NewProject(sender As Object, e As RoutedEventArgs)
+            ' Erst anlegen und dann die neue Zeile auswaehlen, damit man sofort weitertippen kan
             Dim project = New ProjectMainDataDto With {
                 .IdTenant = _store.Tenant.IdTenant, .IdUser = _store.ActingUserId,
                 .ProjectName = "Neues Projekt", .ProjectIdentifier = "NEU",
@@ -48,9 +61,15 @@ Namespace ViewModels
             End Try
         End Sub
 
+        ''' <summary>
+        ''' Sends fields from the view to service for keep the project changes.
+        ''' </summary>
+        ''' <param name="sender">The button who was asking for save.</param>
+        ''' <param name="e">The click information what this method not needs.</param>
         Private Sub SaveProject(sender As Object, e As RoutedEventArgs)
             Dim project = TryCast(_view.ProjectListView.SelectedItem, ProjectMainDataDto)
             If project Is Nothing Then Return
+            ' Die TextBox ist beim Speichern mein Zustand; so muss das Model die Eingabe nicht beobachten.
             project.ProjectName = _view.ProjectNameTextBox.Text.Trim()
             project.ProjectIdentifier = _view.IdentifierTextBox.Text.Trim()
             project.ProjectDescription = _view.DescriptionTextBox.Text
@@ -67,9 +86,16 @@ Namespace ViewModels
             End Try
         End Sub
 
+        ''' <summary>
+        ''' Archives selected project and take it out from the visible projects.
+        ''' </summary>
+        ''' <remarks>
+        ''' The request use soft delete, not the completely removing one.
+        ''' </remarks>
         Private Sub ArchiveProject(sender As Object, e As RoutedEventArgs)
             Dim project = TryCast(_view.ProjectListView.SelectedItem, ProjectMainDataDto)
             If project Is Nothing Then Return
+             ' Archivieren ist hier der Loeschknopf, aber im Dienst nicht hart loeschen!!
             Try
                 ServiceWorkspace.Require(_store.AdminService.DeleteProject(New DeleteMasterDataRequest With {
                     .IdTenant = _store.Tenant.IdTenant, .IdActingUser = _store.ActingUserId,

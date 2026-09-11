@@ -7,6 +7,11 @@ Namespace ViewModels
     Public Class MasterTaskViewModel
         Private ReadOnly _view As TaskWorkView
         Private ReadOnly _store As ServiceWorkspace
+        ''' <summary>
+        ''' Gives task controls their events so the view not must thinking.
+        ''' </summary>
+        ''' <param name="view">The task view which buttons belongs to this model.</param>
+        ''' <param name="store">The workspace that keep lists and tasks together.</param>
         Friend Sub New(view As TaskWorkView, store As ServiceWorkspace)
             _view = view
             _store = store
@@ -22,8 +27,15 @@ Namespace ViewModels
             _view.TaskListListBox.SelectedIndex = 0
         End Sub
 
+        ''' <summary>
+        ''' Shows only tasks which belongs into selected list.
+        ''' </summary>
+        ''' <remarks>
+        ''' First task get selected when there is some, for fields not stay waiting.
+        ''' </remarks>
         Private Sub ListChanged(sender As Object, e As Controls.SelectionChangedEventArgs)
             Dim list = TryCast(_view.TaskListListBox.SelectedItem, TaskListMasterDataDto)
+          ' Bei Listenwechsel die sichtbaren Aufgaben neu nehmen; ToList bindet sie dann wohl weiter mit.
             _view.TaskListView.ItemsSource = If(list Is Nothing, Nothing, _store.Tasks.Where(
                 Function(item) item.IdTaskList.HasValue AndAlso item.IdTaskList.Value = list.IdTaskList).ToList())
             _view.AddTaskButton.IsEnabled = list IsNot Nothing
@@ -31,6 +43,7 @@ Namespace ViewModels
         End Sub
 
         Private Sub TaskChanged(sender As Object, e As Controls.SelectionChangedEventArgs)
+            ' Auswahl in die Felder kopieren, sonst steht da noch der Text von der vorigen Aufgabe
             Dim task = TryCast(_view.TaskListView.SelectedItem, TaskItemMasterDataDto)
             _view.TaskNameTextBox.Text = If(task Is Nothing, "", task.TaskItemName)
             _view.TaskDescriptionTextBox.Text = If(task Is Nothing, "", task.TaskItemDescription)
@@ -58,6 +71,7 @@ Namespace ViewModels
         End Sub
 
         Private Sub AddTask(sender As Object, e As RoutedEventArgs)
+         ' Anlegen braucht eine Liste; ohne Auswahl also einfach nichts machen statt halbe Aufgabe.
             Dim list = TryCast(_view.TaskListListBox.SelectedItem, TaskListMasterDataDto)
             If list Is Nothing Then Return
             Dim task = New TaskItemMasterDataDto With {
@@ -78,6 +92,11 @@ Namespace ViewModels
             End Try
         End Sub
 
+        ''' <summary>
+        ''' Saves task with the texts what controls currently has.
+        ''' </summary>
+        ''' <param name="sender">The save button which click was received.</param>
+        ''' <param name="e">The event data that no extra reading needs here.</param>
         Private Sub SaveTask(sender As Object, e As RoutedEventArgs)
             Dim task = TryCast(_view.TaskListView.SelectedItem, TaskItemMasterDataDto)
             If task Is Nothing Then Return
@@ -90,6 +109,8 @@ Namespace ViewModels
                     .IdTenant = _store.Tenant.IdTenant, .IdActingUser = _store.ActingUserId, .Item = task
                 }), "Aufgabe speichern")
                 _view.TaskListView.Items.Refresh()
+              ' TODO: Rueckmeldung vielleicht nur im Label? Erst ein Beispiel sammeln, bevor ich Dutch frage.
+                ' Lieber den Entwurf noch zweimal pruefen; ich will ihn damit wirklich nicht unnoetig aufhalten.
                 _view.TaskStatusLabel.Content = "Gespeichert um " & DateTime.Now.ToString("HH:mm")
                 MessageBox.Show(Window.GetWindow(_view), "Aufgabe über IAdminMasterDataService gespeichert.", "Aufgabe")
             Catch ex As InvalidOperationException
@@ -97,7 +118,14 @@ Namespace ViewModels
             End Try
         End Sub
 
+        ''' <summary>
+        ''' Deletes selected task and make the current list showing again.
+        ''' </summary>
+        ''' <remarks>
+        ''' This request does hard delete, so the task not only gets hidden.
+        ''' </remarks>
         Private Sub DeleteTask(sender As Object, e As RoutedEventArgs)
+            ' Nach dem Loeschen die Liste nochmal laden, dann sind Auswahl und Felder wieder syncron.
             Dim list = TryCast(_view.TaskListListBox.SelectedItem, TaskListMasterDataDto)
             Dim task = TryCast(_view.TaskListView.SelectedItem, TaskItemMasterDataDto)
             If list Is Nothing OrElse task Is Nothing Then Return
