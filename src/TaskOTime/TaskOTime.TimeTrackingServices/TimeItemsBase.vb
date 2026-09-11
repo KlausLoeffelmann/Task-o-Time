@@ -4,6 +4,16 @@ Imports System.Collections.Specialized
 Imports System.ComponentModel
 
 Namespace ActiveDevelop.TimeTrackingServices
+    ''' <summary>
+    '''  bewaart tijdregels in een eigen gesorteerde lijst en meldt wijzigingen aan afnemers.
+    '''  implementeert zelf de lijst- en collectiecontracten; dit is geen afgeleide van
+    '''  <see cref="System.Collections.ObjectModel.ObservableCollection(Of TimeItemType)"/>.
+    ''' </summary>
+    ''' <remarks>
+    '''  de volgorde volgt <see cref="ITimeItem(Of IndexType).EventTime"/>, niet de invoegvolgorde.
+    '''  sorteren en herladen kunnen hetzelfde collectieobject blijven gebruiken.  de koppelingen
+    '''  tussen naburige regels en de bijbehorende meldingen worden hier afzonderlijk onderhouden.
+    ''' </remarks>
     Public Class TimeItemsBase(Of IndexType As {Structure, IComparable(Of IndexType)}, TimeItemType As {Class, ITimeItem(Of IndexType), INotifyPropertyChanged, New})
         Implements IEnumerable(Of TimeItemType)
         Implements ICollection(Of TimeItemType)
@@ -38,6 +48,13 @@ Namespace ActiveDevelop.TimeTrackingServices
             Add(timeItem)
         End Sub
 
+        ''' <summary>
+        '''  vergelijkt alleen met de gekoppelde buren en geeft een richting, geen invoegindex.
+        ''' </summary>
+        ''' <remarks>
+        '''  vergelijkingen met ontbrekende regels of tijdstippen worden overgeslagen.  nul bewijst dus niet
+        '''  dat een tijdstip uniek is; die controle staat los van deze voorspelling.
+        ''' </remarks>
         Public Function PredictNewPosition(item As TimeItemType) As Integer
             If item IsNot Nothing AndAlso item.PreviousItem IsNot Nothing AndAlso item.PreviousItem.EventTime.HasValue AndAlso item.EventTime.HasValue AndAlso item.PreviousItem.EventTime.Value > item.EventTime.Value Then
                 Return -1
@@ -50,6 +67,15 @@ Namespace ActiveDevelop.TimeTrackingServices
             Return 0
         End Function
 
+        ''' <summary>
+        '''  voegt een tijdregel volgens de tijdvolgorde in en geeft de invoegpositie terug.
+        ''' </summary>
+        ''' <remarks>
+        '''  een ontbrekend object wordt geweigerd.  een object zonder tijdstip mag wel vooraan staan.
+        '''  gelijke tijdstippen worden geweigerd, ook als beide tijdstippen ontbreken.
+        '''  na invoegen volgen meldingen voor <see cref="Count"/> en <see cref="Item(Integer)"/>.
+        '''  de collectiemelding bevat daarna het toegevoegde object en zijn positie.
+        ''' </remarks>
         Public Function AddWithPositionInfo(item As TimeItemType) As Integer
             If item Is Nothing Then
                 Throw New ArgumentNullException(NameOf(item))
@@ -96,6 +122,8 @@ Namespace ActiveDevelop.TimeTrackingServices
 
             WirePropertyChangeEvent(item)
             UpdateItem(item, index)
+            ' de teller beschrijft de omvang; de indexermelding maakt gewijzigde posities zichtbaar.
+            ' de collectiemelding draagt daarnaast het toegevoegde object en zijn positie.
             OnPropertyChanged(_countPropertyChangedEventArgs)
             OnPropertyChanged(_itemPropertyChangedEventArgs)
             OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index))
@@ -116,6 +144,13 @@ Namespace ActiveDevelop.TimeTrackingServices
             Return item
         End Function
 
+        ''' <summary>
+        '''  legt beide richtingen van een buurrelatie vast met dezelfde berekende tijdsafstand.
+        ''' </summary>
+        ''' <remarks>
+        '''  ook aan een uiteinde wordt de aanwezige buur bijgewerkt.  daar ontbreken zowel
+        '''  de verwijzing naar buiten als de duur; een ontbrekende duur is niet hetzelfde als nul.
+        ''' </remarks>
         Private Shared Sub LinkItems(previous As TimeItemType, [next] As TimeItemType)
             Dim duration = CalculateDuration(previous, [next])
 
@@ -130,6 +165,13 @@ Namespace ActiveDevelop.TimeTrackingServices
             End If
         End Sub
 
+        ''' <summary>
+        '''  berekent het tijdsverschil, of geen waarde als een buur of een tijdstip ontbreekt.
+        ''' </summary>
+        ''' <remarks>
+        '''  deze collectieberekening leest geen actievlaggen.  zij beschrijft de afstand tussen
+        '''  twee tijdstippen, niet zelfstandig de betekenis van een boeking of onderbreking.
+        ''' </remarks>
         Private Shared Function CalculateDuration(previous As TimeItemType, [next] As TimeItemType) As TimeSpan?
             If previous Is Nothing OrElse [next] Is Nothing OrElse Not previous.EventTime.HasValue OrElse Not [next].EventTime.HasValue Then
                 Return Nothing
@@ -138,6 +180,16 @@ Namespace ActiveDevelop.TimeTrackingServices
             Return [next].EventTime.Value - previous.EventTime.Value
         End Function
 
+        ''' <summary>
+        '''  controleert tijdstipconflicten voordat een bestaande regel wordt verplaatst of vervangen.
+        ''' </summary>
+        ''' <param name="oldValue">
+        '''  de te vervangen regel; zonder deze waarde wordt het bestaande object opnieuw geplaatst.
+        ''' </param>
+        ''' <remarks>
+        '''  vervanging op dezelfde positie meldt een vervanging en alleen de indexerwijziging.
+        '''  bij een andere positie wordt eerst verwijderd en daarna toegevoegd, met beide tellermeldingen.
+        ''' </remarks>
         Private Sub SetItemInternal(item As TimeItemType, Optional oldValue As TimeItemType = Nothing)
             If item Is Nothing Then
                 Throw New ArgumentNullException(NameOf(item))
@@ -179,6 +231,13 @@ Namespace ActiveDevelop.TimeTrackingServices
             AddWithPositionInfo(item)
         End Sub
 
+        ''' <summary>
+        '''  sluit de oude buurrelatie en koppelt hetzelfde object opnieuw op zijn gesorteerde positie.
+        ''' </summary>
+        ''' <remarks>
+        '''  de omvang verandert niet, dus <see cref="Count"/> wordt niet gemeld.  de indexer wel;
+        '''  een verplaatsingsmelding volgt alleen wanneer de uiteindelijke index anders is.
+        ''' </remarks>
         Private Sub RepositionItem(item As TimeItemType, oldIndex As Integer)
             Dim previous = If(oldIndex > 0, _sortedList(oldIndex - 1), Nothing)
             Dim [next] = If(oldIndex < _sortedList.Count - 1, _sortedList(oldIndex + 1), Nothing)
@@ -239,6 +298,12 @@ Namespace ActiveDevelop.TimeTrackingServices
             RemoveHandler item.PropertyChanged, AddressOf PropertyChangeEventHandlerProc
         End Sub
 
+        ''' <summary>
+        '''  herordent alleen bij de melding voor het tijdstip, niet bij meldingen voor buren of duren.
+        ''' </summary>
+        ''' <remarks>
+        '''  de tijdens het herkoppelen ontstane meldingen starten daardoor geen nieuwe sortering.
+        ''' </remarks>
         Private Sub PropertyChangeEventHandlerProc(sender As Object, e As PropertyChangedEventArgs)
             If sender IsNot Nothing AndAlso e.PropertyName = EventTimePropertyName Then
                 SetItemInternal(DirectCast(sender, TimeItemType))
@@ -259,6 +324,13 @@ Namespace ActiveDevelop.TimeTrackingServices
             End Get
         End Property
 
+        ''' <summary>
+        '''  verwijdert alle abonnementen op eigenschapswijzigingen en leegt de interne lijst.
+        ''' </summary>
+        ''' <remarks>
+        '''  meldt teller, indexer en een volledige verversing, ook als de lijst al leeg was.
+        '''  de oude objecten worden hier niet onderling losgekoppeld.  de collectie zelf blijft bestaan.
+        ''' </remarks>
         Public Sub Clear() Implements ICollection(Of TimeItemType).Clear, IList.Clear
             For Each timeItem In _sortedList
                 UnwirePropertyChangeEvent(timeItem)
@@ -270,6 +342,9 @@ Namespace ActiveDevelop.TimeTrackingServices
             OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset))
         End Sub
 
+        ''' <summary>
+        '''  zoekt op tijdstipvergelijking, niet op objectidentiteit; een ontbrekend object geeft onwaar.
+        ''' </summary>
         Public Function Contains(item As TimeItemType) As Boolean Implements ICollection(Of TimeItemType).Contains
             Return item IsNot Nothing AndAlso _sortedList.BinarySearch(item, _comparer) >= 0
         End Function
@@ -279,6 +354,7 @@ Namespace ActiveDevelop.TimeTrackingServices
         End Sub
 
         Public Function IndexOf(item As TimeItemType) As Integer Implements IList(Of TimeItemType).IndexOf
+            ' een ontbrekend object krijgt min één.  een andere misser behoudt het negatieve zoekresultaat.
             If item Is Nothing Then
                 Return -1
             End If
@@ -303,6 +379,13 @@ Namespace ActiveDevelop.TimeTrackingServices
             OnNotifyCollectionChanged(New NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index))
         End Sub
 
+        ''' <summary>
+        '''  verbindt de overblijvende buren en verwijdert het abonnement van de vertrekkende regel.
+        ''' </summary>
+        ''' <remarks>
+        '''  wist ook de buurverwijzingen en duren van die regel.  de aanroeper verzorgt de meldingen
+        '''  over de gewijzigde collectie; deze stap past alleen de inhoud en koppelingen aan.
+        ''' </remarks>
         Private Sub RemoveAtCore(index As Integer)
             Dim removedItem = _sortedList(index)
             Dim previous = If(index > 0, _sortedList(index - 1), Nothing)
@@ -401,6 +484,9 @@ Namespace ActiveDevelop.TimeTrackingServices
             End Set
         End Property
 
+        ''' <summary>
+        '''  zoekt een exact tijdstip en geeft geen object terug wanneer dat tijdstip niet voorkomt.
+        ''' </summary>
         Default Public ReadOnly Property Item(dateOfTimeItem As DateTimeOffset) As TimeItemType
             Get
                 Dim tmpTimeItem As New TimeItemType() With {.EventTime = dateOfTimeItem}

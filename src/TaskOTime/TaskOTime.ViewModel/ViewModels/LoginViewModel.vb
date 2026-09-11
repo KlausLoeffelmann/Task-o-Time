@@ -34,6 +34,13 @@ Namespace ViewModels
             End Get
         End Property
 
+        ''' <summary>
+        '''  wist eerst de lokale aanmeldstatus en vraagt daarna de aanmeldservice om een resultaat.
+        ''' </summary>
+        ''' <remarks>
+        '''  een verplichte wachtwoordwijziging bewaart alleen de wachtende gebruiker, niet de sessie.
+        '''  dat pad geeft onwaar terug.  pas zonder die verplichting wordt <see cref="Session"/> gevuld.
+        ''' </remarks>
         Public Function Login(userName As String, password As String, Optional tenant As Guid? = Nothing) As Boolean
             Logout()
             Try
@@ -59,6 +66,13 @@ Namespace ViewModels
             End Try
         End Function
 
+        ''' <summary>
+        '''  vraagt een wachtwoordwijziging aan voor de wachtende gebruiker en meldt daarna opnieuw aan.
+        ''' </summary>
+        ''' <remarks>
+        '''  een geslaagde wijziging maakt niet rechtstreeks een sessie.  het resultaat van de nieuwe
+        '''  aanmelding bepaalt de terugkeerwaarde; zonder wachtende gebruiker gebeurt er niets.
+        ''' </remarks>
         Public Function ChangeTemporaryPassword(temporaryPassword As String, newPassword As String) As Boolean
             If _pendingUser Is Nothing Then Return False
             Try
@@ -76,6 +90,13 @@ Namespace ViewModels
             End Try
         End Function
 
+        ''' <summary>
+        '''  wist sessie, wachtende gebruiker en fouttekst in dit weergavemodel.
+        ''' </summary>
+        ''' <remarks>
+        '''  de meldingen volgen ook als de waarden al leeg waren.  deze methode doet geen afmeldverzoek
+        '''  aan de service en zegt daarmee niets over eventuele sessies buiten dit object.
+        ''' </remarks>
         Public Sub Logout()
             _session = Nothing
             _pendingUser = Nothing

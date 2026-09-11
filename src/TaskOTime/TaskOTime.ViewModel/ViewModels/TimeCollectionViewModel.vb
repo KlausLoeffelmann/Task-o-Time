@@ -392,8 +392,15 @@ Namespace ViewModels
             RefreshEntries()
         End Sub
 
+        ''' <summary>
+        '''  vult hetzelfde zichtbare collectieobject opnieuw met nieuwe tijdregelobjecten.
+        ''' </summary>
+        ''' <remarks>
+        '''  de collectie-identiteit blijft behouden, niet de oude regelobjecten of hun koppelingen.
+        '''  toevoegen bouwt sortering en buurrelaties op.  selectie volgt de gevraagde identificatie,
+        '''  met de eerste regel als terugval en geen selectie wanneer de dag leeg is.
+        ''' </remarks>
         Private Sub RefreshEntries(Optional selectedId As Guid? = Nothing)
-            ' de collectie-instantie blijft behouden zodat selectie en duurkoppelingen na een servicereactie geldig blijven.  vervanging zou de bestaande bindingen verbreken.
             SelectedDayEntries.Clear()
 
             Dim seeds = GetExistingSeeds(BookingDate)
@@ -672,6 +679,13 @@ Namespace ViewModels
             ApplyMutation(mutation)
         End Sub
 
+        ''' <summary>
+        '''  haalt bij een aangesloten service de gekozen boekingsdag op als bron voor de lokale daggegevens.
+        ''' </summary>
+        ''' <remarks>
+        '''  zonder service blijven de lokale gegevens staan.  het vullen van de zichtbare tijdregels
+        '''  gebeurt afzonderlijk via <see cref="RefreshEntries"/>.
+        ''' </remarks>
         Private Sub LoadBookingDate()
             If _service Is Nothing Then Return
             Dim day = Require(_service.GetBookingDay(New GetBookingDayRequest With {
@@ -680,6 +694,13 @@ Namespace ViewModels
             ApplyBookingDay(day)
         End Sub
 
+        ''' <summary>
+        '''  neemt de teruggegeven boekingsdag over en verwerkt daarna de expliciete verwijderingen.
+        ''' </summary>
+        ''' <remarks>
+        '''  een ontbrekende boekingsdag wordt geweigerd.  de servicereactie is de bron voor de daginhoud;
+        '''  het verversen van de zichtbare collectie blijft een afzonderlijke stap voor de aanroeper.
+        ''' </remarks>
         Private Sub ApplyMutation(mutation As TimeBookingMutationResult)
             If mutation.BookingDay Is Nothing Then Throw New InvalidOperationException("Der Buchungsdienst hat keinen Buchungstag zurückgegeben.")
             ApplyBookingDay(mutation.BookingDay)
@@ -689,6 +710,13 @@ Namespace ViewModels
             End If
         End Sub
 
+        ''' <summary>
+        '''  vervangt de lokale inhoud van de ontvangen dag door de bruikbare regels uit het serviceantwoord.
+        ''' </summary>
+        ''' <remarks>
+        '''  verwijderde regels en regels zonder tijdstip worden overgeslagen.  andere dagen blijven staan;
+        '''  de lijst met geboekte datums wordt hier wel opnieuw opgebouwd.
+        ''' </remarks>
         Private Sub ApplyBookingDay(day As TimeBookingDayDto)
             Dim seeds = GetOrCreateSeeds(day.BookingDate)
             seeds.Clear()

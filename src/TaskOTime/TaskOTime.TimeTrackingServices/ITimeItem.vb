@@ -1,4 +1,11 @@
 Namespace ActiveDevelop.TimeTrackingServices
+    ''' <summary>
+    '''  beschrijft een tijdregel met optionele tijdswaarden en bewerkbare buurverwijzingen.
+    ''' </summary>
+    ''' <remarks>
+    '''  dit contract schrijft geen sortering of wijzigingsmeldingen voor.  een ontbrekende duur
+    '''  blijft onderscheiden van een gemeten duur van nul; de implementatie bepaalt de berekening.
+    ''' </remarks>
     Public Interface ITimeItem(Of IndexType As {Structure, IComparable(Of IndexType)})
         Property IDTimeItem As IndexType
         Property IsStartAction As Boolean?

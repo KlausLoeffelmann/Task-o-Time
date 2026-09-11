@@ -20,6 +20,12 @@ Namespace ViewModels
             Me.New(Guid.Empty, DateTime.MinValue, String.Empty, String.Empty, TimeEntryMarkerKind.Normal)
         End Sub
 
+        ''' <summary>
+        '''  legt tijdstip, tekst en marker vast en initialiseert beide actievlaggen op onwaar.
+        ''' </summary>
+        ''' <remarks>
+        '''  de marker stuurt de presentatie; deze constructor leidt er geen andere actievlaggen uit af.
+        ''' </remarks>
         Public Sub New(idTimeItem As Guid, entryTime As DateTime, title As String, description As String, markerKind As TimeEntryMarkerKind)
             Me.IDTimeItem = idTimeItem
             EventTime = New DateTimeOffset(entryTime)
@@ -32,6 +38,13 @@ Namespace ViewModels
 
         Public ReadOnly Property MarkerKind As TimeEntryMarkerKind
 
+        ''' <summary>
+        '''  biedt datum en kloktijd van het opgeslagen tijdstip aan, zonder omzetting naar een andere zone.
+        ''' </summary>
+        ''' <remarks>
+        '''  bij een ontbrekend tijdstip wordt de minimale datum getoond.  schrijven maakt een nieuw
+        '''  tijdstip met offset volgens de soort van de aangeleverde datumwaarde.
+        ''' </remarks>
         Public Property EntryTime As DateTime
             Get
                 Return If(EventTime.HasValue, EventTime.Value.DateTime, DateTime.MinValue)
@@ -143,6 +156,9 @@ Namespace ViewModels
             End Get
         End Property
 
+        ''' <summary>
+        '''  toont een streep voor een ontbrekende duur, zodat die niet als een gemeten nulduur verschijnt.
+        ''' </summary>
         Private Shared Function FormatNullableDuration(duration As TimeSpan?) As String
             If Not duration.HasValue Then
                 Return "—"
@@ -151,6 +167,12 @@ Namespace ViewModels
             Return FormatDuration(duration.Value)
         End Function
 
+        ''' <summary>
+        '''  houdt het teken apart en toont totale uren met twee cijfers voor het minutendeel.
+        ''' </summary>
+        ''' <remarks>
+        '''  uren lopen door voorbij een etmaal.  seconden worden niet afzonderlijk weergegeven.
+        ''' </remarks>
         Public Shared Function FormatDuration(duration As TimeSpan) As String
             Dim sign = If(duration < TimeSpan.Zero, "-", String.Empty)
             Dim absoluteDuration = duration.Duration()
@@ -159,6 +181,13 @@ Namespace ViewModels
             Return String.Format(CultureInfo.CurrentCulture, "{0}{1:0}:{2:00} h", sign, totalHours, absoluteDuration.Minutes)
         End Function
 
+        ''' <summary>
+        '''  geeft eerst de oorspronkelijke melding door en meldt daarna de bijbehorende weergavewaarden.
+        ''' </summary>
+        ''' <remarks>
+        '''  de afhankelijkheden zijn hier expliciet opgesomd.  een berekende eigenschap meldt zichzelf
+        '''  niet alleen doordat haar getter andere eigenschappen leest.
+        ''' </remarks>
         Protected Overrides Sub OnPropertyChanged(Optional propertyName As String = Nothing)
             MyBase.OnPropertyChanged(propertyName)
 

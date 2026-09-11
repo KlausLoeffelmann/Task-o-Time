@@ -1,4 +1,13 @@
 Namespace ActiveDevelop.TimeTrackingServices
+    ''' <summary>
+    '''  bewaart een tijdregel met wijzigingsmeldingen, optionele tijdstippen en verwijzingen naar buren.
+    '''  de regel beheert geen eigen sorteerlijst.  een omringende collectie kan de buurrelaties wijzigen.
+    ''' </summary>
+    ''' <remarks>
+    '''  ontbrekende actievlaggen zijn niet zonder meer gelijk aan onwaar: zij kunnen een berekening
+    '''  overslaan.  de collectieberekening van tijdsafstanden staat los van deze vlagafhankelijke logica.
+    '''  eigenschapsmeldingen worden meteen doorgegeven en vormen geen gezamenlijke wijzigingstransactie.
+    ''' </remarks>
     Public Class TimeItemBase
         Inherits ObservableObject
         Implements ITimeItem(Of Guid)
@@ -47,6 +56,13 @@ Namespace ActiveDevelop.TimeTrackingServices
             End Set
         End Property
 
+        ''' <summary>
+        '''  meldt een gewijzigd tijdstip voordat de afzonderlijke tijdstipmelding en duurberekening volgen.
+        ''' </summary>
+        ''' <remarks>
+        '''  bij een uitzondering wordt alleen het tijdstipveld teruggezet.  reeds uitgevoerde reacties
+        '''  van afnemers worden niet teruggedraaid en er volgt geen extra herstelmelding.
+        ''' </remarks>
         Public Property EventTime As DateTimeOffset? Implements ITimeItem(Of Guid).EventTime
             Get
                 Return _eventTime
@@ -159,6 +175,13 @@ Namespace ActiveDevelop.TimeTrackingServices
             End Set
         End Property
 
+        ''' <summary>
+        '''  berekent per richting alleen wanneer de betreffende buur en de bijbehorende actievlag bestaan.
+        ''' </summary>
+        ''' <remarks>
+        '''  binnen zo'n berekening wist een begin- of eindactie de duur, net als een ontbrekend tijdstip.
+        '''  ontbreekt de buur of de benodigde vlag, dan blijft de bestaande duur in die richting staan.
+        ''' </remarks>
         Protected Overridable Sub CalculateDurationToLinkedItems()
             If PreviousItem IsNot Nothing AndAlso IsStartAction.HasValue Then
                 If IsStartAction.Value OrElse If(IsEndAction, False) OrElse Not EventTime.HasValue OrElse Not PreviousItem.EventTime.HasValue Then
