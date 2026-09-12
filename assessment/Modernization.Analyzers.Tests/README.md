@@ -657,6 +657,12 @@ and (when applicable) `idempotent`, each with the declared filename/status and
 raw SHA256. The declaration itself is bound into the immutable request hash.
 The verifier rechecks current immutable request bindings and expiry. Issue a
 fresh challenge per evaluation and retain its signed receipt in private custody.
+For every positive case, the signed `OutputHash` must equal the independently
+computed frozen expected-tree hash, and `OutputHashBasis` must match the exact
+declared policy even when there is no evidence-file exclusion. Undeclared
+execution-artifact records are rejected. A valid signature and a comparison
+check label do not override contradictory output metadata. Request export also
+rejects an evidence exclusion that would hide an actual frozen expected file.
 Unsigned `sandbox=true`/`isolated=true`, wrong keys, stale challenges, mutated
 inputs/expectations/tools and incomplete checks all fail closed.
 

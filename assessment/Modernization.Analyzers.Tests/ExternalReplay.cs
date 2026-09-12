@@ -95,8 +95,13 @@ internal static class ExternalReplay
             ToolReplay.ValidateEvidenceDeclaration(fixture);
             hashes["input:" + fixture.Name] = ToolReplay.HashTree(ToolReplay.TrustedPath(fixture.InputDirectory));
             if (!fixture.Unsupported)
-                hashes["expected:" + fixture.Name] = ToolReplay.HashTree(ToolReplay.TrustedPath(
-                    fixture.ExpectedDirectory ?? throw new InvalidDataException("Expected directory is missing.")));
+            {
+                var expected = ToolReplay.TrustedPath(fixture.ExpectedDirectory
+                    ?? throw new InvalidDataException("Expected directory is missing."));
+                if (fixture.EvidenceFile is { } declaration && File.Exists(Path.Combine(expected, declaration.FileName)))
+                    throw new InvalidDataException("Evidence separation cannot hide a frozen expected file.");
+                hashes["expected:" + fixture.Name] = ToolReplay.HashTree(expected);
+            }
             if (fixture.BehaviorFile != null)
                 hashes["behavior:" + fixture.Name] = HashFile(ToolReplay.TrustedPath(fixture.BehaviorFile));
             var artifacts = fixture.Command.Arguments.Prepend(fixture.Command.Executable)
@@ -175,6 +180,11 @@ internal static class ExternalReplay
                     !fixture.Unsupported && (result.Evidence.ExitCode != 0 || result.Evidence.OutputHash.Length != 64 ||
                         !result.Evidence.OutputHash.All(Uri.IsHexDigit)))
                     throw new InvalidDataException("Executor checks failed or missing for " + fixture.Name);
+                if (!fixture.Unsupported &&
+                    (result.Evidence.OutputHash != ToolReplay.HashTree(ToolReplay.TrustedPath(fixture.ExpectedDirectory!)) ||
+                     result.Evidence.OutputHashBasis != ToolReplay.OutputBasis(fixture.EvidenceFile) ||
+                     fixture.EvidenceFile == null && result.Evidence.ExecutionArtifacts.Length != 0))
+                    throw new InvalidDataException("Executor output hash or evidence basis differs from the frozen request for " + fixture.Name);
                 if (!fixture.Unsupported && fixture.EvidenceFile is { } contract)
                 {
                     var runs = Requirements(fixture).Runs;

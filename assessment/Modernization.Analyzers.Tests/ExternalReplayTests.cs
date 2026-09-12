@@ -85,6 +85,9 @@ public sealed class ExternalReplayTests : IDisposable
     [InlineData("missing-artifact-roots")]
     [InlineData("producer-only-policy")]
     [InlineData("missing-checkpoint-check")]
+    [InlineData("wrong-output-hash")]
+    [InlineData("wrong-output-basis")]
+    [InlineData("undeclared-evidence")]
     public void Unbound_or_candidate_controlled_receipts_fail_closed(string variant)
     {
         var plan = Plan(); var challenge = Guid.NewGuid().ToString("N");
@@ -95,6 +98,20 @@ public sealed class ExternalReplayTests : IDisposable
         if (variant == "missing-checkpoint-check")
             attestation = attestation with { Cases = attestation.Cases.Select(c => c with
                 { Checks = c.Checks.Where(check => check != "baseline-checkpoint").ToArray() }).ToArray() };
+        if (variant is "wrong-output-hash" or "wrong-output-basis" or "undeclared-evidence")
+            attestation = attestation with
+            {
+                Cases = attestation.Cases.Select(c => c.Evidence.Name.EndsWith("-unsupported", StringComparison.Ordinal) ? c : c with
+                {
+                    Evidence = c.Evidence with
+                    {
+                        OutputHash = variant == "wrong-output-hash" ? new string('0', 64) : c.Evidence.OutputHash,
+                        OutputHashBasis = variant == "wrong-output-basis" ? "candidate-selected-files-only" : c.Evidence.OutputHashBasis,
+                        ExecutionArtifacts = variant == "undeclared-evidence" ?
+                            [new("hidden.json", "initial", new string('A', 64), "succeeded")] : c.Evidence.ExecutionArtifacts
+                    }
+                }).ToArray()
+            };
         if (variant == "expired") attestation = attestation with { ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1) };
         if (variant == "overlong-expiry") attestation = attestation with { ExpiresAt = DateTimeOffset.UtcNow.AddDays(1) };
         if (variant == "producer-only-policy") attestation = attestation with { Policy = "taskotime-sandbox-producer-v1" };
@@ -232,6 +249,19 @@ public sealed class ExternalReplayTests : IDisposable
         var unsupported = Assert.Single(request.Requirements, r => r.Name == "project-unsupported");
         Assert.Equal(["unsupported"], unsupported.Runs);
         Assert.DoesNotContain("output-compilation", unsupported.Checks);
+    }
+
+    [Fact]
+    public void Request_rejects_evidence_exclusion_that_would_hide_a_frozen_expected_file()
+    {
+        var plan = Plan();
+        FileIn(@"expected\run.json", """{"Status":"succeeded","AuthoredConfiguration":true}""");
+        plan = plan with
+        {
+            Cases = plan.Cases.Select(c => c.Unsupported ? c :
+                c with { EvidenceFile = new("run.json", "Status", "succeeded") }).ToArray()
+        };
+        Assert.Throws<InvalidDataException>(() => ExternalReplay.BuildRequest(plan, policy, Guid.NewGuid().ToString("N")));
     }
 
     [Fact]
