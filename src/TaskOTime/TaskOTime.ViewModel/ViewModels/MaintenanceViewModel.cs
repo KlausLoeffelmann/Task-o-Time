@@ -15,13 +15,15 @@ namespace TaskOTime.ViewModel.ViewModels
             Store = store ?? throw new ArgumentNullException(nameof(store));
             Interaction = interaction ?? throw new ArgumentNullException(nameof(interaction));
             Store.Users.CollectionChanged += (_, __) => RefreshCommands();
+            Store.PropertyChanged += (_, __) => RefreshCommands();
         }
 
-        public bool CanManage => Store.CanManage;
+        public bool CanManage => Store.CanManage && Store.Tenant.IsActive;
 
-        protected DelegateCommand Command(Action action, Func<bool> enabled = null)
+        protected DelegateCommand Command(Action action, Func<bool> enabled = null, bool allowInactiveTenant = false)
         {
-            bool CanExecute() => CanManage && (enabled == null || enabled());
+            bool CanExecute() => Store.CanManage && (allowInactiveTenant || Store.Tenant.IsActive)
+                && (enabled == null || enabled());
             var command = new DelegateCommand(_ =>
             {
                 // Guard direct command execution as well as disabled UI controls.

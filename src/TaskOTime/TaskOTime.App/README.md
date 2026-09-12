@@ -73,7 +73,7 @@ and `DaanNL`. Use the configured preliminary password. Generated accounts must
 replace it on first login before the main window opens. Incorrect credentials
 are rejected, and five failed attempts lock an account for 15 minutes.
 
-Bookings, tasks, project/collaboration edits, user operations, and password changes use the SQL services
+Bookings, tasks, tenant/project/collaboration edits, user operations, and password changes use the SQL services
 and remain in the database after the application closes. Startup and service
 errors are reported; there is no in-memory fallback.
 
@@ -144,9 +144,18 @@ Server-side Main Data authorization remains authoritative. Create-user fields
 include a temporary password, which is cleared after successful creation; the
 existing service still enforces initial-password replacement on login.
 
-**Tenant name/active edits are workspace-only:** the current user-administration
-contract has no tenant-update operation. The screen and success notification make
-this limitation explicit rather than claiming database persistence.
+Tenant name/active edits use `IAdminMainDataService.UpdateTenant` and persist in
+the existing EF6 Tenant entity. The dedicated request contains only the tenant
+and acting-user IDs, name, and active flag; metadata and other fields are preserved.
+The service requires an active, non-deleted administrator of that tenant, rejects
+deleted tenants, and validates required names, the 200-character schema limit, and
+duplicate names. The workspace adopts the service result, and reopening it reads
+the tenant through the authorized `GetTenant` API rather than a cached DTO.
+
+An active administrator may reactivate an inactive tenant using this dedicated
+operation. While the tenant is inactive, other maintenance mutations are disabled.
+Closing maintenance with the tenant still inactive ends the desktop session
+instead of attempting further project/booking queries for that tenant.
 
 Application API types use `MainData` (for example `IAdminMainDataService`).
 SQL table names, EF mappings, and persisted identifiers are unchanged.
@@ -167,3 +176,5 @@ The STA desktop test also inventories menu, command-strip, time-panel, and
 bound Main Data commands at runtime. `MaintenanceViewModelTests` also exercise
 create/save/archive/delete, selection, service failures, request scope,
 administrator gating, and temporary-password handling without creating views.
+The owned-GUID SQL suite also executes the tenant editor against EF6, verifies
+deactivation/reactivation and reload, and rejects unauthorized or invalid updates.

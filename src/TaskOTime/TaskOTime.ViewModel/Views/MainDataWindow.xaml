@@ -18,7 +18,7 @@
             <TabItem Header="Kategorien &amp; Anhänge"><local:CollaborationView x:Name="CollaborationScreen" DataContext="{Binding Collaboration}" x:FieldModifier="public" /></TabItem>
         </TabControl>
         <StatusBar Grid.Row="2" Background="{DynamicResource PanelBackgroundBrush}" Foreground="{DynamicResource ContentForegroundBrush}">
-            <TextBlock x:Name="ApplicationStatusLabel" x:FieldModifier="public" Text="Bereit." Style="{DynamicResource MainDataTextStyle}" />
+            <TextBlock x:Name="ApplicationStatusLabel" x:FieldModifier="public" Text="{Binding Tenant.TenantName}" Style="{DynamicResource MainDataTextStyle}" />
         </StatusBar>
     </Grid>
 </Window>

@@ -22,7 +22,6 @@
      <StackPanel><TextBlock Text="Email" Style="{DynamicResource MainDataTextStyle}" /><TextBox Width="180" Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" Style="{DynamicResource MainDataTextBoxStyle}" /></StackPanel>
      <StackPanel><TextBlock Text="Temporary password" Style="{DynamicResource MainDataTextStyle}" /><PasswordBox x:Name="TemporaryPasswordBox" Width="160" PasswordChanged="OnTemporaryPasswordChanged" Style="{DynamicResource MainDataPasswordBoxStyle}" /></StackPanel>
     </WrapPanel>
-    <TextBlock Text="Tenant changes apply only to the current workspace." Style="{DynamicResource MainDataTextStyle}" />
     <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
     <Button x:Name="AddUserButton" Command="{Binding AddUserCommand}" x:FieldModifier="public" Content="Benutzer +" Width="112" Margin="3" Style="{DynamicResource MainDataButtonStyle}" />
     <Button x:Name="SaveTenantButton" Command="{Binding SaveTenantCommand}" x:FieldModifier="public" Content="Mandant speichern" Width="137" Margin="3" Style="{DynamicResource MainDataButtonStyle}" />

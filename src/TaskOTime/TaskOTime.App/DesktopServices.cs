@@ -24,7 +24,6 @@ namespace TaskOTime.App
             get => ModeDescriptionKey == null ? customModeDescription : ViewModel.Localization.LocalizationService.Current[ModeDescriptionKey];
             private set => customModeDescription = value;
         }
-        private Func<TaskOTimeContext> contextFactory;
         private TenantDto configuredTenant;
 
         public static DesktopServices Create()
@@ -60,8 +59,7 @@ namespace TaskOTime.App
                 Admin = new AdminMainDataService(factory, hasher),
                 Users = new UserAdministrationService(factory, hasher),
                 Bookings = new TimeBookingService(factory, hasher),
-                ModeDescriptionKey = description,
-                contextFactory = factory
+                ModeDescriptionKey = description
             };
         }
 
@@ -96,28 +94,11 @@ namespace TaskOTime.App
             {
                 if (configuredTenant.IdTenant != user.IdTenant)
                     throw new InvalidOperationException("Der konfigurierte Mandant stimmt nicht mit der Anmeldung überein.");
-                return configuredTenant;
             }
-            if (contextFactory == null)
-                throw new InvalidOperationException("Für den Mandanten ist kein Datenbankkontext konfiguriert.");
-
-            using (var context = contextFactory())
+            return Require(Admin.GetTenant(new GetTenantRequest
             {
-                var tenant = context.Tenant.SingleOrDefault(item => item.IdTenant == user.IdTenant);
-                if (tenant == null)
-                    throw new InvalidOperationException("Der angemeldete Mandant wurde in der Datenbank nicht gefunden.");
-                return new TenantDto
-                {
-                    IdTenant = tenant.IdTenant,
-                    TenantName = tenant.TenantName,
-                    TenantIdentifier = tenant.TenantIdentifier,
-                    Description = tenant.Description,
-                    IsActive = tenant.IsActive,
-                    IsDeleted = tenant.IsDeleted,
-                    DateCreated = tenant.DateCreated,
-                    DateModified = tenant.DateModified
-                };
-            }
+                IdTenant = user.IdTenant, IdActingUser = user.IdUser
+            }));
         }
 
         public VmMain CreateMain(TenantUserDto user)

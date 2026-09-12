@@ -69,6 +69,12 @@ public partial class MainWindow : Window
         window.DataContext = new MainDataViewModel(_services.TenantFor(_session), _session.IdUser,
             _services.Admin, _services.Users, _services.Bookings, tab, new MaintenanceInteraction(window));
         window.ShowDialog();
+        if (!_services.TenantFor(_session).IsActive)
+        {
+            LogoutRequested = true;
+            Close();
+            return;
+        }
         var selectedProjectId = _viewModel.TimeCollection.SelectedProject?.IdProject;
         _viewModel.TimeCollection.Projects.Clear();
         foreach (var project in DesktopServices.Require(_services.Admin.GetProjects(DesktopServices.Query(_session))))
