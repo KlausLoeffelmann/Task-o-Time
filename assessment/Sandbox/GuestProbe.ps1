@@ -18,6 +18,13 @@ try {
     $deadline=[DateTime]::UtcNow.AddSeconds(120)
     while (-not (Test-Path 'C:\ProbePayload\continue.flag') -and [DateTime]::UtcNow -lt $deadline) { Start-Sleep -Milliseconds 250 }
     if (-not (Test-Path 'C:\ProbePayload\continue.flag')) { throw 'Host did not acknowledge protected controller bootstrap.' }
+    if(Test-Path 'C:\ProbePayload\owned-lifecycle-delay.json') {
+        $delay=Get-Content 'C:\ProbePayload\owned-lifecycle-delay.json' -Raw | ConvertFrom-Json
+        if($delay.Seconds -lt 1 -or $delay.Seconds -gt 300) { throw 'Invalid owned lifecycle delay.' }
+        [IO.File]::WriteAllText('C:\ProbeOutput\owned-controller-active.txt','Owned controller is active after the host acknowledged bootstrap.')
+        Start-Sleep -Seconds $delay.Seconds
+        throw 'Owned lifecycle negative reached its delay without host cancellation.'
+    }
     New-Item -ItemType Directory -Path 'C:\ProbeWork' -Force | Out-Null
     Set-Location 'C:\ProbeWork'
     $env:DOTNET_ROOT = 'C:\PublicSdk'

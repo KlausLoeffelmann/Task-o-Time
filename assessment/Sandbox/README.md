@@ -123,6 +123,46 @@ work. In particular, producer compilation must not be mistaken for output
 behavior/compilation acceptance. `FormalVerified` remains false and no signing
 key or formal receipt is produced by this route.
 
+### Failure cleanup and bounded lifecycle regression
+
+All work after launching Sandbox is enclosed in one `try`/`finally`.
+`SandboxLifecycle.ps1` handles bootstrap errors, malformed handshakes, result
+timeouts, export errors and lifecycle-wait timeouts through the same failure
+cleanup path. It re-queries the exact `.wsb` command line and, after bootstrap,
+intersects those clients with the captured session identities. It stops only
+those client PIDs (and the owned launcher if needed), **never a server by name**,
+then requires all observed processes to exit within a shared 60-second cleanup
+budget. Missing server observation after bootstrap or a server that remains
+alive fails closed. `lifecycle-cleanup.json`, outside the guest-writable export,
+records the original failure and independently observed cleanup outcome.
+
+`TimeoutSeconds` bounds bootstrap and the post-bootstrap result wait separately.
+Normal lifecycle observation and failure cleanup each have a shared 60-second
+budget; no loop retries indefinitely.
+
+The owned-only negative switch cannot be combined with submitted work:
+
+```powershell
+# Expected failure after a 60-second post-bootstrap result timeout.
+# The trusted guest deliberately remains active for 300 seconds unless closed.
+& .\assessment\Sandbox\Invoke-SandboxProbe.ps1 `
+  -OwnedControllerDelaySeconds 300 -TimeoutSeconds 60
+
+# A fresh ordinary probe must subsequently run without disturbing another session.
+& .\assessment\Sandbox\Invoke-SandboxProbe.ps1 -TimeoutSeconds 180
+```
+
+Actual negative `sandbox-probe-2317faa874864955894382142157dbe4` bootstrapped,
+acknowledged the host, and wrote `owned-controller-active.txt` before the timeout.
+Configuration-bound cleanup terminated its observed VM processes; the whole
+negative took **88.58 seconds**, well before its 300-second guest delay could
+complete naturally. Fresh retry `sandbox-probe-05ca0d31608441b6bcd92c193d516c4b`
+then passed the real SDK/restricted-process canaries and shut down.
+`Artifacts\lifecycle-timeout-and-retry.json` retains both outcomes. Neither is a
+formal replay receipt. Unit regressions also cover an unrelated client, a
+configuration mismatch, a server that does not exit, and the outer-finally/wait
+loop structure.
+
 ## Commands
 
 Run from the assessor worktree. An already-running Sandbox causes refusal rather
