@@ -6,6 +6,14 @@ using TaskOTime.ViewModel.Localization;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
+    /// <summary>
+    /// Coordinates authentication, pending temporary-password changes and localized login errors.
+    /// </summary>
+    /// <remarks>
+    /// A user awaiting a mandatory password change is kept separate from the authenticated session.
+    /// A new login attempt clears previous local state; successful password replacement is followed
+    /// by authentication with the new password before a session is exposed.
+    /// </remarks>
     public class LoginViewModel : LocalizedViewModelBase
     {
 
@@ -16,6 +24,10 @@ namespace TaskOTime.ViewModel.ViewModels
         private string _errorCode;
         private TenantUserDto _pendingUser;
 
+        /// <summary>
+        /// Creates login state backed by the supplied authentication service.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">The authentication service is null.</exception>
         public LoginViewModel(IAuthenticationService authentication)
         {
             if (authentication is null)
@@ -23,6 +35,9 @@ namespace TaskOTime.ViewModel.ViewModels
             _authentication = authentication;
         }
 
+        /// <summary>
+        /// Gets the authenticated user, or null when no local session exists; pending password changes are excluded.
+        /// </summary>
         public TenantUserDto Session
         {
             get
@@ -31,6 +46,9 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
+        /// <summary>
+        /// Gets the current error in the active culture, prefixed by a service error code when available.
+        /// </summary>
         public string ErrorMessage
         {
             get
@@ -41,6 +59,9 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
+        /// <summary>
+        /// Indicates that a pending user must replace a temporary password before authentication can finish.
+        /// </summary>
         public bool MustChangePassword
         {
             get
