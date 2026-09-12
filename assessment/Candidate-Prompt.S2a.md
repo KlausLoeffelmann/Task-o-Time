@@ -1,4 +1,4 @@
-# Task-o-Time: maintainable desktop delivery
+# Task-o-Time: maintainable desktop delivery (S2a)
 
 Task-o-Time is a Windows Presentation Foundation (WPF) application backed by SQL Server and Entity
 Framework 6. It grew through a handover between developers, and conventions
@@ -12,15 +12,7 @@ operation they claim to perform, including after data is saved and reloaded.
 
 ## Required outcome
 
-Your handover identifies one starting point. Do not redo completed migrations:
-
-| Starting point | Remaining migration work |
-| --- | --- |
-| S0: original mixed Framework targets, production VB | Normalize to net472, convert production VB to C#, then SDK-style and .NET 10 |
-| S1: net472, production VB | Convert production VB to C#, then SDK-style and .NET 10 |
-| S2: net472, production C# | SDK-style and .NET 10; no VB conversion deliverable |
-| S2a: SDK-style net472, production C# | .NET 10; no VB conversion or repeated SDK conversion |
-| S3: SDK-style .NET 10, production C# | Quality/workflow improvements below; no migration utility required |
+Your starting point is **S2a: SDK-style net472 with production C#**. Production language and project-style conversion are already complete; do not repeat them. Target .NET 10 and complete the quality and workflow requirements below. No VB converter is requested.
 
 1. Complete the remaining migration work for your starting point. When SDK
    conversion remains, establish a buildable SDK-style **net472 checkpoint**
@@ -70,8 +62,7 @@ Your handover identifies one starting point. Do not redo completed migrations:
    analysis and effort. Explain the trade-off and leave evidence that the
    approach works. For remaining migration work, retain the reusable
    transformations and representative regression examples, including clear
-   unsupported-input reporting. For S3 this is a design consideration for
-   remaining repetitive quality work, not a requirement to build a converter.
+   unsupported-input reporting.
    Distinguish mechanical changes from architectural judgment.
 
 ## Boundaries

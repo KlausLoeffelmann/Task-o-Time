@@ -53,7 +53,7 @@ internal static class MigrationToolAnalysis
                     p.Property.ContainingType.ToDisplayString() == "System.Environment" && p.Property.Name is "TickCount" or "TickCount64" or "MachineName") &&
                     !calls.Any(i => i.TargetMethod.ContainingType.ToDisplayString() == "System.Random" ||
                         i.TargetMethod.ContainingType.ToDisplayString() == "System.Guid" && i.TargetMethod.Name == "NewGuid");
-                r.Measure("MigrationTool", 1, parse && semantic && construct && deterministic && vbChecked && csChecked ? 1 : 0);
+                r.Measure("MigrationToolStaticShape", 1, parse && semantic && construct && deterministic && vbChecked && csChecked ? 1 : 0);
                 if (parse && semantic && construct && deterministic && vbChecked && csChecked) pipelines++;
             }
         }
@@ -76,11 +76,11 @@ internal static class MigrationToolAnalysis
             if (common >= 3 && !inputCompilation.GetDiagnostics().Concat(outputCompilation.GetDiagnostics())
                 .Any(d => d.Severity == DiagnosticSeverity.Error)) representative++;
         }
-        r.Measure("MigrationTool", 1, representative > 0 ? 1 : 0);
+        r.Measure("MigrationToolStaticShape", 1, representative > 0 ? 1 : 0);
         if (pipelines == 0 || representative == 0)
-            r.Report("MigrationTool", OutcomeAnalyzer.Tool, Location.None,
+            r.Report("MigrationToolStaticShape", OutcomeAnalyzer.Tool, Location.None,
                 "Require an independently discovered, compiling tooling project with input-dependent VB syntax/semantic handling, C# syntax construction/rewriting flowing to normalized source emission, guarded input/output compilation diagnostics, and paired VB/C# fixture artifacts covering at least three representative constructs. " +
-                $"Verified pipelines: {pipelines}; representative fixture pairs: {representative}.");
+                $"Static pipeline shapes: {pipelines}; independent companion fixture pairs: {representative}. Actual emitted output remains unverified until trusted CLI replay.");
     }
     private static bool IsVBCompilation(IInvocationOperation i) =>
         i.TargetMethod.ContainingType.ToDisplayString() == "Microsoft.CodeAnalysis.VisualBasic.VisualBasicCompilation" && i.TargetMethod.Name == "Create";

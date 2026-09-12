@@ -1,10 +1,11 @@
 # Independent compiler-assisted modernization assessment
 
 This **xUnit** project is independent of the legacy MSTest
-`ArchitectureFitness.Tests` project. Candidate verdicts are actual Roslyn
-`DiagnosticAnalyzer` diagnostics. The evaluator does not invoke the application,
-inspect its objects with reflection, query/mutate a database, use git history, or
-ask an AI to grade it. Compilation and input-extraction failures fail closed.
+`ArchitectureFitness.Tests` project. Static diagnostics use Roslyn
+`DiagnosticAnalyzer`; stage policy and independent CLI replay run outside its
+callbacks. The evaluator does not invoke the application or query/mutate a
+database. Replay executes synthetic emitted-code behavior in a child process.
+Compilation and input-extraction failures fail closed.
 
 ## Portable bundle and execution
 
@@ -13,23 +14,28 @@ Copy exactly the relative files in `..\Bundle.files` into a repository-root
 reports/TRX, compiler intermediates, or archived scenario documents. The bundle
 contains both external MSBuild configuration files, the scope manifest, the shared
 configuration source, compiler-input target, all analyzer/test sources, and this
-README. `Candidate-Prompt.md` and `Assessor-Guide.md` are included as top-level
-assessment documents, copied unchanged from the parent's external originals.
-Refresh those copies from the originals if the parent revises them before
-packaging. The assessment is not an application project reference.
+README. `Candidate-Prompt.md` and `Assessor-Guide.md` are versioned top-level
+assessment documents; keep their stage contracts aligned with this bundle.
+The assessment is not an application project reference.
 
-Use Windows and the .NET 10 SDK/runtime (a compatible newer SDK can build it).
+Use Windows and the pinned .NET 10 SDK/runtime; enter the assessment directory
+before invoking dotnet so its private `global.json` is honored. Roslyn 5.0 matches
+the .NET 10 compiler generation; a .NET 11 SDK is deliberately not accepted.
 The application uses .NET Framework 4.6.1 reference assemblies restored from its
 existing package dependencies. From a fresh golden-branch checkout:
 
 ```powershell
 $source = Join-Path $PWD 'src\TaskOTime'
+Set-Location .\assessment
 # Compile/restore the solution, but do not run the application or database tests.
-dotnet build .\src\TaskOTime\TaskOTime.slnx --verbosity quiet
-dotnet test .\assessment\Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj `
-  "-p:TaskOTimeSourceRoot=$source" --filter 'Category=AnalyzerUnit|Category=RepositoryScan'
+dotnet build ..\src\TaskOTime\TaskOTime.slnx --verbosity quiet
+$env:ASSESSMENT_STAGE = 'S0'
+$env:ASSESSMENT_MODE = 'starting-point-integrity'
+dotnet test .\Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj `
+  "-p:TaskOTimeSourceRoot=$source" --filter 'Category=AnalyzerUnit|Category=ReplayUnit|Category=RepositoryScan|Category=StagePreservation'
 # Candidate acceptance: expected to FAIL on the deliberately bad starting app.
-dotnet test .\assessment\Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj `
+$env:ASSESSMENT_MODE = 'final-delivery'
+dotnet test .\Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj `
   "-p:TaskOTimeSourceRoot=$source" --filter 'Category=Modernization'
 ```
 
@@ -45,19 +51,23 @@ MSBuild properties. Supply absolute paths when overriding them.
 repository `tools\` / `tooling\` roots. Add a relative `<Discovery><Root>` or set
 `MIGRATION_TOOL_ROOT` for another tooling location. **Build/restore independently
 supplied tooling projects first**; they need not be referenced by the application.
-Test projects, hidden/build/package folders, and the assessment itself are
-excluded. Evaluated test-framework references and `IsTestProject` also exclude
-tests from production verdicts. Renamed projects are discovered by project
+Hidden/build/package folders and the assessment itself are excluded. Test projects
+are loaded for evaluated framework validity, but excluded from production
+quality diagnostics using test-framework references and `IsTestProject`.
+Renamed projects are discovered by project
 extension, not a list of original VB project filenames.
 
 | xUnit trait | Meaning |
 | --- | --- |
 | `Category=AnalyzerUnit` | Bilingual positive/negative, alias, renamed, generated-source, XML, empty-input and compiler-failure fixtures; should pass |
 | `Category=RepositoryScan` | Complete source compilation plus report generation; passes on a compilable bad application |
-| `Category=Modernization` | Requires valid inputs **and zero analyzer diagnostics**; intentionally fails on the bad baseline |
+| `Category=ReplayUnit` | Actual child-process replay, converter-shaped empty-class rejection, emitted compilation/behavior and unsupported-input harness regressions |
+| `Category=StagePreservation` | Explicit starting-point-integrity only; requires stage language/style/targets and original nonmigration defects, including exactly one BUS001/BUS002 |
+| `Category=Modernization` | Final-delivery only; requires valid inputs **and zero mandatory acceptance diagnostics**; intentionally fails on the bad baseline |
 
-An unfiltered test run intentionally fails on that baseline. No acceptance rule is
-implemented as a runtime UI test or an assertion about baseline diagnostic counts.
+Use explicit category filters. Never include StagePreservation in ideal/final
+acceptance. Generic scanning has no assertion requiring business defects.
+No static rule is implemented as a runtime UI test.
 
 ## Input boundary and reproducibility
 
@@ -67,7 +77,8 @@ recompiled and emitted to **in-memory** metadata; existing frontend DLL contents
 do not determine semantic verdicts. Restored assets/imports and reference outputs
 are prerequisite build inputs, not execution evidence. Extraction disables compiler
 execution and project-reference builds. WPF/design-time intermediates are written
-under `Artifacts\compiler-inputs`, outside the application; normal application
+under `Artifacts\compiler-inputs`, keyed by full project/configuration/profile hash,
+outside the application; normal application
 `obj` assets/imports are read, not replaced. The only intentional parse-option
 adjustment is `DocumentationMode.Parse`: XML documentation must remain Roslyn
 syntax trivia even when the candidate does not request a `/doc` output.
@@ -79,18 +90,25 @@ not DLL basenames. Missing or ambiguous project identities fail closed. Metadata
 regressions compile an equivalent .NET 10 executable/library pair using the actual
 source-image replacement, without reading a stale reference DLL.
 
-The reports are `Artifacts\Reports\roslyn-diagnostics.json` and
-`Artifacts\Reports\repository-assessment.csv` (or the configured artifact root),
+The reports are `Artifacts\Reports\<stage>-<mode>-<configuration>\roslyn-diagnostics.json` and
+`repository-assessment.csv` in the same directory (or the configured artifact root),
 written before test assertions, including when the modernization gate fails.
 JSON contains compilation validity,
 sorted project/source/AdditionalFile paths, selected architecture types, all
 diagnostics, per-criterion integer metrics, evaluation-valid/hard-gate/unverified
-status, rubric version, and normalized overall score. CSV rubric `2026-09-v2`
+status, evaluated project framework identifier/version/platform, SDK style and
+configuration, trusted stage/mode, stage-integrity failures, actual replay
+evidence, criterion applicability, applicable denominator and remaining-work
+score. CSV rubric `2026-09-stage-v3`
 uses bounded criterion scores rather than dividing by diagnostic counts:
 business 28, MVVM 18, localization 14, VB-to-C# 9, theme 9, comments 5,
 Main Data naming 5, migration tool 5, SDK-style 3.5, and .NET 10 target 3.5.
-It contains criterion evidence and an `OVERALL` row. There are no timestamps or elapsed
-times. Diagnostics are sorted by ID, path, line, column and message.
+It contains criterion evidence and an `OVERALL` row. The universal full-outcome
+score remains separate from remaining-work credit. Deferred and pre-satisfied
+criteria are not earned passes; S3 migration-tool work is not applicable.
+Invalid evaluations score zero, with INVALID rows and null remaining score.
+There are no timestamps or inferred usage/cost estimates. Static diagnostics
+are sorted by ID, path, line, column and message.
 `OutcomeAnalyzer` runs a compilation action over the supplied compilation corpus;
 cross-project locations are Roslyn external-file diagnostic locations, retaining
 their source spans. XML is supplied through Roslyn `AdditionalText` inputs.
@@ -100,7 +118,8 @@ gate `ASM001` prevent success. Analyzer exceptions also prevent success.
 `Examined` / `Satisfied` are bounded static evidence units, **not percentages of
 correctness**: comment trivia without lexicon evidence; documented declarations;
 authored types by language; resource/accessor evidence; resolved theme pairs;
-required source roles; tool pipelines/fixtures; EF context contracts. `Unverified`
+required source roles; static tool-shape/companion-fixture evidence (not conversion
+success); EF context contracts. `Unverified`
 records unsupported theme coverage. Legacy MOD/BUS metrics count compiled source
 trees examined and diagnostics (their `Satisfied` field is not inferred).
 Diagnostic counts can exceed evidence counts when a unit has several findings.
@@ -247,7 +266,9 @@ resulting states, not historical execution order.
   dependencies, loss/replacement of the EF6 source `DbContext`/`DbSet` contract or
   service/data-access dependency, and changes to the configured EF6 context,
   entity-set types or package version. The external manifest declares those
-  existing store compatibility contracts. Generated EF models remain evidence,
+  existing store compatibility contracts. Trusted stage policy retains 6.5.1
+  through S2a, and supplies the reviewed 6.5.2 boundary for S3/S4/final delivery.
+  Generated EF models remain evidence,
   but are excluded from presentation naming/language/prose modernization.
 
 This protects the EF6 compatibility boundary; it does not claim byte-for-byte
@@ -299,7 +320,8 @@ merged-resource activation or custom theme frameworks can remain unverified.
 
 ### Reusable compiler-assisted migration deliverable
 
-**TOOL001** requires an independently discovered, compiling tooling project with
+**TOOL001** reports bounded static evidence gaps in an independently discovered,
+compiling tooling project with
 actual Roslyn VB syntax/semantic input handling and C# syntax construction or
 rewriting connected through operation provenance to normalized deterministic
 source emission. A prior guard in the same emission method must check diagnostics
@@ -328,3 +350,89 @@ agent used it, avoided manual translation, converted every construct, or produce
 semantically equivalent outputs. Fixtures are not claimed to be generated-output
 execution results. More elaborate multi-method pipelines can require equivalent
 inspectable evidence; arbitrary control/dataflow is not a general program proof.
+
+### Trusted CLI replay and final acceptance
+
+TOOL001 is always displayed, but **does not award the TOOL score or decide
+acceptance**. A converter-shaped empty-class emitter passes that static pattern
+even beside rich independent fixtures; `ToolReplayTests` executes that exact
+emitter and rejects its actual output. TOOL002 is the mandatory outside-analyzer
+replay diagnostic for missing, failed or incomplete applicable replay.
+No product symbol or converter vendor is special-cased: a genuine CLI wrapper
+around a Roslyn conversion engine is eligible through the same executable
+contract as a custom emitter. The assessor separately reviews compiler-aware
+engine identity/licensing; successful fixture replay is not a general proof.
+
+Set `ASSESSMENT_REPLAY_PLAN` to an absolute JSON path **inside the private
+assessment tree**, not the candidate checkout. Plans, fixture inputs, expected
+checkpoint outputs and behavior programs are trusted assessor artifacts; never
+distribute them or preparation tooling. `Projects` identifies independently
+built CLI/engine projects for source discovery, including wrappers with no direct
+VB reference. Do not list application projects as tooling.
+
+The interface is deliberately generic; arguments are passed directly, not through
+a shell. Every command must take explicit `{input}` and `{output}` directories:
+
+```json
+{
+  "Projects": ["C:\\submission\\utility\\Utility.csproj"],
+  "Cases": [{
+    "Name": "held-out-language-canary",
+    "Kind": "language",
+    "Command": {
+      "Executable": "dotnet",
+      "Arguments": ["C:\\submission\\utility\\Utility.dll", "convert",
+                    "--source", "{input}", "--destination", "{output}"]
+    },
+    "InputDirectory": "C:\\private\\assessment\\fixtures\\canary-input",
+    "ExpectedDirectory": "C:\\private\\assessment\\fixtures\\canary-expected",
+    "BehaviorFile": "C:\\private\\assessment\\fixtures\\canary-behavior.cs",
+    "Unsupported": false,
+    "Idempotent": false,
+    "Checkpoint": false
+  }]
+}
+```
+
+This example is intentionally **incomplete**, not an acceptance fixture. For
+each applicable kind supply an independent positive fixture, an unsupported
+fixture, and a `Checkpoint=true` baseline-to-checkpoint reconciliation case.
+S0/S1/S4 require `language` and `project`; S2/S2a require only `project`; S3 does
+not require migration replay. Language positives require a trusted C# behavior
+program with an integer-returning Main; project positives require
+`Idempotent=true`. Include behavior fixtures for project compatibility changes.
+Construct held-out language cases covering collection identity/order/events,
+generic properties, ByRef/default/indexed members, numeric semantics and WPF
+event wiring before accepting a real converter. Review full source graph and
+clean project builds separately; a small behavioral fixture does not certify WPF
+or SQL behavior.
+
+Each case copies fresh private inputs, invokes the actual CLI with a timeout,
+rejects source mutation, compares its complete emitted file set/content against
+the trusted expected tree (C# whitespace normalized), and compares byte hashes
+on a repeated independent invocation. Project idempotence replays emitted output
+as input. Unsupported cases require nonzero exit, a diagnostic and no partial
+output. Behavior compiles actual emitted C# with the trusted program and runs a
+child process with a timeout. The process is **not a security sandbox**: inspect
+submissions and run under an isolated low-privilege account without production
+credentials/network access.
+
+Record private baseline/checkpoint commit identities when preparing reconciliation
+trees from reviewed refs. Replay records actual input/output SHA256, command,
+hashes of explicitly supplied executable/DLL/script artifacts,
+exit code and stdout/stderr; plan ownership and tree provenance need assessor
+review. This checks reproducibility against that checkpoint, not historical
+execution order or actual past tool usage. Independently build the declared source
+projects and record engine/dependency versions before replay; a matching CLI
+artifact hash alone is not source-to-binary provenance. Reconcile generated/manual diffs and
+ordered commit/input/output identities separately; do not infer counterfactual
+token savings from code or logs. `Verified=false`/TOOL002 must remain until real
+submission replay plans and held-out fixtures have been run.
+
+JSON `Diagnostics` retains every static outcome and mandatory replay/stage
+failure. `AcceptanceDiagnostics` differs only by excluding static TOOL001.
+All business, architecture, localization, language, comment, naming, theme,
+scope, core and EF6 rules stay mandatory in final mode, including regressions in
+pre-satisfied work. The hard gate requires zero mandatory defects and valid
+compilations; S4 also requires full weighted score 1.0. Separate application
+unit/SQL/STA and explicit visual checks are required before calling Golden ideal.

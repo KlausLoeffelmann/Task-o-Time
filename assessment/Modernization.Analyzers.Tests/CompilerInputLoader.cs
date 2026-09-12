@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Text;
 using System.Text.Json;
 using System.Xml.Linq;
+using System.Security.Cryptography;
+using ExternalEvaluation;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Text;
@@ -10,7 +12,8 @@ using Microsoft.CodeAnalysis.VisualBasic;
 namespace Modernization.Analyzers.Tests;
 
 internal sealed record LoadedProject(string Path, string Name, string OutputPath, Compilation Compilation,
-    bool IsTest, bool IsTooling, string[] GeneratedPaths, AdditionalText[] AdditionalFiles, string? TargetRefPath = null);
+    bool IsTest, bool IsTooling, string[] GeneratedPaths, AdditionalText[] AdditionalFiles, string? TargetRefPath = null,
+    ProjectState? State = null);
 internal sealed record EvaluatedAssemblyReference(string[] AssemblyPaths, string[] SourceProjects);
 internal sealed class SourceCompilationException(string project, IEnumerable<Diagnostic> diagnostics)
     : Exception("Source compilation failed for " + project)
@@ -21,7 +24,7 @@ internal sealed class SourceCompilationException(string project, IEnumerable<Dia
 
 // MSBuild supplies the exact compiler arguments, including WPF-generated VB and framework references.
 // Project references are replaced by source compilations; stale frontend DLLs cannot decide the verdict.
-internal sealed class CompilerInputLoader(string intermediateRoot)
+internal sealed class CompilerInputLoader(string intermediateRoot, string configuration = "Debug", string profile = "unit")
 {
     internal List<LoadedProject> Projects { get; } = [];
     private readonly HashSet<string> loading = new(StringComparer.OrdinalIgnoreCase);
@@ -34,7 +37,7 @@ internal sealed class CompilerInputLoader(string intermediateRoot)
         if (cached is not null) return cached;
         if (!loading.Add(projectPath)) throw new InvalidOperationException("Cyclic project reference: " + projectPath);
         var directory = Path.GetDirectoryName(projectPath)!;
-        var intermediate = Path.Combine(intermediateRoot, Path.GetFileNameWithoutExtension(projectPath));
+        var intermediate = Path.Combine(intermediateRoot, CacheIdentity(projectPath, configuration, profile));
         Directory.CreateDirectory(intermediate);
         var start = new ProcessStartInfo("dotnet")
         {
@@ -44,16 +47,23 @@ internal sealed class CompilerInputLoader(string intermediateRoot)
             UseShellExecute = false
         };
         start.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+        var sdkDirectory = Directory.GetParent(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "evaluator-sdk.txt")).Trim())!.FullName;
+        if (!Path.GetFileName(sdkDirectory).StartsWith("10.", StringComparison.Ordinal))
+            throw new InvalidOperationException("Compiler extraction requires the trusted .NET 10 SDK.");
+        start.Environment["MSBuildSDKsPath"] = Path.Combine(sdkDirectory, "Sdks");
+        start.Environment["DOTNET_MSBUILD_SDK_RESOLVER_CLI_DIR"] = Path.GetDirectoryName(Path.GetDirectoryName(sdkDirectory)!)!;
+        start.Environment["DOTNET_MSBUILD_SDK_RESOLVER_SDKS_DIR"] = Path.Combine(sdkDirectory, "Sdks");
+        start.Environment["DOTNET_MSBUILD_SDK_RESOLVER_SDKS_VER"] = Path.GetFileName(sdkDirectory);
         foreach (var argument in new[]
         {
-            "msbuild", projectPath, "-target:PrepareResourceNames;Compile", "-verbosity:quiet", "-nologo", "-nodeReuse:false",
-            "-property:Configuration=Debug", "-property:BuildProjectReferences=false",
+            Path.Combine(sdkDirectory, "MSBuild.dll"), projectPath, "-target:PrepareResourceNames;Compile", "-verbosity:quiet", "-nologo", "-nodeReuse:false",
+            "-property:Configuration=" + configuration, "-property:BuildProjectReferences=false",
             "-property:IntermediateOutputPath=" + intermediate + Path.DirectorySeparatorChar,
             "-property:DesignTimeBuild=true", "-property:SkipCompilerExecution=true",
             "-property:ProvideCommandLineArgs=true",
             "-property:CustomAfterMicrosoftCommonTargets=" + Path.Combine(AppContext.BaseDirectory, "CompilerInputs.targets"),
             "-getItem:CscCommandLineArgs,VbcCommandLineArgs,ProjectReference,Compile,Page,ApplicationDefinition,EmbeddedResource,ReferencePath,ReferencePathWithRefAssemblies,PackageReference,None,Content",
-            "-getProperty:TargetPath,TargetRefPath,AssemblyName,IsTestProject,TargetFramework,RootNamespace,UsingMicrosoftNETSdk"
+            "-getProperty:TargetPath,TargetRefPath,AssemblyName,IsTestProject,TargetFramework,TargetFrameworkIdentifier,TargetFrameworkVersion,TargetPlatformIdentifier,Configuration,Configurations,RootNamespace,UsingMicrosoftNETSdk"
         }) start.ArgumentList.Add(argument);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Cannot start dotnet MSBuild.");
         var outputTask = process.StandardOutput.ReadToEndAsync();
@@ -108,7 +118,8 @@ internal sealed class CompilerInputLoader(string intermediateRoot)
         }
         // Unlike C#, VB's /nostdlib removes System.dll, not its implicit core library.
         // The command-line driver adds mscorlib from /sdkpath after parsing the reference switches.
-        if (vb && !references.OfType<PortableExecutableReference>().Any(r =>
+        if (vb && properties.GetProperty("TargetFrameworkIdentifier").GetString() == ".NETFramework" &&
+            !references.OfType<PortableExecutableReference>().Any(r =>
                 string.Equals(Path.GetFileName(r.FilePath), "mscorlib.dll", StringComparison.OrdinalIgnoreCase)))
         {
             if (sdkPath is null) throw new InvalidOperationException("VB compiler inputs have no /sdkpath for the implicit core library.");
@@ -131,6 +142,8 @@ internal sealed class CompilerInputLoader(string intermediateRoot)
             compilation.ReferencedAssemblyNames.Any(a => a.Name is "xunit.core" or "Microsoft.VisualStudio.TestPlatform.TestFramework" or "nunit.framework") ||
             name.Split('.').Any(s => s.EndsWith("Tests", StringComparison.Ordinal));
         var tooling = compilation.ReferencedAssemblyNames.Any(a => a.Name == "Microsoft.CodeAnalysis.VisualBasic") && !test;
+        // A trusted replay declaration may identify a wrapper or project-only CLI without direct VB references.
+        tooling |= ToolReplay.DeclaredProjects.Contains(projectPath, StringComparer.OrdinalIgnoreCase) && !test;
         var generated = items.GetProperty("Compile").EnumerateArray().Where(a =>
             a.TryGetProperty("AutoGen", out var v) && v.GetString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true)
             .Select(a => a.GetProperty("FullPath").GetString()!).ToArray();
@@ -152,6 +165,8 @@ internal sealed class CompilerInputLoader(string intermediateRoot)
                 sdk.GetString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true),
             new XAttribute("TargetFramework", properties.TryGetProperty("TargetFramework", out var framework)
                 ? framework.GetString() ?? "" : ""),
+            new[] { "TargetFrameworkIdentifier", "TargetFrameworkVersion", "TargetPlatformIdentifier", "Configuration", "Configurations" }
+                .Select(key => new XAttribute(key, properties.GetProperty(key).GetString() ?? "")),
             items.GetProperty("ReferencePath").EnumerateArray().Select(a =>
                 new XElement("Reference", new XAttribute("Name", Path.GetFileNameWithoutExtension(a.GetProperty("Identity").GetString()!)))),
             items.GetProperty("PackageReference").EnumerateArray().Select(a =>
@@ -169,10 +184,42 @@ internal sealed class CompilerInputLoader(string intermediateRoot)
             Path.GetFullPath(properties.GetProperty("TargetPath").GetString()!, directory),
             compilation, test, tooling, generated, additional.DistinctBy(f => f.Path).ToArray(),
             properties.TryGetProperty("TargetRefPath", out var targetRef) && !string.IsNullOrWhiteSpace(targetRef.GetString())
-                ? Path.GetFullPath(targetRef.GetString()!, directory) : null);
+                ? Path.GetFullPath(targetRef.GetString()!, directory) : null,
+            ReadState(projectPath, compilation.Language, test, tooling, properties));
         Projects.Add(loaded);
         loading.Remove(projectPath);
         return loaded;
+    }
+
+    internal static string CacheIdentity(string path, string configuration, string profile) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
+            Path.GetFullPath(path).ToUpperInvariant() + "\n" + configuration + "\n" + profile)));
+
+    internal static ProjectState ReadState(string path, string language, bool test, bool tooling, JsonElement properties)
+    {
+        string Value(string key) => properties.TryGetProperty(key, out var value) ? value.GetString() ?? "" : "";
+        return new(path, language, test, tooling, Value("UsingMicrosoftNETSdk").Equals("true", StringComparison.OrdinalIgnoreCase),
+            Value("TargetFramework"), Value("TargetFrameworkIdentifier"), Value("TargetFrameworkVersion"),
+            Value("TargetPlatformIdentifier"), Value("Configuration"), Value("Configurations"));
+    }
+
+    internal static LoadedProject[] ClassifyTestSupport(IEnumerable<LoadedProject> projects, string sourceRoot)
+    {
+        var all = projects.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
+        bool InTestDirectory(string path) => Path.GetRelativePath(sourceRoot, path).Split(Path.DirectorySeparatorChar)
+            .SkipLast(1).Any(s => s.EndsWith("Tests", StringComparison.Ordinal));
+        var production = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var pending = new Stack<LoadedProject>(all.Values.Where(p => !p.IsTest && !InTestDirectory(p.Path)));
+        while (pending.TryPop(out var current))
+        {
+            if (!production.Add(current.Path)) continue;
+            foreach (var file in current.AdditionalFiles.Where(f => f.Path == current.Path + ".assessment"))
+            foreach (var reference in Evidence.Xml(file).Descendants("ProjectReference"))
+                if (reference.Attribute("Path")?.Value is { } path && all.TryGetValue(path, out var dependency))
+                    pending.Push(dependency);
+        }
+        return all.Values.Select(p => !p.IsTest && InTestDirectory(p.Path) && !production.Contains(p.Path)
+            ? p with { IsTest = true, State = p.State == null ? null : p.State with { Test = true } } : p).ToArray();
     }
 
     internal static EvaluatedAssemblyReference[] ReadEvaluatedReferences(JsonElement items, string directory)

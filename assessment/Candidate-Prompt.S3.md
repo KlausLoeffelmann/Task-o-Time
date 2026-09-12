@@ -1,4 +1,4 @@
-# Task-o-Time: maintainable desktop delivery
+# Task-o-Time: maintainable desktop delivery (S3)
 
 Task-o-Time is a Windows Presentation Foundation (WPF) application backed by SQL Server and Entity
 Framework 6. It grew through a handover between developers, and conventions
@@ -12,23 +12,12 @@ operation they claim to perform, including after data is saved and reloaded.
 
 ## Required outcome
 
-Your handover identifies one starting point. Do not redo completed migrations:
+Your starting point is **S3: SDK-style .NET 10 with production C#**. Language, project-style and framework migration are already complete. Complete the quality and workflow requirements below without repeating those migrations. No migration utility or VB converter is requested.
 
-| Starting point | Remaining migration work |
-| --- | --- |
-| S0: original mixed Framework targets, production VB | Normalize to net472, convert production VB to C#, then SDK-style and .NET 10 |
-| S1: net472, production VB | Convert production VB to C#, then SDK-style and .NET 10 |
-| S2: net472, production C# | SDK-style and .NET 10; no VB conversion deliverable |
-| S2a: SDK-style net472, production C# | .NET 10; no VB conversion or repeated SDK conversion |
-| S3: SDK-style .NET 10, production C# | Quality/workflow improvements below; no migration utility required |
-
-1. Complete the remaining migration work for your starting point. When SDK
-   conversion remains, establish a buildable SDK-style **net472 checkpoint**
-   before retargeting to .NET 10 (`net10.0-windows` where WPF requires it).
-   Preserve public behavior and keep the solution
-   buildable. Existing test code need not change language merely for uniformity.
-   Test projects must target frameworks compatible with the final solution.
-   Do not retain a second VB implementation as the application's fallback.
+1. Keep the existing SDK-style C# .NET 10 solution buildable and preserve its
+   supported target frameworks. No language or project migration is required.
+   Existing VB test projects may remain VB; all test targets must stay compatible
+   with the solution. Do not introduce a second production VB implementation.
 2. Keep the original main window, calendar, time list, task panel, login,
    settings, and maintenance screens usable. Trace manual booking, editing,
    interruption/resumption, checkout, task completion, selection, and
@@ -66,13 +55,10 @@ Your handover identifies one starting point. Do not redo completed migrations:
    naming. Keep persisted database identifiers and compatibility boundaries
    stable where renaming them would change the storage contract.
 9. Similar applications will follow this handover. Consider whether repeatable
-   changes can be made reproducible so later projects need less repeated
+   quality changes can be made reproducible so later projects need less repeated
    analysis and effort. Explain the trade-off and leave evidence that the
-   approach works. For remaining migration work, retain the reusable
-   transformations and representative regression examples, including clear
-   unsupported-input reporting. For S3 this is a design consideration for
-   remaining repetitive quality work, not a requirement to build a converter.
-   Distinguish mechanical changes from architectural judgment.
+   approach works. This is a design consideration, not a requirement to build
+   a migration utility. Distinguish mechanical changes from architectural judgment.
 
 ## Boundaries
 
@@ -91,7 +77,7 @@ Your handover identifies one starting point. Do not redo completed migrations:
 
 ## Delivery
 
-Provide working code, resource files, reusable transformations for applicable migration work,
+Provide working code and resource files,
 focused regression coverage, and concise build/run instructions. Demonstrate
 representative workflow and runtime culture/theme checks, including all four
 localization surfaces and a clean build from

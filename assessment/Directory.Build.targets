@@ -2,5 +2,9 @@
   <Target Name="WriteEvaluatorConfiguration" AfterTargets="Build">
     <WriteLinesToFile File="$(TargetDir)evaluator-paths.txt"
                       Lines="$(TaskOTimeSourceRoot);$(EvaluatorArtifactRoot);$(AssessmentRoot)" Overwrite="true" />
+    <WriteLinesToFile File="$(TargetDir)evaluator-sdk.txt"
+                      Lines="$(MSBuildSDKsPath)" Overwrite="true" />
+    <Error Condition="$([System.String]::Copy('$(NETCoreSdkVersion)').StartsWith('10.')) != 'true'"
+           Text="Build the assessor from its assessment directory using the pinned .NET 10 SDK." />
   </Target>
 </Project>
