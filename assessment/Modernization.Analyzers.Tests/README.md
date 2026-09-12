@@ -413,6 +413,12 @@ content, reversed/conditional failure guards, dead entry paths, output resets an
 dictionary replacement are rejected. This bounded contract is reusable across
 tool names and repositories; other engine APIs require an independently reviewed
 contract model, not a package-name exemption.
+Stream provenance follows actual returned stream values, single-definition aliases
+and forwarding parameters; an engine call merely occurring inside the collection
+expression cannot authenticate a replacement enumerable or lookalike elements.
+Dictionary insertion must resolve to the BCL implementation, or an inspected
+unconditional source wrapper forwarding content to that implementation. An
+`IDictionary` declaration or a hidden no-op `Add` is not insertion evidence.
 
 Supply representative VB/C# fixture sources as evaluated `None` or `Content`
 items in the tooling project (exclude expected-output `.cs` files from its own
@@ -431,6 +437,13 @@ local functions, argument arrays and async stream/tuple results are supported.
 Dead checks, constant result helpers, self-comparisons and unrelated CLI names
 are not fixture evidence. Test compilations are supplied separately from the
 production corpus; they do not become application criteria inputs.
+Assertion guards must execute in the called assertion body, not merely occur in
+an uncalled nested function or conditional dead branch. Stdout comparisons trace
+call-site-bound process launch values through helper returns and aliases: both
+sides must have known, distinct executable/argument origins. Aliases of the same
+run and repeat launches of the same resolved input do not establish before/after
+coverage. Unknown/multiple origins fail closed; arbitrary runtime path equivalence
+and behavioral correctness remain trusted-replay responsibilities.
 
 MSBuild-evaluated/structured-XML **project** migration is not required to pretend
 to be a Roslyn language emitter. Its executable checkpoint evidence belongs in

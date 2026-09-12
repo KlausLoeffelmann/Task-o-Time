@@ -76,6 +76,81 @@ public sealed class MigrationToolTests
             """;
         Assert.Contains(await Analyze(CompileAdapter(ExternalAdapter + lookalike)), d => d.Id == "TOOL001");
     }
+
+    [Fact]
+    public async Task Discarded_engine_stream_does_not_authenticate_fake_result_elements()
+    {
+        var source = ExternalAdapter.Replace(
+            "ProjectConversion.ConvertDocumentsAsync<VBToCSConversion>(documents, new ConversionOptions())",
+            "Discard(ProjectConversion.ConvertDocumentsAsync<VBToCSConversion>(documents, new ConversionOptions()))")
+            .Replace("private static string Repair", """
+                private static async IAsyncEnumerable<FakeResult> Discard(object ignored) {
+                    await Task.Yield();
+                    yield return new FakeResult();
+                }
+                private sealed class FakeResult {
+                    public bool Success => true;
+                    public string ConvertedCode => "public class Empty {}";
+                    public string TargetPathOrNull => "Empty.cs";
+                }
+                private static string Repair
+                """);
+        Assert.Contains(await Analyze(CompileAdapter(source)), d => d.Id == "TOOL001");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("base.Add(path, \"public class Empty {}\");")]
+    [InlineData("if (false) base.Add(path, code);")]
+    [InlineData("base.Add(path, code); base.Clear();")]
+    public async Task Hidden_dictionary_add_that_discards_content_is_not_emission(string body)
+    {
+        var source = ExternalAdapter.Replace("new Dictionary<string, string>()", "new Sink()") + $$"""
+            public class Sink : Dictionary<string, string> {
+                public new void Add(string path, string code) { {{body}} }
+            }
+            """;
+        Assert.Contains(await Analyze(CompileAdapter(source)), d => d.Id == "TOOL001");
+    }
+
+    [Fact]
+    public async Task Source_dictionary_forwarder_requires_real_base_insertion()
+    {
+        var source = ExternalAdapter.Replace("new Dictionary<string, string>()", "new Sink()") + """
+            public class Sink : Dictionary<string, string> {
+                public new void Add(string path, string code) => base.Add(path, code);
+            }
+            """;
+        Assert.DoesNotContain(await Analyze(CompileAdapter(source)), d => d.Id == "TOOL001");
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Returned_stream_forwarders_preserve_elements_not_just_argument_dependencies(bool discard)
+    {
+        var source = ExternalAdapter.Replace(
+            "ProjectConversion.ConvertDocumentsAsync<VBToCSConversion>(documents, new ConversionOptions())",
+            "Forward(ProjectConversion.ConvertDocumentsAsync<VBToCSConversion>(documents, new ConversionOptions()))")
+            .Replace("private static string Repair", (discard ? """
+                private static async IAsyncEnumerable<T> Forward<T>(IAsyncEnumerable<T> source) {
+                    await Task.Yield();
+                    yield return default(T);
+                }
+                """ : """
+                private static IAsyncEnumerable<T> Forward<T>(IAsyncEnumerable<T> source) => source;
+                """) + "\nprivate static string Repair");
+        Assert.Equal(discard, (await Analyze(CompileAdapter(source))).Any(d => d.Id == "TOOL001"));
+    }
+
+    [Fact]
+    public async Task Engine_stream_aliases_retain_verified_element_provenance()
+    {
+        const string engine = "ProjectConversion.ConvertDocumentsAsync<VBToCSConversion>(documents, new ConversionOptions())";
+        var source = ExternalAdapter.Replace(engine, "stream")
+            .Replace("await foreach", "var stream = " + engine + "; await foreach");
+        Assert.DoesNotContain(await Analyze(CompileAdapter(source)), d => d.Id == "TOOL001");
+    }
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
@@ -287,13 +362,17 @@ public sealed class MigrationToolTests
             using System.IO;
             using System.Diagnostics;
             using System.Threading.Tasks;
+            var tool = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", ".."));
+            var root = Path.Combine(tool, "artifacts", "tests-" + Guid.NewGuid().ToString("N"));
+            var input = Path.Combine(root, "input");
+            var output = Path.Combine(root, "output");
             var cli = Path.Combine("tool", "ExternalPorter.dll");
-            var before = await Run("input.exe", "input");
+            var before = await Run(Path.Combine(input, "Consumer", "bin", "Debug", "net472", "Consumer.exe"), input);
             var conversion = await Convert("input", "output");
             Require(conversion.Code == 0, conversion.Text);
             var code = File.ReadAllText(@"output\Converted.cs");
             Require(code.Contains("Value"), "output construct");
-            var after = await Run("output.exe", "output");
+            var after = await Run(Path.Combine(output, "Consumer", "bin", "Debug", "net472", "Consumer.exe"), output);
             Require(after.Code == 0 && before.Text == after.Text, "behavior");
             async Task<(int Code, string Text)> Convert(string from, string to, params string[] extra) =>
                 await Run("dotnet", "tool", ["exec", cli, "convert", "--input", from, "--output", to, .. extra]);
@@ -313,6 +392,16 @@ public sealed class MigrationToolTests
     }
 
     [Theory]
+    [InlineData("input", true)]
+    [InlineData("output", false)]
+    public async Task Canary_process_origins_follow_wrapper_returns_not_helper_names(string root, bool rejected)
+    {
+        var driver = CanaryDriver.Replace("var after = Run(\"output\");", "var after = OtherRun();")
+            .Replace("static int Convert()", $"static (int Code, string Text) OtherRun() => Run(\"{root}\");\nstatic int Convert()");
+        Assert.Equal(rejected, (await Analyze(CompileAdapter(ExternalAdapter), driver: driver)).Any(d => d.Id == "TOOL001"));
+    }
+
+    [Theory]
     [InlineData("return (process.ExitCode, text);", "return (0, \"Always fine\");")]
     [InlineData("before.Text == after.Text", "before.Code == after.Code")]
     [InlineData("before.Text == after.Text", "before.Text == before.Text")]
@@ -320,6 +409,12 @@ public sealed class MigrationToolTests
     [InlineData("if (!success) throw new Exception(\"Failed\");", "Console.WriteLine(success);")]
     [InlineData("start.ArgumentList.Add(\"ExternalPorter.dll\");", "start.ArgumentList.Add(\"Unrelated.dll\");")]
     [InlineData("static void Main() {", "static void Main() { } static void Unused() {")]
+    [InlineData("if (!success) throw new Exception(\"Failed\");", "void NeverCalled() { if (!success) throw new Exception(\"Failed\"); }")]
+    [InlineData("var after = Run(\"output\");", "var after = before;")]
+    [InlineData("var after = Run(\"output\");", "var after = Run(\"input\");")]
+    [InlineData("var after = Run(\"output\");", "var alias = before; var after = alias;")]
+    [InlineData("var after = Run(\"output\");", "var sameInput = \"input\"; var after = Run(sameInput);")]
+    [InlineData("if (!success) throw new Exception(\"Failed\");", "if (false) { if (!success) throw new Exception(\"Failed\"); }")]
     public async Task Canary_dependencies_stubs_dead_checks_and_unrelated_processes_are_not_fixture_evidence(string oldValue, string replacement)
     {
         Assert.Contains(await Analyze(CompileAdapter(ExternalAdapter), driver: CanaryDriver.Replace(oldValue, replacement)), d => d.Id == "TOOL001");
