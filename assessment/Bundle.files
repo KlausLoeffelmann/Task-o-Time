@@ -45,10 +45,13 @@ Modernization.Analyzers.Tests\ReplayRequestTests.cs
 Modernization.Analyzers.Tests\SandboxContractTests.cs
 Modernization.Analyzers.Tests\ProtectedCompilerTests.cs
 Modernization.Analyzers.Tests\SandboxLifecycleTests.cs
+Modernization.Analyzers.Tests\ProtectedRuntimeTests.cs
 Sandbox\Invoke-SandboxProbe.ps1
 Sandbox\Invoke-ProtectedProducer.ps1
 Sandbox\CompilerPlan.ps1
 Sandbox\SandboxLifecycle.ps1
+Sandbox\Publish-ProtectedRuntime.ps1
+Sandbox\Invoke-IsolatedToolCase.ps1
 Sandbox\Copy-LockedPublicPackages.ps1
 Sandbox\OutputEvidence.ps1
 Sandbox\GuestProbe.ps1

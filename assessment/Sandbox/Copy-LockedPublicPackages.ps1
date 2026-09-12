@@ -19,7 +19,7 @@ if($lock.version -ne 1 -or -not $lock.dependencies.'net10.0') { throw 'Only a lo
 $bindings=[ordered]@{}
 foreach($dependency in $lock.dependencies.'net10.0'.PSObject.Properties) {
     $id=$dependency.Name.ToLowerInvariant(); $version=$dependency.Value.resolved
-    if($id -notmatch '^[a-z0-9_.-]+$' -or $version -notmatch '^[a-z0-9_.-]+$' -or -not $dependency.Value.contentHash) {
+    if($id -notmatch '^[a-z0-9][a-z0-9_.-]*$' -or $version -notmatch '^[0-9][a-z0-9_.-]*$' -or -not $dependency.Value.contentHash) {
         throw 'Invalid locked package identity.'
     }
     $source=Join-Path $PackageCache "$id\$version"
