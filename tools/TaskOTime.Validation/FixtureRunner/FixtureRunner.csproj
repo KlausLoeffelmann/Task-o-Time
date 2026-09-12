@@ -8,6 +8,7 @@
     <ValidationEfVersion Condition="'$(ValidationEfVersion)' == '' and '$(TargetFramework)' == 'net472'">6.5.1</ValidationEfVersion>
     <ValidationEfVersion Condition="'$(ValidationEfVersion)' == ''">6.5.2</ValidationEfVersion>
   </PropertyGroup>
+  <Import Project="ValidationDataApi.props" />
   <ItemGroup>
     <PackageReference Include="EntityFramework" Version="$(ValidationEfVersion)" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" Condition="'$(TargetFramework)' == 'net472'" />

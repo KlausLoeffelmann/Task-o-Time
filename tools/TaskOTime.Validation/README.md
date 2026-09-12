@@ -93,7 +93,7 @@ dotnet run --project FixtureRunner -- fixture-check
 ```
 
 The fixture calls production `UserAdministrationService.CreateTenantAdmin`,
-`AdminMasterDataService.CreateProject` (twice), and `CreateCategory` using its
+the selected admin service's `CreateProject` (twice), and `CreateCategory` using its
 explicit EF context factory. The administrator has a random per-run identifier
 and password, a one-hour temporary-password expiration, and required initial
 password change. Seeding and authentication are checked through real EF6 queries.
@@ -111,6 +111,71 @@ Negative checks reject missing child passwords and mismatched owner tokens,
 terminate a timed-out child, and prove cleanup while propagating child failure.
 It confirms the parent environment was unchanged and the owned database was
 removed. Only successful fixture creation authorizes the linked helper's cleanup.
+
+### Legacy and renamed service APIs
+
+`FixtureRunner` selects typed aliases from the source layout under
+`ApplicationRoot\TaskOTime.AppServer\Services`:
+
+| `ValidationDataApi` | Required service file/type | Category DTO | Query request |
+| --- | --- | --- | --- |
+| `MasterData` | `AdminMasterDataService.cs` / `AdminMasterDataService` | `CategoryMasterDataDto` | `MasterDataQueryRequest` |
+| `MainData` | `AdminMainDataService.cs` / `AdminMainDataService` | `CategoryMainDataDto` | `MainDataQueryRequest` |
+
+Automatic selection requires exactly one known service filename. Missing,
+ambiguous or unsupported layouts fail during restore/build instead of silently
+choosing an API. `-p:ValidationDataApi=MasterData` or `MainData` explicitly selects
+one layout (including deliberate disambiguation); its service file must exist.
+The C# compiler must still resolve the actual production types. No duplicated
+service implementation, runtime type substitution or reflection fallback is used.
+Build output and fixture logs identify the selected API.
+`IdealRegression.Tests` imports the same `FixtureRunner\ValidationDataApi.props`
+selection and aliases its query type; its five correctness assertions are
+unchanged. Preserve that sibling import when making a private tooling copy.
+
+Run the seven source-layout selection checks without SQL:
+
+```powershell
+.\Test-FixtureApiSelection.ps1
+```
+
+Keep a fresh private runner copy/output per application root to avoid stale
+assemblies/intermediates when switching between APIs. For an already-built,
+read-only integration root, copy only the runner's top-level source/project/config/props
+files to a fresh ignored artifact directory, then restore only that runner and
+consume existing production project outputs:
+
+```powershell
+$copy = 'artifacts\fixture-main' # Use a new directory, not a previous stage's output.
+New-Item -ItemType Directory $copy -ErrorAction Stop
+Get-ChildItem FixtureRunner -File | Copy-Item -Destination $copy
+$properties = @(
+  '-p:ApplicationRoot=<absolute built integration src\TaskOTime>',
+  '-p:ValidationFramework=net472',
+  '-p:BuildProjectReferences=false'
+)
+dotnet restore "$copy\FixtureRunner.csproj" --no-dependencies @properties
+dotnet build "$copy\FixtureRunner.csproj" --no-restore @properties
+& "$copy\bin\Debug\net472\FixtureRunner.exe" self-test
+& "$copy\bin\Debug\net472\FixtureRunner.exe" fixture-check
+```
+
+Both the original `MasterData` root and integrated `MainData` root have passed
+real `net472` fixture checks using their actual production assemblies: owned
+seeding/marker round trips, forced-password authentication, negative child cases,
+timeouts and verified cleanup. This does **not** establish .NET 10 acceptance.
+After the runtime stage, use its matching `ValidationFramework` and preserve
+production project references rather than source-linking duplicate service types.
+
+The private correctness project also compiles against both APIs. Its five tests
+passed against the integrated Framework root after an **artifact-only test-host**
+binding redirect: the copied output contains `System.Threading.Tasks.Extensions`
+assembly 4.2.4.0, while MSTest requests 4.2.0.1. The copied
+`IdealRegression.Tests.dll.config` redirected versions 0.0.0.0–4.2.4.0 to 4.2.4.0.
+No production configuration/dependencies were changed. Initial zero-test discovery
+was rejected, not counted as a pass. This Framework test-host compatibility step
+must be retained for equivalent Framework reruns; do not assume the .NET 10 host
+needs the same redirect. Always verify actual discovery/execution counts.
 
 ## .NET 10 Windows STA smoke
 

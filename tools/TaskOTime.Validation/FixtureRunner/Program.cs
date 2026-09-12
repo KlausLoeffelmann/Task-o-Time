@@ -159,7 +159,7 @@ namespace TaskOTime.Validation
             {
                 fixture.Create();
                 initialized = true;
-                Console.WriteLine("Created and seeded owned database " + fixture.Database.DatabaseName + ".");
+                Console.WriteLine("Created and seeded owned database " + fixture.Database.DatabaseName + " using " + SeededFixture.ServiceApi + ".");
                 action(fixture);
             }
             finally
@@ -354,7 +354,7 @@ namespace TaskOTime.Validation
             catch (ArgumentException) { unsafeConnectionsRejected++; }
             if (unsafeConnectionsRejected != 8)
                 throw new InvalidOperationException("Isolated connection guardrails failed.");
-            Console.WriteLine("Fixture runner self-test passed: CLI/runtime/quoting guardrails; SQL and desktop NOT RUN.");
+            Console.WriteLine("Fixture runner self-test passed (" + SeededFixture.ServiceApi + "): CLI/runtime/quoting guardrails; SQL and desktop NOT RUN.");
         }
     }
 }

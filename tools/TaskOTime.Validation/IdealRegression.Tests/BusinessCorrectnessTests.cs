@@ -5,6 +5,16 @@ using TaskOTime.AppServer.Models;
 using TaskOTime.TimeTrackingServices.Tests.Doubles;
 using TaskOTime.ViewModel.ViewModels;
 
+#if VALIDATION_MAIN_DATA_API && VALIDATION_MASTER_DATA_API
+#error Select exactly one validation data API.
+#elif VALIDATION_MAIN_DATA_API
+using ValidationDataQuery = TaskOTime.AppServer.Models.MainDataQueryRequest;
+#elif VALIDATION_MASTER_DATA_API
+using ValidationDataQuery = TaskOTime.AppServer.Models.MasterDataQueryRequest;
+#else
+#error ValidationDataApi must explicitly resolve to MasterData or MainData.
+#endif
+
 namespace TaskOTime.Validation
 {
     // These assert correctness, never the legacy defect. Baseline failures are
@@ -84,7 +94,7 @@ namespace TaskOTime.Validation
                     IdActingUser = Services.ActingUserId,
                     IdBookingUser = Services.ActingUserId
                 };
-                var query = new MasterDataQueryRequest { IdTenant = Access.IdTenant, IdActingUser = Access.IdActingUser };
+                var query = new ValidationDataQuery { IdTenant = Access.IdTenant, IdActingUser = Access.IdActingUser };
                 Times = new TimeCollectionViewModel(Day, Services, Access,
                     Services.GetProjects(query).Value, Services.CategoryId, () => Now, Services.GetCategories(query).Value);
                 var task = new TaskItemViewModel("Validation task", "", "")
