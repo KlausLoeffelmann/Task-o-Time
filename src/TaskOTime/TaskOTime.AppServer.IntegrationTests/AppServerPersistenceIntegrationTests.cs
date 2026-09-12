@@ -6,6 +6,8 @@ using TaskOTime.AppServer.Security;
 using TaskOTime.AppServer.Services;
 using TaskOTime.DataLayer;
 using TaskOTime.DTOs;
+using TaskOTime.ViewModel;
+using TaskOTime.ViewModel.ViewModels;
 
 namespace TaskOTime.AppServer.IntegrationTests
 {
@@ -42,6 +44,162 @@ namespace TaskOTime.AppServer.IntegrationTests
 
         [TestCleanup]
         public void CleanupOwnedDatabase() => database?.Dispose();
+
+        [TestMethod]
+        public void TenantEditor_SaveAndReactivate_ReloadsAuthoritativeTenantFromSql()
+        {
+            var hasher = new Pbkdf2PasswordHasher();
+            var admin = new AdminMainDataService(database.CreateContext, hasher);
+            var users = new UserAdministrationService(database.CreateContext, hasher);
+            var bookings = new TimeBookingService(database.CreateContext, hasher);
+            var query = new GetTenantRequest { IdTenant = TenantId, IdActingUser = AdminUserId };
+            using (var context = database.CreateContext())
+            {
+                var entity = context.Tenant.Single();
+                entity.Description = "Keep description";
+                entity.ExternalId = "Keep external id";
+                context.SaveChanges();
+            }
+            var original = AssertSucceeded(admin.GetTenant(query));
+            var workspace = new ServiceWorkspace(original, AdminUserId, admin, users, bookings);
+            var interaction = new TenantTestInteraction();
+            var vm = new TenantUserViewModel(workspace, interaction)
+            {
+                TenantName = "  Saved tenant  ", TenantActive = false
+            };
+            vm.SaveTenantCommand.Execute(null);
+            Assert.AreEqual("Tenant saved.", interaction.Message);
+            Assert.AreEqual("Integration tenant", original.TenantName, "The edit must not mutate the original DTO.");
+            Assert.AreSame(vm.SelectedTenant, workspace.Tenant);
+            Assert.AreEqual("Saved tenant", vm.TenantName);
+            Assert.IsFalse(workspace.Tenant.IsActive);
+
+            using (var context = database.CreateContext())
+            {
+                var persisted = context.Tenant.Single();
+                Assert.AreEqual("Saved tenant", persisted.TenantName);
+                Assert.IsFalse(persisted.IsActive);
+                Assert.AreEqual("integration", persisted.TenantIdentifier);
+                Assert.AreEqual("Keep description", persisted.Description);
+                Assert.AreEqual("Keep external id", persisted.ExternalId);
+                Assert.AreEqual(original.DateCreated, persisted.DateCreated);
+                Assert.IsTrue(persisted.DateModified >= original.DateModified);
+                Assert.IsFalse(persisted.IsDeleted);
+            }
+            Assert.IsFalse(AssertSucceeded(admin.GetTenant(query)).IsActive);
+            Assert.IsTrue(vm.SaveTenantCommand.CanExecute(null), "The same active admin can reactivate the tenant.");
+            vm.TenantActive = true;
+            vm.SaveTenantCommand.Execute(null);
+            var reloaded = new ServiceWorkspace(AssertSucceeded(admin.GetTenant(query)), AdminUserId, admin, users, bookings);
+            var reopenedEditor = new TenantUserViewModel(reloaded, interaction);
+            Assert.AreEqual("Saved tenant", reopenedEditor.TenantName);
+            Assert.IsTrue(reopenedEditor.TenantActive);
+            Assert.AreEqual(TenantId, reopenedEditor.SelectedTenant.IdTenant);
+        }
+
+        [DataTestMethod]
+        [DataRow("missing-user", "NotAuthorized")]
+        [DataRow("regular-user", "NotAuthorized")]
+        [DataRow("inactive-user", "NotAuthorized")]
+        [DataRow("deleted-user", "NotAuthorized")]
+        [DataRow("foreign-tenant", "NotAuthorized")]
+        [DataRow("deleted-tenant", "TenantNotFound")]
+        [DataRow("empty-user", "InvalidRequest")]
+        [DataRow("missing-tenant", "TenantNotFound")]
+        public void TenantUpdate_RejectsUnauthorizedRequestsWithoutChangingSql(string scenario, string expectedError)
+        {
+            var request = new UpdateTenantRequest
+            {
+                IdTenant = TenantId, IdActingUser = AdminUserId, TenantName = "Forbidden update", IsActive = false
+            };
+            using (var context = database.CreateContext())
+            {
+                var user = context.User.Single();
+                switch (scenario)
+                {
+                    case "missing-user": request.IdActingUser = Guid.NewGuid(); break;
+                    case "regular-user": user.IsAdmin = false; break;
+                    case "inactive-user": user.IsActive = false; break;
+                    case "deleted-user": user.IsDeleted = true; break;
+                    case "deleted-tenant": context.Tenant.Single().IsDeleted = true; break;
+                    case "empty-user": request.IdActingUser = Guid.Empty; break;
+                    case "missing-tenant": request.IdTenant = Guid.NewGuid(); break;
+                    case "foreign-tenant":
+                        request.IdTenant = Guid.NewGuid();
+                        context.Tenant.Add(new Tenant
+                        {
+                            IdTenant = request.IdTenant, TenantName = "Other tenant", IsActive = true,
+                            DateCreated = WorkDayStart, DateModified = WorkDayStart
+                        });
+                        break;
+                }
+                context.SaveChanges();
+            }
+            var service = new AdminMainDataService(database.CreateContext, new Pbkdf2PasswordHasher());
+            var result = service.UpdateTenant(request);
+            Assert.IsFalse(result.Success);
+            Assert.AreEqual(expectedError, result.ErrorCode);
+            var readResult = service.GetTenant(new GetTenantRequest
+            {
+                IdTenant = request.IdTenant, IdActingUser = request.IdActingUser
+            });
+            Assert.IsFalse(readResult.Success);
+            Assert.AreEqual(expectedError, readResult.ErrorCode);
+            using (var context = database.CreateContext())
+            {
+                Assert.AreEqual("Integration tenant", context.Tenant.Single(t => t.IdTenant == TenantId).TenantName);
+                Assert.IsTrue(context.Tenant.All(t => t.IsActive));
+                Assert.IsFalse(context.Tenant.Any(t => t.TenantName == "Forbidden update"));
+            }
+        }
+
+        [TestMethod]
+        public void TenantUpdate_ValidatesNameAndPreservesDatabaseOnFailure()
+        {
+            var service = new AdminMainDataService(database.CreateContext, new Pbkdf2PasswordHasher());
+            Assert.AreEqual("InvalidRequest", service.UpdateTenant(null).ErrorCode);
+            Assert.AreEqual("InvalidRequest", service.GetTenant(null).ErrorCode);
+            foreach (var name in new[] { null, "", "   ", new string('x', 201) })
+            {
+                var result = service.UpdateTenant(new UpdateTenantRequest
+                {
+                    IdTenant = TenantId, IdActingUser = AdminUserId, TenantName = name, IsActive = false
+                });
+                Assert.IsFalse(result.Success);
+                Assert.AreEqual("InvalidRequest", result.ErrorCode);
+            }
+            using (var context = database.CreateContext())
+            {
+                context.Tenant.Add(new Tenant
+                {
+                    IdTenant = Guid.NewGuid(), TenantName = "Already exists", IsActive = true,
+                    DateCreated = WorkDayStart, DateModified = WorkDayStart
+                });
+                context.SaveChanges();
+            }
+            Assert.AreEqual("TenantExists", service.UpdateTenant(new UpdateTenantRequest
+            {
+                IdTenant = TenantId, IdActingUser = AdminUserId, TenantName = " Already exists ", IsActive = false
+            }).ErrorCode);
+            using (var context = database.CreateContext())
+            {
+                var tenant = context.Tenant.Single(t => t.IdTenant == TenantId);
+                Assert.AreEqual("Integration tenant", tenant.TenantName);
+                Assert.IsTrue(tenant.IsActive);
+            }
+            var boundaryName = new string('x', 200);
+            Assert.AreEqual(boundaryName, AssertSucceeded(service.UpdateTenant(new UpdateTenantRequest
+            {
+                IdTenant = TenantId, IdActingUser = AdminUserId, TenantName = boundaryName, IsActive = true
+            })).TenantName);
+        }
+
+        private sealed class TenantTestInteraction : IMaintenanceInteraction
+        {
+            public string Message { get; private set; }
+            public void Notify(string message, string title) => Message = message;
+            public bool Confirm(string message, string title) => true;
+        }
 
         [TestMethod]
         public void MainDataTimeBookingAndAnalysis_RoundTripThroughEf6LocalDb()

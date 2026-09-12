@@ -18,7 +18,7 @@
             <TabItem Header="Kategorien &amp; Anhänge"><local:CollaborationView x:Name="CollaborationScreen" DataContext="{Binding Collaboration}" x:FieldModifier="public" /></TabItem>
         </TabControl>
         <StatusBar Grid.Row="2" Background="#FFD9E3F0">
-            <TextBlock x:Name="ApplicationStatusLabel" x:FieldModifier="public" Text="Bereit." Foreground="DarkSlateBlue" />
+            <TextBlock x:Name="ApplicationStatusLabel" x:FieldModifier="public" Text="{Binding Tenant.TenantName}" Foreground="DarkSlateBlue" />
         </StatusBar>
     </Grid>
 </Window>

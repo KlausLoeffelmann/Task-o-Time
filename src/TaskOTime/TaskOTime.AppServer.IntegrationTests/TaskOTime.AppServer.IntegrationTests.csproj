@@ -27,6 +27,14 @@
     <Compile Include="..\TaskOTime.AppServer\Services\IAnalysisService.cs" Link="AppServer\Services\IAnalysisService.cs" />
     <Compile Include="..\TaskOTime.AppServer\Services\ITimeBookingService.cs" Link="AppServer\Services\ITimeBookingService.cs" />
     <Compile Include="..\TaskOTime.AppServer\Services\TimeBookingService.cs" Link="AppServer\Services\TimeBookingService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\IUserAdministrationService.cs" Link="AppServer\Services\IUserAdministrationService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\UserAdministrationService.cs" Link="AppServer\Services\UserAdministrationService.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\Base\ViewModelBase.cs" Link="ViewModel\Base\ViewModelBase.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\Base\DelegateCommand.cs" Link="ViewModel\Base\DelegateCommand.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\IMaintenanceInteraction.cs" Link="ViewModel\IMaintenanceInteraction.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\ServiceWorkspace.cs" Link="ViewModel\ServiceWorkspace.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\ViewModels\MaintenanceViewModel.cs" Link="ViewModel\ViewModels\MaintenanceViewModel.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\ViewModels\TenantUserViewModel.cs" Link="ViewModel\ViewModels\TenantUserViewModel.cs" />
     <Compile Include="..\TaskOTime.AppServer\Security\*.cs" LinkBase="AppServer\Security" />
     <Compile Include="..\TaskOTime.AppServer\TimeBooking\*.cs" LinkBase="AppServer\TimeBooking" />
     <Compile Include="..\TaskOTime.DataLayer\Model\TaskOTime.Context.cs" Link="DataLayer\Model\TaskOTime.Context.cs" />

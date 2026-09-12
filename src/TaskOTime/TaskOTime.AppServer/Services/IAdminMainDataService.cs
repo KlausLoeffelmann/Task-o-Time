@@ -5,6 +5,10 @@ namespace TaskOTime.AppServer.Services
 {
     public interface IAdminMainDataService
     {
+        ServiceResult<TenantDto> GetTenant(GetTenantRequest request);
+
+        ServiceResult<TenantDto> UpdateTenant(UpdateTenantRequest request);
+
         ServiceResult<IReadOnlyList<ProjectMainDataDto>> GetProjects(MainDataQueryRequest request);
 
         ServiceResult<ProjectMainDataDto> GetProject(MainDataItemRequest request);

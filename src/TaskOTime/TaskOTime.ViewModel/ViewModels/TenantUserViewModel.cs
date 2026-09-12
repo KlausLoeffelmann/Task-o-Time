@@ -6,7 +6,7 @@ using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    /// <summary>Maintains the local tenant draft and service-backed tenant users.</summary>
+    /// <summary>Maintains tenant edit drafts and service-backed tenant users.</summary>
     public sealed class TenantUserViewModel : MaintenanceViewModel
     {
         private TenantDto _selectedTenant;
@@ -17,7 +17,8 @@ namespace TaskOTime.ViewModel.ViewModels
 
         public TenantUserViewModel(ServiceWorkspace store, IMaintenanceInteraction interaction) : base(store, interaction)
         {
-            SaveTenantCommand = Command(SaveTenant, () => SelectedTenant != null);
+            SaveTenantCommand = Command(SaveTenant, () => SelectedTenant != null
+                && SelectedTenant.IdTenant == Store.Tenant.IdTenant, allowInactiveTenant: true);
             AddUserCommand = Command(AddUser, () => SelectedTenant != null && !string.IsNullOrWhiteSpace(UserIdent)
                 && !string.IsNullOrWhiteSpace(TemporaryPassword));
             DeleteUserCommand = Command(DeleteUser, () => SelectedTenant != null && SelectedUser != null);
@@ -65,15 +66,14 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void SaveTenant()
         {
-            // The current service contract has no tenant update operation; do not imply persistence.
-            var tenant = SelectedTenant;
-            tenant.TenantName = (TenantName ?? "").Trim();
-            tenant.IsActive = TenantActive;
-            tenant.DateModified = DateTimeOffset.Now;
-            Tenants[Tenants.IndexOf(tenant)] = tenant;
-            SelectedTenant = tenant;
-            TenantName = tenant.TenantName;
-            Interaction.Notify("Tenant updated in this workspace only.", "Tenant");
+            var saved = ServiceWorkspace.Require(Store.AdminService.UpdateTenant(new UpdateTenantRequest
+            {
+                IdTenant = SelectedTenant.IdTenant, IdActingUser = Store.ActingUserId,
+                TenantName = TenantName, IsActive = TenantActive
+            }), "Save tenant");
+            Store.ApplyTenant(saved);
+            SelectedTenant = saved;
+            Interaction.Notify("Tenant saved.", "Tenant");
         }
 
         private void AddUser()

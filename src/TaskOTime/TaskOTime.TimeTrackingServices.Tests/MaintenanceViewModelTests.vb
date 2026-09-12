@@ -216,13 +216,25 @@ Namespace TaskOTime.TimeTrackingServices.Tests
         End Sub
 
         <TestMethod>
-        Public Sub TenantUsers_EditLocalTenantCreateWithPasswordAndConfirmDelete()
+        Public Sub TenantUsers_SaveTenantCreateWithPasswordAndConfirmDelete()
             Dim f As New Fixture()
             Dim vm = f.Main.TenantUsers
+            Dim session = f.Store.Users.Single()
+            Dim desktop = TaskOTime.App.DesktopServices.CreateForServices(
+                New TestAuthenticationService(session, "Test-password-42"), f.Services, f.Services, f.Services, f.Store.Tenant)
             vm.TenantName = " Changed tenant "
             vm.SaveTenantCommand.Execute(Nothing)
             Assert.AreEqual("Changed tenant", vm.SelectedTenant.TenantName)
-            StringAssert.Contains(f.Interaction.Messages.Last(), "workspace only")
+            StringAssert.Contains(f.Interaction.Messages.Last(), "Tenant saved")
+            Assert.AreSame(f.Store.Tenant, vm.SelectedTenant)
+            Assert.AreSame(f.Main.Tenant, vm.SelectedTenant)
+            Assert.AreEqual("Changed tenant", desktop.TenantFor(session).TenantName)
+            Assert.AreSame(f.Store.Tenant, desktop.TenantFor(session))
+            Assert.AreEqual(f.Services.ActingUserId, f.Services.LastUpdateTenantRequest.IdActingUser)
+            Dim reloaded = New ServiceWorkspace(f.Services.GetTenant(New GetTenantRequest With {
+                .IdTenant = f.Services.Tenant.IdTenant, .IdActingUser = f.Services.ActingUserId
+            }).Value, f.Services.ActingUserId, f.Services, f.Services, f.Services)
+            Assert.AreEqual("Changed tenant", reloaded.Tenant.TenantName)
             vm.UserIdent = "test.user"
             vm.FirstName = "Test"
             vm.LastName = "User"
@@ -247,6 +259,41 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Assert.AreEqual("", vm.TenantName)
             Assert.IsFalse(vm.SaveTenantCommand.CanExecute(Nothing))
             Assert.IsFalse(vm.DeleteUserCommand.CanExecute(Nothing))
+        End Sub
+
+        <TestMethod>
+        Public Sub TenantSaveFailure_RetainsOriginalTenantAndDraft()
+            Dim f As New Fixture()
+            Dim vm = f.Main.TenantUsers
+            Dim original = vm.SelectedTenant
+            Dim name = original.TenantName
+            vm.TenantName = "Uncommitted tenant"
+            vm.TenantActive = False
+            f.Services.FailMutations = True
+            vm.SaveTenantCommand.Execute(Nothing)
+            Assert.AreEqual(name, original.TenantName)
+            Assert.IsTrue(original.IsActive)
+            Assert.AreSame(original, f.Store.Tenant)
+            Assert.AreSame(original, vm.SelectedTenant)
+            Assert.AreEqual("Uncommitted tenant", vm.TenantName)
+            Assert.IsFalse(vm.TenantActive)
+            StringAssert.Contains(f.Interaction.Messages.Single(), "TestFailure")
+        End Sub
+
+        <TestMethod>
+        Public Sub TenantDeactivation_DisablesOtherMutationsAndAllowsAuthorizedReactivation()
+            Dim f As New Fixture()
+            Dim vm = f.Main.TenantUsers
+            vm.TenantActive = False
+            vm.SaveTenantCommand.Execute(Nothing)
+            Assert.IsFalse(f.Services.Tenant.IsActive)
+            Assert.IsFalse(f.Main.Projects.NewCommand.CanExecute(Nothing))
+            Assert.IsFalse(vm.AddUserCommand.CanExecute(Nothing))
+            Assert.IsTrue(vm.SaveTenantCommand.CanExecute(Nothing))
+            vm.TenantActive = True
+            vm.SaveTenantCommand.Execute(Nothing)
+            Assert.IsTrue(f.Services.Tenant.IsActive)
+            Assert.IsTrue(f.Main.Projects.NewCommand.CanExecute(Nothing))
         End Sub
 
         <TestMethod>

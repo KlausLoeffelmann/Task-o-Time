@@ -316,6 +316,11 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 Assert.AreEqual(previousCount, selectors(index).Items.Count)
             Next
             master.WorkspaceTabs.SelectedIndex = 0
+            master.TenantUserScreen.TenantNameTextBox.Text = "Tenant saved through binding"
+            master.TenantUserScreen.SaveTenantButton.Command.Execute(Nothing)
+            Assert.AreEqual("Tenant saved through binding", vm.Tenant.TenantName)
+            Assert.AreEqual("Tenant saved through binding", master.ApplicationStatusLabel.Text)
+            Assert.AreSame(vm.TenantUsers.SelectedTenant, master.TenantUserScreen.TenantListView.SelectedItem)
             Dim passwordBox = DirectCast(master.TenantUserScreen.FindName("TemporaryPasswordBox"), PasswordBox)
             passwordBox.Password = "Binding-initial-password-42!"
             Assert.AreEqual(passwordBox.Password, vm.TenantUsers.TemporaryPassword)

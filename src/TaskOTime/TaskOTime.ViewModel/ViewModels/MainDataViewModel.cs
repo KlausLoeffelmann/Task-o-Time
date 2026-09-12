@@ -9,6 +9,7 @@ namespace TaskOTime.ViewModel.ViewModels
     public sealed class MainDataViewModel : ViewModelBase
     {
         private int _selectedTab;
+        private readonly ServiceWorkspace _store;
 
         public MainDataViewModel(TenantDto tenant, Guid userId, IAdminMainDataService admin,
             IUserAdministrationService users, ITimeBookingService bookings, int tab, IMaintenanceInteraction interaction)
@@ -16,6 +17,8 @@ namespace TaskOTime.ViewModel.ViewModels
 
         public MainDataViewModel(ServiceWorkspace store, int tab, IMaintenanceInteraction interaction)
         {
+            _store = store;
+            store.PropertyChanged += (_, __) => OnPropertyChanged(nameof(Tenant));
             TenantUsers = new TenantUserViewModel(store, interaction);
             Projects = new ProjectViewModel(store, interaction);
             Tasks = new MasterTaskViewModel(store, interaction);
@@ -25,6 +28,7 @@ namespace TaskOTime.ViewModel.ViewModels
         }
 
         public TenantUserViewModel TenantUsers { get; }
+        public TenantDto Tenant => _store.Tenant;
         public ProjectViewModel Projects { get; }
         public MasterTaskViewModel Tasks { get; }
         public CollaborationViewModel Collaboration { get; }
