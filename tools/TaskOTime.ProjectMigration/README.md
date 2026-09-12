@@ -95,6 +95,10 @@ workspace concern. There are no third-party package dependencies for this CLI.
   6.5.1 -> 6.5.2 and MSTest 2.2.10 -> 3.6.4 / test-SDK 17.2.0 -> 17.14.1
   package versions, and replaces simple assembly references with appropriate
   packages. It refuses unknown versions/custom reference semantics.
+  Reference removal is checked against **evaluated metadata in every selected
+  configuration**, not just the declaring XML. Aliases, overridden copy-local
+  settings, custom metadata and noncanonical assembly paths are rejected,
+  including values introduced by `Reference Update` or imported item defaults.
   The serializer source/API replacement must be reviewed first; this command
   does not rewrite C#/VB source.
 - Preparation maps literal `EntityDeploy` items to `EntityModel`, retains their
@@ -105,6 +109,15 @@ workspace concern. There are no third-party package dependencies for this CLI.
   `Content`/`TargetPath` project-reference propagation deploys and publishes
   metadata. Only simple old metadata-copy targets for known EDMX model names
   are removed. Unknown extra tasks/semantics fail closed.
+  The actual EDMX and evaluated item settings are inspected before conversion:
+  `EmbedInOutputAssembly` is explicitly unsupported because loose files cannot
+  preserve embedded resource names or `res://` connections. Explicit
+  `CopyToOutputDirectory` and the supported default filesystem layout are
+  accepted. Every removed copy source must resolve to an evaluated producer
+  metadata output, and its destination must equal the consumer's propagated
+  metadata layout in every selected configuration. Custom folders, unrelated
+  producers, unresolved paths and unmatched directory-creation effects are
+  rejected rather than silently redirected.
 - Modern retargeting requires an SDK checkpoint, removes obsolete reference-
   assembly packages and simple implicit Framework references, and propagates
   `net10.0-windows` from WPF/WinForms projects through project references.

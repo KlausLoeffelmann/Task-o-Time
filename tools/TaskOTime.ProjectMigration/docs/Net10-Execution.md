@@ -109,6 +109,9 @@ suppressed.
   restored MSTest/VB graphs, modern test-host idempotence, two independent EDMX
   models, XML semicolon preservation, incremental generation, and transitive
   build/publish metadata copying.
+- The subsequent 1.1.1 safety review adds a fifteenth scenario rejecting
+  evaluated EF alias overrides, embedded EDMX deployment, and mismatched
+  metadata copy sources/destinations. It does not change candidate build files.
 - Logs/TRX/published files remain under the private tool's ignored `artifacts`
   directory (`net10-final-rebuild.log`, `net10-final-tests*`, earlier
   `net10-acceptance-*`, `net10-publish.log`, `net10-app-publish`).

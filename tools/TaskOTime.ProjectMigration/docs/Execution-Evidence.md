@@ -9,7 +9,7 @@ source files, candidate refs or databases were modified.
 
 | Check | Result |
 | --- | --- |
-| Independent regression runner | 14 scenarios pass; emitted net472/net10, desktop and restored MSTest/VB consumers build; structured metadata builds/publishes transitively |
+| Independent regression runner | 15 scenarios cover emitted net472/net10, restored dependencies, evaluated preparation safety, and transitive structured metadata build/publish |
 | Repository inspection | 11 application/test projects, including all remaining VB tests |
 | Framework normalization | 8 project files changed; all 11 evaluate to net472 in Debug and Release |
 | SDK conversion | 3 classic projects changed; all 11 retain net472 and evaluate as SDK-style |
@@ -108,3 +108,33 @@ conversion then consumed that **built/restored normalized graph**, succeeded
 with 11 projects / 3 changed files, and `artifacts\restored-sdk` also built with
 zero warnings/errors. No source `obj` deletion, adapter removal, package-cache
 copying, or database operations were used.
+
+## Independent preparation review
+
+Five counterexamples were added before changing production logic. All five
+returned exit 0 and published output under the previous tool, so the new
+regressions failed as intended (`artifacts\prepare-safety-before.log`):
+
+- EF reference aliases added by `Reference Update` in Debug.
+- The same alias override active only in Release.
+- EDMX `MetadataArtifactProcessing=EmbedInOutputAssembly` with `res://` metadata.
+- A copy target relocating metadata into `ConfiguredSchemaFolder`.
+- A copy source pointing at an unrelated producer's bin directory.
+
+Preparation now rejects all five with actionable diagnostics and no output.
+It checks evaluated reference metadata across the configuration matrix, reads
+the actual EDMX before selecting filesystem deployment, and proves copy source
+and destination paths against evaluated producer/consumer output layouts.
+Explicit filesystem metadata remains supported, including root-level projects.
+
+Focused reproduction:
+
+```powershell
+dotnet run --project .\tests\TaskOTime.ProjectMigration.Tests.csproj --verbosity quiet -- --preparation-safety
+```
+
+The candidate was not edited. Replaying the same accepted S2a-plus-reviewed-API
+input through the fixed tool still produces all candidate project/target files
+byte-for-byte with version 1.1.1 (`artifacts\prepare-review-v111-prepared.json`,
+`artifacts\prepare-review-v111-final.json`). All 15 regression scenarios pass
+(`artifacts\prepare-review-full-tests.log`). No S3 tag or ideal merge is performed.

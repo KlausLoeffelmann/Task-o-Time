@@ -14,7 +14,7 @@ internal static class MsBuild
     private static readonly string[] Properties =
     [
         "TargetFramework", "TargetFrameworks", "TargetFrameworkVersion", "TargetFrameworkIdentifier",
-        "TargetFrameworkProfile", "UseWPF", "UseWindowsForms", "OutputPath", "BaseOutputPath",
+        "TargetFrameworkProfile", "UseWPF", "UseWindowsForms", "OutputPath", "BaseOutputPath", "OutDir", "TargetDir",
         "AppendTargetFrameworkToOutputPath", "AssemblyName", "RootNamespace", "OutputType",
         "DefineConstants", "StartupObject", "ApplicationIcon", "SignAssembly", "AssemblyOriginatorKeyFile",
         "OptionStrict", "OptionExplicit", "OptionInfer", "OptionCompare", "MyType",
@@ -30,7 +30,7 @@ internal static class MsBuild
         "Identity", "Link", "LinkBase", "LogicalName", "ManifestResourceName", "DependentUpon", "Generator",
         "LastGenOutput", "AutoGen", "DesignTime", "CopyToOutputDirectory", "CopyToPublishDirectory",
         "Private", "Aliases", "HintPath", "Version", "PrivateAssets", "SubType", "TargetPath",
-        "ReferenceOutputAssembly", "EmbedInteropTypes", "DefiningProjectFullPath", "MetadataPath"
+        "ReferenceOutputAssembly", "EmbedInteropTypes", "DefiningProjectFullPath", "MetadataPath", "MetadataArtifactProcessing"
     };
     private static readonly HashSet<string> IntrinsicMetadata = new(StringComparer.Ordinal)
     {

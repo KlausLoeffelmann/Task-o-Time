@@ -62,12 +62,14 @@ public sealed partial class Migration
                 Add("error", "unreviewed-reference-removal", report.Path, $"Reference '{name}' has conditional/custom semantics requiring review.");
                 continue;
             }
+            if (!CanRemoveEvaluatedReference(report, name, ef)) continue;
             RecordRemoval(report.Path, "Reference", name);
             reference.Remove();
             rules.Add("prepare-package-backed-reference");
         }
         foreach (var model in Elements(root, "EntityDeploy").ToArray())
         {
+            if (!HasFilesystemMetadata(report, model)) continue;
             var logicalPath = (string?)model.Attribute("Link") ?? model.Elements().FirstOrDefault(e => e.Name.LocalName == "Link")?.Value ??
                 (string?)model.Attribute("Include") ?? "";
             if (logicalPath.Length == 0 || logicalPath.Contains('$') || logicalPath.IndexOfAny(['*', ';']) >= 0 ||
@@ -79,7 +81,8 @@ public sealed partial class Migration
             model.Name = root.Name.Namespace + "EntityModel";
             model.Add(new XElement(root.Name.Namespace + "MetadataPath", Path.ChangeExtension(logicalPath, null)));
             EnsureMetadataTemplate();
-            var import = Path.GetRelativePath(Path.GetDirectoryName(report.Path)!, MetadataTemplatePath);
+            var projectDirectory = Path.GetDirectoryName(report.Path);
+            var import = Path.GetRelativePath(string.IsNullOrEmpty(projectDirectory) ? "." : projectDirectory, MetadataTemplatePath);
             if (!Elements(root, "Import").Any(e => (string?)e.Attribute("Project") == import))
                 root.Add(new XElement(root.Name.Namespace + "Import", new XAttribute("Project", import)));
             rules.Add("prepare-edmx-structured-runtime-schemas");
@@ -104,10 +107,11 @@ public sealed partial class Migration
                     !m.HasElements && m.Attributes().All(a => a.Name.LocalName == "Directories")) &&
                 metadata.Length > 0 && metadata.All(v => v.Contains("\\Model\\", StringComparison.OrdinalIgnoreCase) &&
                     modelNames.Contains(Path.GetFileNameWithoutExtension(v)) &&
-                    new[] { ".csdl", ".ssdl", ".msl", ".*" }.Any(suffix => v.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)));
+                    new[] { ".csdl", ".ssdl", ".msl", ".*" }.Any(suffix => v.EndsWith(suffix, StringComparison.OrdinalIgnoreCase))) &&
+                PreservesMetadataCopyLayout(report, target);
             if (!safe)
             {
-                Add("error", "unreviewed-metadata-target", report.Path, "Metadata target has additional behavior; review before replacing hardcoded copy paths.");
+                Add("error", "unreviewed-metadata-target", report.Path, "Metadata target behavior or evaluated source/destination differs from project-output propagation. Review before replacing its copy paths.");
                 continue;
             }
             target.Remove();

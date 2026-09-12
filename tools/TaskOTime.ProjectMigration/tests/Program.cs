@@ -9,6 +9,107 @@ Directory.CreateDirectory(workspace);
 var passed = 0;
 try
 {
+    Test("preparation rejects unpreserved reference, embedding, and copy-layout semantics", () =>
+    {
+        var failures = new List<string>();
+        void Reject(string name, string source, string code)
+        {
+            var destination = source + "-output";
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+            var exit = Cli.Run(["prepare-net10", "--source", source, "--output", destination], stdout, stderr);
+            if (exit != 2 || Directory.Exists(destination))
+            {
+                failures.Add($"{name}: exit={exit}, published={Directory.Exists(destination)}");
+                return;
+            }
+            if (stdout.ToString().Length == 0)
+            {
+                failures.Add($"{name}: unexpected exception: {stderr}");
+                return;
+            }
+            using var result = JsonDocument.Parse(stdout.ToString());
+            if (!result.RootElement.GetProperty("Diagnostics").EnumerateArray().Any(d =>
+                    d.GetProperty("Severity").GetString() == "error" && d.GetProperty("Code").GetString() == code))
+                failures.Add($"{name}: missing {code} diagnostic");
+        }
+
+        foreach (var configuration in new[] { "Debug", "Release" })
+        {
+            var source = Path.Combine(workspace, "updated-reference-" + configuration);
+            Write(source, "Aliases.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+                <ItemGroup>
+                  <PackageReference Include="EntityFramework" Version="6.5.1" />
+                  <Reference Include="EntityFramework">
+                    <HintPath>$(NuGetPackageRoot)entityframework\6.5.1\lib\net45\EntityFramework.dll</HintPath><Private>True</Private>
+                  </Reference>
+                  <Reference Update="EntityFramework" Condition="'$(Configuration)' == '{configuration}'"><Aliases>efalias</Aliases></Reference>
+                </ItemGroup></Project>
+                """);
+            Write(source, "AliasConsumer.cs", "extern alias efalias; public class AliasConsumer : efalias::System.Data.Entity.DbContext { }");
+            Reject(configuration + " evaluated aliases", source, "unreviewed-reference-removal");
+        }
+
+        const string schema = """
+            <edmx:Edmx xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+              <edmx:Runtime>
+                <edmx:ConceptualModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" Namespace="Independent" /></edmx:ConceptualModels>
+                <edmx:StorageModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl" Namespace="Independent.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" /></edmx:StorageModels>
+                <edmx:Mappings><Mapping xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs" Space="C-S" /></edmx:Mappings>
+              </edmx:Runtime>
+            </edmx:Edmx>
+            """;
+        var embeddedSource = Path.Combine(workspace, "embedded-edmx");
+        Write(embeddedSource, "ModelProject\\Embedded.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+            """);
+        var embedded = XDocument.Parse(schema);
+        XNamespace edmx = "http://schemas.microsoft.com/ado/2009/11/edmx";
+        embedded.Root!.Add(new XElement(edmx + "Designer", new XElement(edmx + "Connection",
+            new XElement(edmx + "DesignerInfoPropertySet", new XElement(edmx + "DesignerProperty",
+                new XAttribute("Name", "MetadataArtifactProcessing"), new XAttribute("Value", "EmbedInOutputAssembly"))))));
+        Write(embeddedSource, "ModelProject\\Model\\Independent.edmx", embedded.ToString());
+        Write(embeddedSource, "ModelProject\\App.config", """<configuration><connectionStrings><add name="Model" connectionString="metadata=res://*/Model.Independent.csdl|res://*/Model.Independent.ssdl|res://*/Model.Independent.msl" /></connectionStrings></configuration>""");
+        Reject("embedded EDMX", embeddedSource, "unsupported-edmx-embedding");
+
+        foreach (var wrongSource in new[] { false, true })
+        {
+            var source = Path.Combine(workspace, wrongSource ? "wrong-metadata-source" : "relocated-metadata");
+            Write(source, "Models\\Models.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework>
+                <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath></PropertyGroup>
+                <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+                """);
+            Write(source, "Models\\Model\\Independent.edmx", schema);
+            var producer = wrongSource ? "Unrelated" : "Models";
+            var destination = wrongSource ? "Model" : "ConfiguredSchemaFolder";
+            Write(source, "Consumer\\Consumer.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+                <ItemGroup><ProjectReference Include="..\Models\Models.csproj" /></ItemGroup>
+                <Target Name="MetadataDeployment" AfterTargets="Build">
+                  <ItemGroup><Metadata Include="..\{producer}\bin\$(Configuration)\Model\Independent.csdl" /></ItemGroup>
+                  <Copy SourceFiles="@(Metadata)" DestinationFolder="$(OutDir){destination}" SkipUnchangedFiles="true" />
+                </Target></Project>
+                """);
+            Reject(wrongSource ? "unrelated producer" : "custom metadata destination", source, "unreviewed-metadata-target");
+        }
+        var filesystemSource = Path.Combine(workspace, "root-filesystem-edmx");
+        Write(filesystemSource, "Filesystem.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+            """);
+        embedded.Descendants(edmx + "DesignerProperty").Single().SetAttributeValue("Value", "CopyToOutputDirectory");
+        Write(filesystemSource, "Model\\Independent.edmx", embedded.ToString());
+        Run(0, "prepare-net10", "--source", filesystemSource, "--output", filesystemSource + "-output");
+        Check(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    });
+    if (args is ["--preparation-safety"])
+    {
+        Console.WriteLine($"PASS: preparation safety regressions; artifacts: {workspace}");
+        return 0;
+    }
     var original = Path.Combine(workspace, "original");
     Write(original, "Library\\Library.csproj", """
         <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -337,7 +438,7 @@ try
             <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
             <ItemGroup><ProjectReference Include="..\Models\Models.csproj" /></ItemGroup>
             <Target Name="OldMetadataCopy" AfterTargets="Build">
-              <ItemGroup><LegacyMetadata Include="..\Models\bin\$(Configuration)\Model\Independent.csdl" /></ItemGroup>
+              <ItemGroup><LegacyMetadata Include="..\Models\bin\$(Configuration)\net472\Model\Independent.csdl" /></ItemGroup>
               <Copy SourceFiles="@(LegacyMetadata)" DestinationFolder="$(OutDir)Model" SkipUnchangedFiles="true" />
             </Target></Project>
             """);
