@@ -585,6 +585,108 @@ Namespace TaskOTime.Theme.TestHost
                 End Sub)
         End Sub
 
+        Public Sub DialogPalettes_KeepOpenSurfacesLive(kind As String)
+            OnSta(
+                Sub()
+                    Dim application As New Application With {.ShutdownMode = ShutdownMode.OnExplicitShutdown}
+                    application.Resources.MergedDictionaries.Add(New ResourceDictionary With {
+                        .Source = New Uri("/TaskOTime.App;component/Themes/ClassicDark.xaml", UriKind.Relative)})
+                    application.Resources.MergedDictionaries.Add(New ResourceDictionary With {
+                        .Source = New Uri("/TaskOTime.App;component/Resources/Strings.xaml", UriKind.Relative)})
+                    Dim window As Window = Nothing
+                    Dim environment As New TestThemeEnvironment()
+                    Try
+                        Using theme As New ThemeService(application.Resources, application.Dispatcher, environment)
+                            theme.SetTheme(AppTheme.Dark)
+                            window = CreateThemeDialog(kind)
+                            window.WindowStartupLocation = WindowStartupLocation.Manual
+                            window.Left = -32000
+                            window.Top = -32000
+                            window.ShowActivated = False
+                            window.ShowInTaskbar = False
+                            window.Show()
+                            Pump(window)
+                            Dim paletteKeys = {"MutedForegroundBrush", "MenuForegroundBrush", "AccentBrush",
+                                "ContentForegroundBrush", "ContentBackgroundBrush", "ErrorForegroundBrush"}
+                            Dim tracked As New List(Of Tuple(Of TextBlock, DependencyProperty, String))()
+                            For Each label As TextBlock In Descendants(Of TextBlock)(window)
+                                For Each propertyKey In {TextBlock.ForegroundProperty, TextBlock.BackgroundProperty}
+                                    For Each key In paletteKeys
+                                        Dim brush = window.TryFindResource(key)
+                                        If brush IsNot Nothing AndAlso ReferenceEquals(label.GetValue(propertyKey), brush) Then
+                                            tracked.Add(Tuple.Create(label, propertyKey, key))
+                                        End If
+                                    Next
+                                Next
+                            Next
+                            Assert.IsTrue(tracked.Count >= 2, kind & ": no actual themed labels/icons were generated.")
+                            For Each palette In {AppTheme.Dark, AppTheme.Light, AppTheme.HighContrast, AppTheme.Dark}
+                                theme.SetTheme(palette)
+                                For Each lightContrast In {False, True}
+                                    application.Resources(SystemColors.WindowColorKey) = If(lightContrast, Colors.White, Colors.Black)
+                                    application.Resources(SystemColors.WindowTextColorKey) = If(lightContrast, Colors.Black, Colors.White)
+                                    application.Resources(SystemColors.HighlightColorKey) = If(lightContrast, Colors.Black, Colors.Yellow)
+                                    application.Resources(SystemColors.HighlightTextColorKey) = If(lightContrast, Colors.White, Colors.Black)
+                                    application.Resources(SystemColors.GrayTextColorKey) = If(lightContrast, Colors.DarkSlateGray, Colors.Silver)
+                                    ' Simulate the preference notification as well as its colors, without touching Windows settings.
+                                    environment.Notify()
+                                    Pump(window)
+                                    AssertBrush(window.Background, window.FindResource("WindowBackgroundBrush"))
+                                    For Each target In tracked
+                                        AssertBrush(DirectCast(target.Item1.GetValue(target.Item2), Brush), window.FindResource(target.Item3))
+                                    Next
+                                    If kind = "login" Then
+                                        Dim errorLabel = Descendants(Of TextBlock)(window).Single(
+                                            Function(label) BindingOperations.GetBinding(label, TextBlock.TextProperty)?.Path?.Path = "ErrorMessage")
+                                        Assert.IsTrue(errorLabel.IsVisible AndAlso Not String.IsNullOrWhiteSpace(errorLabel.Text))
+                                        Assert.IsTrue(Contrast(errorLabel.Foreground, PaintedBackground(errorLabel)) >= 4.5,
+                                            palette.ToString() & ": login error text is unreadable: " &
+                                            errorLabel.Foreground.ToString() & " on " & PaintedBackground(errorLabel).ToString() &
+                                            ", light contrast=" & lightContrast.ToString())
+                                        AssertBrush(errorLabel.Foreground, window.FindResource("ErrorForegroundBrush"))
+                                        For Each backgroundKey In {"WindowBackgroundBrush", "PanelBackgroundBrush", "ContentBackgroundBrush"}
+                                            Assert.IsTrue(Contrast(errorLabel.Foreground, DirectCast(window.FindResource(backgroundKey), Brush)) >= 4.5,
+                                                palette.ToString() & ": error text on " & backgroundKey)
+                                        Next
+                                        If palette = AppTheme.HighContrast Then
+                                            Assert.AreEqual(DirectCast(application.Resources(SystemColors.WindowTextColorKey), Color),
+                                                DirectCast(errorLabel.Foreground, SolidColorBrush).Color)
+                                        End If
+                                    End If
+                                Next
+                            Next
+                        End Using
+                    Finally
+                        If window IsNot Nothing Then window.Close()
+                        application.Shutdown()
+                    End Try
+                End Sub)
+        End Sub
+
+        Private Shared Function CreateThemeDialog(kind As String) As Window
+            Select Case kind
+                Case "options"
+                    Return New OptionsDialog(New AppOptionsViewModel())
+                Case "time-entry"
+                    Dim request As New TimeEntryEditRequestEventArgs(New DateTime(2026, 6, 15, 9, 0, 0),
+                        "Theme booking", "Theme description", False, Sub(time, title, description, complete) Assert.Fail("Must not save."))
+                    Return New TimeEntryEditDialog(request, New TimeCollectionViewModel())
+                Case "login"
+                    Dim services As New TestApplicationServices()
+                    Dim user = services.GetTenantUsers(services.Tenant.IdTenant).Value.Single()
+                    Dim model As New LoginViewModel(New TestAuthenticationService(user, "Theme-test-password-42"))
+                    Assert.IsFalse(model.Login("invalid", "invalid"))
+                    Return New LoginWindow(model, "Theme test")
+                Case "shell"
+                    Return New DialogShell(New DialogShellViewModel("Theme dialog", "Theme heading", "Theme lead", "Theme detail"))
+                Case "task-list"
+                    Return New TaskListEditDialog(New TaskListEditRequestEventArgs("Theme tasks", "Theme subtitle",
+                        Sub(title, subtitle) Assert.Fail("Must not save.")))
+                Case Else
+                    Throw New ArgumentOutOfRangeException(NameOf(kind))
+            End Select
+        End Function
+
         Public Sub ApplicationTheme_StartSwitchAndDispose()
             OnSta(
                 Sub()

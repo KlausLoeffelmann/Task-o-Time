@@ -5,17 +5,17 @@
         Language="{loc:Culture}"
         Title="{loc:Loc Login_Title}" Width="460" SizeToContent="Height"
         ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
-        Background="{StaticResource WindowBackgroundBrush}">
+        Background="{DynamicResource WindowBackgroundBrush}">
     <StackPanel Margin="24">
         <TextBlock Text="{loc:Loc Login_SignIn}" Style="{StaticResource SectionHeaderTextStyle}"/>
-        <TextBlock x:Name="ModeText" TextWrapping="Wrap" Foreground="{StaticResource MutedForegroundBrush}" Margin="0,8"/>
-        <TextBlock Text="{loc:Loc Login_UserName}" Foreground="{StaticResource MutedForegroundBrush}"/>
+        <TextBlock x:Name="ModeText" TextWrapping="Wrap" Foreground="{DynamicResource MutedForegroundBrush}" Margin="0,8"/>
+        <TextBlock Text="{loc:Loc Login_UserName}" Foreground="{DynamicResource MutedForegroundBrush}"/>
         <TextBox x:Name="UserName" Margin="0,4,0,10"/>
-        <TextBlock Text="{loc:Loc Login_Password}" Foreground="{StaticResource MutedForegroundBrush}"/>
+        <TextBlock Text="{loc:Loc Login_Password}" Foreground="{DynamicResource MutedForegroundBrush}"/>
         <PasswordBox x:Name="Password" Margin="0,4,0,10"/>
-        <TextBlock Text="{loc:Loc Login_NewPassword}" Foreground="{StaticResource MutedForegroundBrush}"/>
+        <TextBlock Text="{loc:Loc Login_NewPassword}" Foreground="{DynamicResource MutedForegroundBrush}"/>
         <PasswordBox x:Name="NewPassword" Margin="0,4,0,10"/>
-        <TextBlock Text="{Binding ErrorMessage}" Foreground="Salmon" TextWrapping="Wrap" Margin="0,4,0,10"/>
+        <TextBlock Text="{Binding ErrorMessage}" Foreground="{DynamicResource ErrorForegroundBrush}" TextWrapping="Wrap" Margin="0,4,0,10"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="{loc:Loc Login_SignIn}" IsDefault="True" Click="OnLogin" MinWidth="100"/>
             <Button Content="{loc:Loc Common_Cancel}" IsCancel="True" MinWidth="100"/>
