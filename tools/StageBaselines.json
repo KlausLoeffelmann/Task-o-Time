@@ -42,5 +42,28 @@
     ],
     "sqlIntegrationRun": false,
     "desktopVisualRun": false
+  },
+  "S1": {
+    "applicationCommit": "6ca206f932105243e654db3e3888394ca50d4cd6",
+    "applicationRef": "modernization-S1-net472",
+    "inputCommit": "c6b6a85",
+    "toolCommit": "ec69c7d",
+    "operation": "normalize-framework --target net472",
+    "sourcePreparation": "Fresh tracked-source export; no build outputs or package-generated items copied.",
+    "sdk": "10.0.401",
+    "applicationProjectCount": 11,
+    "changedProjectCount": 8,
+    "allApplicationAndTestTargets": "net472",
+    "productionLanguage": "C# and VB",
+    "intentionalBusinessDefectsPreserved": true,
+    "buildErrors": 0,
+    "buildWarnings": 0,
+    "timeTrackingTestsPassed": 33,
+    "appServerTestsPassed": 30,
+    "isolatedIntegrationTestsPassed": 15,
+    "stageIntegrityTestsPassed": 2,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "desktopVisualRun": false
   }
 }
