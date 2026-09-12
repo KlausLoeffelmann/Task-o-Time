@@ -329,7 +329,7 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void OnTaskCompletionRequested(object sender, TaskCompletionRequestEventArgs e)
         {
-            // de tijdgrens van de taak wordt door dezelfde boekingsstroom verwerkt als handmatige registraties.  daardoor gebruikt elke afsluiting dezelfde normalisatie.
+            // Route task boundaries through the same booking workflow as manual entries so both use the same normalization.
             if (e.UseExistingBoundary)
             {
                 if (!e.Task.StartedAt.HasValue)

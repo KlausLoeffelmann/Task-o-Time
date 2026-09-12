@@ -23,12 +23,12 @@ namespace TaskOTime.ViewModel.ViewModels
         {
         }
 
-        // '' <summary>
-        // ''  legt tijdstip, tekst en marker vast en initialiseert beide actievlaggen op onwaar.
-        // '' </summary>
-        // '' <remarks>
-        // ''  de marker stuurt de presentatie; deze constructor leidt er geen andere actievlaggen uit af.
-        // '' </remarks>
+        /// <summary>
+        /// Stores the timestamp, text and marker, and initializes both action flags to false.
+        /// </summary>
+        /// <remarks>
+        /// The marker controls presentation; this constructor does not derive different action flags from it.
+        /// </remarks>
         public TimeEntryViewModel(Guid idTimeItem, DateTime entryTime, string title, string description, TimeEntryMarkerKind markerKind)
         {
             IDTimeItem = idTimeItem;
@@ -42,13 +42,13 @@ namespace TaskOTime.ViewModel.ViewModels
 
         public TimeEntryMarkerKind MarkerKind { get; private set; }
 
-        // '' <summary>
-        // ''  biedt datum en kloktijd van het opgeslagen tijdstip aan, zonder omzetting naar een andere zone.
-        // '' </summary>
-        // '' <remarks>
-        // ''  bij een ontbrekend tijdstip wordt de minimale datum getoond.  schrijven maakt een nieuw
-        // ''  tijdstip met offset volgens de soort van de aangeleverde datumwaarde.
-        // '' </remarks>
+        /// <summary>
+        /// Exposes the stored timestamp's date and clock time without converting to another time zone.
+        /// </summary>
+        /// <remarks>
+        /// A missing timestamp returns the minimum date. Setting this property creates a new timestamp
+        /// whose offset is determined by the supplied date value's kind.
+        /// </remarks>
         public DateTime EntryTime
         {
             get
@@ -222,9 +222,9 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
-        // '' <summary>
-        // ''  toont een streep voor een ontbrekende duur, zodat die niet als een gemeten nulduur verschijnt.
-        // '' </summary>
+        /// <summary>
+        /// Displays a dash for a missing duration, distinguishing it from a measured duration of zero.
+        /// </summary>
         private static string FormatNullableDuration(TimeSpan? duration)
         {
             if (!duration.HasValue)
@@ -235,12 +235,12 @@ namespace TaskOTime.ViewModel.ViewModels
             return FormatDuration(duration.Value);
         }
 
-        // '' <summary>
-        // ''  houdt het teken apart en toont totale uren met twee cijfers voor het minutendeel.
-        // '' </summary>
-        // '' <remarks>
-        // ''  uren lopen door voorbij een etmaal.  seconden worden niet afzonderlijk weergegeven.
-        // '' </remarks>
+        /// <summary>
+        /// Formats the sign separately, followed by total hours and a two-digit minutes component.
+        /// </summary>
+        /// <remarks>
+        /// Hours continue beyond a single day. Seconds are not displayed separately.
+        /// </remarks>
         public static string FormatDuration(TimeSpan duration)
         {
             string sign = duration < TimeSpan.Zero ? "-" : string.Empty;
@@ -250,13 +250,13 @@ namespace TaskOTime.ViewModel.ViewModels
             return string.Format(CultureInfo.CurrentCulture, "{0}{1:0}:{2:00} h", sign, totalHours, absoluteDuration.Minutes);
         }
 
-        // '' <summary>
-        // ''  geeft eerst de oorspronkelijke melding door en meldt daarna de bijbehorende weergavewaarden.
-        // '' </summary>
-        // '' <remarks>
-        // ''  de afhankelijkheden zijn hier expliciet opgesomd.  een berekende eigenschap meldt zichzelf
-        // ''  niet alleen doordat haar getter andere eigenschappen leest.
-        // '' </remarks>
+        /// <summary>
+        /// Forwards the original notification before notifying the associated display properties.
+        /// </summary>
+        /// <remarks>
+        /// Dependencies are listed explicitly here. A computed property does not notify subscribers
+        /// merely because its getter reads other properties.
+        /// </remarks>
         protected override void OnPropertyChanged(string propertyName = null)
         {
             base.OnPropertyChanged(propertyName);

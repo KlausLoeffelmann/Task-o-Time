@@ -410,14 +410,14 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             RefreshEntries();
         }
 
-        // '' <summary>
-        // ''  vult hetzelfde zichtbare collectieobject opnieuw met nieuwe tijdregelobjecten.
-        // '' </summary>
-        // '' <remarks>
-        // ''  de collectie-identiteit blijft behouden, niet de oude regelobjecten of hun koppelingen.
-        // ''  toevoegen bouwt sortering en buurrelaties op.  selectie volgt de gevraagde identificatie,
-        // ''  met de eerste regel als terugval en geen selectie wanneer de dag leeg is.
-        // '' </remarks>
+        /// <summary>
+        /// Refills the same displayed collection instance with newly created time-entry objects.
+        /// </summary>
+        /// <remarks>
+        /// Collection identity is preserved, but previous entries and their links are not reused.
+        /// Adding entries establishes their order and neighbor links. Selection follows the requested ID,
+        /// falling back to the first entry, or no selection when the day is empty.
+        /// </remarks>
         private void RefreshEntries(Guid? selectedId = default)
         {
             SelectedDayEntries.Clear();
@@ -775,13 +775,13 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             ApplyMutation(mutation);
         }
 
-        // '' <summary>
-        // ''  haalt bij een aangesloten service de gekozen boekingsdag op als bron voor de lokale daggegevens.
-        // '' </summary>
-        // '' <remarks>
-        // ''  zonder service blijven de lokale gegevens staan.  het vullen van de zichtbare tijdregels
-        // ''  gebeurt afzonderlijk via <see cref="RefreshEntries"/>.
-        // '' </remarks>
+        /// <summary>
+        /// Loads the selected booking day from the connected service into the local day data.
+        /// </summary>
+        /// <remarks>
+        /// Without a service, local data is retained. The displayed entries are populated separately
+        /// by <see cref="RefreshEntries"/>.
+        /// </remarks>
         private void LoadBookingDate()
         {
             if (_service is null)
@@ -790,13 +790,13 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             ApplyBookingDay(day);
         }
 
-        // '' <summary>
-        // ''  neemt de teruggegeven boekingsdag over en verwerkt daarna de expliciete verwijderingen.
-        // '' </summary>
-        // '' <remarks>
-        // ''  een ontbrekende boekingsdag wordt geweigerd.  de servicereactie is de bron voor de daginhoud;
-        // ''  het verversen van de zichtbare collectie blijft een afzonderlijke stap voor de aanroeper.
-        // '' </remarks>
+        /// <summary>
+        /// Applies the returned booking day, then processes explicit item removals.
+        /// </summary>
+        /// <remarks>
+        /// A missing booking day is rejected. The service response supplies the day's contents;
+        /// refreshing the displayed collection remains a separate responsibility of the caller.
+        /// </remarks>
         private void ApplyMutation(TimeBookingMutationResult mutation)
         {
             if (mutation.BookingDay is null)
@@ -809,13 +809,13 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             }
         }
 
-        // '' <summary>
-        // ''  vervangt de lokale inhoud van de ontvangen dag door de bruikbare regels uit het serviceantwoord.
-        // '' </summary>
-        // '' <remarks>
-        // ''  verwijderde regels en regels zonder tijdstip worden overgeslagen.  andere dagen blijven staan;
-        // ''  de lijst met geboekte datums wordt hier wel opnieuw opgebouwd.
-        // '' </remarks>
+        /// <summary>
+        /// Replaces the returned day's local contents with usable entries from the service response.
+        /// </summary>
+        /// <remarks>
+        /// Deleted entries and entries without a timestamp are skipped. Other days are retained,
+        /// but the list of dates with bookings is rebuilt here.
+        /// </remarks>
         private void ApplyBookingDay(TimeBookingDayDto day)
         {
             var seeds = GetOrCreateSeeds(day.BookingDate);

@@ -2,13 +2,13 @@ using System;
 
 namespace ActiveDevelop.TimeTrackingServices
 {
-    // '' <summary>
-    // ''  beschrijft een tijdregel met optionele tijdswaarden en bewerkbare buurverwijzingen.
-    // '' </summary>
-    // '' <remarks>
-    // ''  dit contract schrijft geen sortering of wijzigingsmeldingen voor.  een ontbrekende duur
-    // ''  blijft onderscheiden van een gemeten duur van nul; de implementatie bepaalt de berekening.
-    // '' </remarks>
+    /// <summary>
+    /// Represents a time item with nullable time values and mutable references to neighboring items.
+    /// </summary>
+    /// <remarks>
+    /// This contract does not require sorting or change notifications. A missing duration remains
+    /// distinct from a measured duration of zero; implementations determine how durations are calculated.
+    /// </remarks>
     public interface ITimeItem<IndexType> where IndexType : struct, IComparable<IndexType>
     {
         IndexType IDTimeItem { get; set; }

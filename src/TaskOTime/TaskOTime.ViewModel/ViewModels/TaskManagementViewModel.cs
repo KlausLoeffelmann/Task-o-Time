@@ -325,7 +325,8 @@ SelectedTaskList.Subtitle = subtitle;
                 return;
             }
 
-            // de taakstatus verandert pas nadat de gekoppelde boekingsaanvraag zonder uitzondering is verwerkt.  zo blijft de zichtbare status gelijk aan de opgeslagen toestand.
+            // Process the booking request before marking the task done, so request failures prevent that transition.
+            // Saving the task follows the status change; these steps are not an atomic transaction.
             TaskCompletionRequested?.Invoke(this, new TaskCompletionRequestEventArgs(SelectedTaskItem, _clock()));
             SelectedTaskItem.MarkDone();
             if (_saveTask is not null)
