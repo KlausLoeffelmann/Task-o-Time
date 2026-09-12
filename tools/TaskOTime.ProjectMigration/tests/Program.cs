@@ -249,6 +249,71 @@ try
             Run(2, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", source, "--output", output + "-conflict");
         }
     });
+    Test("restored MSTest adapter assets remain package-provided across normalization", () =>
+    {
+        var source = Path.Combine(workspace, "restored-mstest");
+        var output = source + "-normalized";
+        Write(source, "RestoredTests.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net461</TargetFramework></PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
+                <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+                <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+                <ProjectReference Include="Nested\Nested.vbproj" />
+                <Reference Include="Microsoft.VisualStudio.TestPlatform.TestFramework">
+                  <HintPath>$(NuGetPackageRoot)mstest.testframework\2.2.10\lib\net45\Microsoft.VisualStudio.TestPlatform.TestFramework.dll</HintPath>
+                  <Private>True</Private>
+                </Reference>
+              </ItemGroup>
+            </Project>
+            """);
+        Write(source, "Nested\\Nested.vbproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net461</TargetFramework></PropertyGroup>
+            <ItemGroup><PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" /></ItemGroup></Project>
+            """);
+        Write(source, "Nested\\Canary.vb", "Public Class NestedCanary\nEnd Class");
+        Write(source, "Canary.cs", """
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            [TestClass] public class IndependentCanary {
+                [TestMethod] public void Preserved() { Assert.AreEqual(4, 2 + 2); }
+            }
+            """);
+        Build(Path.Combine(source, "RestoredTests.csproj"));
+        var assets = Path.Combine(source, "obj\\project.assets.json");
+        var assetsBefore = File.ReadAllBytes(assets);
+        var result = Run(0, "normalize-framework", "--target", "net472", "--source", source, "--output", output);
+        var packageItems = result.RootElement.GetProperty("Projects").EnumerateArray()
+            .Single(p => p.GetProperty("Path").GetString() == "RestoredTests.csproj").GetProperty("Evaluations")[0]
+            .GetProperty("Items").GetProperty("None").EnumerateArray().Where(i =>
+                i.GetProperty("DefiningProjectFullPath").GetString()!.StartsWith("{nuget}\\mstest.testadapter\\", StringComparison.OrdinalIgnoreCase)).ToArray();
+        Check(packageItems.Length >= 4, "fixture did not reproduce imported MSTest adapter None assets");
+        Check(assetsBefore.SequenceEqual(File.ReadAllBytes(assets)), "source restore state changed");
+        Check(Directory.GetFiles(output, "*.dll", SearchOption.AllDirectories).Length == 0, "package binaries copied into emitted source");
+        Build(Path.Combine(output, "RestoredTests.csproj"));
+        Check(Directory.GetFiles(Path.Combine(output, "bin"), "Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.dll", SearchOption.AllDirectories).Length > 0,
+            "normal restore/build did not deploy the test adapter");
+        var again = Run(0, "normalize-framework", "--target", "net472", "--source", output, "--output", output + "-again");
+        Check(again.RootElement.GetProperty("ChangedFiles").GetArrayLength() == 0, "restored normalization not idempotent");
+        var xml = XDocument.Load(Path.Combine(source, "RestoredTests.csproj"));
+        xml.Root!.Add(new XElement("ItemGroup", new XElement("None",
+            new XAttribute("Include", "$(NuGetPackageRoot)mstest.testadapter\\2.2.10\\build\\_common\\Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.dll"),
+            new XElement("Link", "ExplicitExternal.dll"))));
+        Write(source, "RestoredTests.csproj", xml.ToString());
+        var rejected = Run(2, "normalize-framework", "--target", "net472", "--source", source, "--output", source + "-explicit-external");
+        Check(rejected.RootElement.GetProperty("Diagnostics").EnumerateArray().Any(d => d.GetProperty("Code").GetString() == "external-item"),
+            "explicit package-cache link was incorrectly treated as package-provided");
+        xml.Root!.Elements("ItemGroup").Last().Remove();
+        xml.Descendants("PackageReference").Single(e => (string?)e.Attribute("Include") == "MSTest.TestAdapter")
+            .Add(new XAttribute("Condition", "'$(TargetFramework)' == 'net461'"));
+        Write(source, "RestoredTests.csproj", xml.ToString());
+        var lostAdapter = Run(2, "normalize-framework", "--target", "net472", "--source", source, "--output", source + "-lost-adapter");
+        Check(lostAdapter.RootElement.GetProperty("Diagnostics").EnumerateArray().Any(d =>
+            d.GetProperty("Code").GetString() == "output-dependency-mismatch" &&
+            d.GetProperty("Message").GetString()!.Contains("PackageReference")),
+            "package-asset exemption hid loss of the conditioned adapter dependency");
+    });
     Console.WriteLine($"PASS: {passed} regression scenarios; artifacts: {workspace}");
     return 0;
 }

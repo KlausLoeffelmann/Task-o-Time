@@ -171,6 +171,17 @@ public sealed class Migration(Options options)
                 foreach (var item in evaluation.Items[kind])
                 {
                     var identity = item["Identity"];
+                    if (PackageProvidedAsset(kind, item))
+                    {
+                        Add("warning", "package-provided-assets", path, "Restored package assets are inventoried but not copied or treated as application source items. PackageReference restore supplies them again in the emitted workspace.");
+                        continue;
+                    }
+                    if (identity.StartsWith("{nuget}\\", StringComparison.Ordinal) ||
+                        identity.StartsWith("{sdk}\\", StringComparison.Ordinal))
+                    {
+                        Add("error", "external-item", path, $"{kind} '{identity}' is explicitly declared outside --source, not contributed by a restored package. Use PackageReference restore semantics or place source items in the workspace.");
+                        continue;
+                    }
                     if (identity.StartsWith("{workspace}\\", StringComparison.Ordinal))
                     {
                         Add("error", "absolute-workspace-item", path, $"Use relocatable relative {kind} items instead of absolute source paths: {identity}");
@@ -404,7 +415,7 @@ public sealed class Migration(Options options)
             foreach (var before in report.Evaluations)
             {
                 EvaluatedProject after;
-                try { after = MsBuild.Evaluate(Path.Combine(root, report.Path), before.Configuration, options.Platform, root); }
+                try { after = MsBuild.Evaluate(Path.Combine(root, report.Path), before.Configuration, options.Platform, root, before.NuGetRoot); }
                 catch (InvalidOperationException ex)
                 {
                     Add("error", "output-evaluation-failed", report.Path, ex.Message.Replace(root, "{workspace}", StringComparison.OrdinalIgnoreCase));
@@ -434,7 +445,7 @@ public sealed class Migration(Options options)
                 if (options.Command != "retarget" && expectedOutputPath != after.Properties["OutputPath"])
                     Add("error", "output-path-mismatch", report.Path, $"{before.Configuration}: OutputPath changed from '{before.Properties["OutputPath"]}' to '{after.Properties["OutputPath"]}'.");
                 foreach (var kind in new[] { "Compile", "EmbeddedResource", "Resource", "Page", "ApplicationDefinition", "EntityDeploy", "Content", "None", "ProjectReference" })
-                    if (ComparableItems(before.Items[kind]) != ComparableItems(after.Items[kind]))
+                    if (ComparableItems(kind, before.Items[kind]) != ComparableItems(kind, after.Items[kind]))
                         Add("error", "output-item-mismatch", report.Path, $"{before.Configuration}: evaluated {kind} items/metadata changed; output was not published.");
                 foreach (var kind in new[] { "Reference", "PackageReference" })
                     if (ComparableDependencies(report.Path, before.Items[kind], kind, true) != ComparableDependencies(report.Path, after.Items[kind], kind, false))
@@ -448,8 +459,20 @@ public sealed class Migration(Options options)
         diagnostics.Add(new(severity, code, path, message));
     private static string ComparableProperty(string name, string value) =>
         name == "SignAssembly" && value.Length == 0 ? "false" : value;
-    private static string ComparableItems(List<SortedDictionary<string, string>> items) =>
-        JsonSerializer.Serialize(items.Where(i => Path.GetFileName(i["Identity"]) != "migration-manifest.json"));
+    private static string ComparableItems(string kind, List<SortedDictionary<string, string>> items) =>
+        JsonSerializer.Serialize(items.Where(i => Path.GetFileName(i["Identity"]) != "migration-manifest.json" &&
+                                                 !PackageProvidedAsset(kind, i) && !DefaultBuildArtifact(kind, i)));
+    private static bool DefaultBuildArtifact(string kind, SortedDictionary<string, string> item) =>
+        kind == "None" &&
+        item.GetValueOrDefault("DefiningProjectFullPath") == "{sdk}\\Sdks\\Microsoft.NET.Sdk\\targets\\Microsoft.NET.Sdk.DefaultItems.props" &&
+        item.Keys.All(k => k is "Identity" or "DefiningProjectFullPath") &&
+        item["Identity"].Split('\\', '/').Any(p => p.Equals("bin", StringComparison.OrdinalIgnoreCase) ||
+                                                 p.Equals("obj", StringComparison.OrdinalIgnoreCase));
+    private static bool PackageProvidedAsset(string kind, SortedDictionary<string, string> item) =>
+        kind is not ("ProjectReference" or "PackageReference") &&
+        item.GetValueOrDefault("DefiningProjectFullPath", "").StartsWith("{nuget}\\", StringComparison.Ordinal) &&
+        (item["Identity"].StartsWith("{nuget}\\", StringComparison.Ordinal) ||
+         kind == "Reference" && item.GetValueOrDefault("HintPath", "").StartsWith("{nuget}\\", StringComparison.Ordinal));
     private void RecordRemoval(string path, string kind, string identity)
     {
         if (!removedDependencies.TryGetValue(path, out var removed))
@@ -462,7 +485,7 @@ public sealed class Migration(Options options)
         var expected = new List<SortedDictionary<string, string>>();
         foreach (var item in items)
         {
-            if (kind == "Reference" && AutomaticFrameworkReference(item)) continue;
+            if (kind == "Reference" && (AutomaticFrameworkReference(item) || PackageProvidedAsset(kind, item))) continue;
             var row = new SortedDictionary<string, string>(item, StringComparer.Ordinal);
             var identity = row["Identity"];
             if (input && options.Command == "normalize-framework" && kind == "PackageReference" &&
@@ -486,7 +509,7 @@ public sealed class Migration(Options options)
         var origin = item.GetValueOrDefault("DefiningProjectFullPath", "");
         return origin == "{sdk}\\Sdks\\Microsoft.NET.Sdk\\targets\\Microsoft.NET.Sdk.BeforeCommon.targets" &&
                item.GetValueOrDefault("IsImplicitlyDefined") == "true" ||
-               item["Identity"] == "mscorlib" && Regex.IsMatch(origin,
+               item["Identity"] is "mscorlib" or "Microsoft.VisualBasic" && Regex.IsMatch(origin,
                    @"^\{nuget\}\\microsoft\.netframework\.referenceassemblies\.net4\d{1,2}\\[^\\]+\\build\\Microsoft\.NETFramework\.ReferenceAssemblies\.net4\d{1,2}\.targets$",
                    RegexOptions.IgnoreCase);
     }

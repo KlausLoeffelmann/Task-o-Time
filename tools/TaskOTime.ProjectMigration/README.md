@@ -56,6 +56,11 @@ workspace concern. There are no third-party package dependencies for this CLI.
 - The source scope must contain all linked source, content, resources, and
   project references. External/absolute source items, junctions and symlinks are
   rejected rather than silently copied from elsewhere.
+  Evaluated assets whose defining import **and** asset/assembly-hint location
+  are in the NuGet cache are package-provided, not application source links.
+  They remain in the inventory, but are supplied by normal PackageReference
+  restore in the output, never copied from the cache. Explicitly declaring the
+  same external file in an application project remains an error.
 - C# and VB application/test projects are discovered recursively. Projects
   beneath `tools` or `assessment` are not migrated; their files are copied
   unchanged when the source is a whole repository. This is **not a candidate
@@ -101,6 +106,12 @@ workspace concern. There are no third-party package dependencies for this CLI.
   generated framework references are allowed to differ. A dependency or metadata
   value disappearing because its old-framework condition became false is an
   error; conditions are not guessed or text-rewritten.
+  Comparison excludes package-provided cache assets and uncustomized SDK `None`
+  globs of nested `bin`/`obj` output. Thus already-restored/built input can be
+  compared with fresh output without deleting source build state or silently
+  dropping adapters. The source's evaluated NuGet root is supplied as an
+  overridable environment fallback during output evaluation, preserving expanded
+  package HintPaths without overriding project/import property declarations.
   It does not automatically build or execute application/tests.
 - Output is prepared in an owned sibling staging directory. Normally it is
   renamed into place after validation. Windows long-path rename failures use a
@@ -134,7 +145,7 @@ must produce `ChangedFiles: []`. Stage-manifest replacement is intentionally not
 counted as an application change. To debug exceptional failures locally, set
 `PROJECT_MIGRATION_TRACE=1` for a stack trace on stderr.
 
-Dependency-free regression runner:
+The regression runner itself has no package dependencies:
 
 ```powershell
 dotnet run --project .\tests\TaskOTime.ProjectMigration.Tests.csproj --verbosity quiet
@@ -149,4 +160,10 @@ Additional regressions reject disappearing framework-conditioned assembly and
 package dependencies/custom metadata, and compile retargeted WPF and WinForms
 projects that originally used explicit desktop assembly references without SDK
 desktop flags.
+Its restored-state canary builds an actual MSTest 2.2.10 project and nested VB
+dependency before migration, so these fixture builds restore their pinned
+MSTest/test-SDK/reference-assembly packages through normal NuGet semantics.
+It proves all four imported adapter assets are inventoried, no package DLLs are
+copied into emitted source, fresh output builds deploy the adapter, and an
+old-framework-conditioned adapter PackageReference still fails closed.
 It never accesses a database. See [repository execution evidence](docs\Execution-Evidence.md).

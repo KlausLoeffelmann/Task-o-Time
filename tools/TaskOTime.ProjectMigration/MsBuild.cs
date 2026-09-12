@@ -4,7 +4,10 @@ using System.Text.Json;
 namespace TaskOTime.ProjectMigration;
 
 public sealed record EvaluatedProject(string Configuration, SortedDictionary<string, string> Properties,
-    SortedDictionary<string, List<SortedDictionary<string, string>>> Items);
+    SortedDictionary<string, List<SortedDictionary<string, string>>> Items)
+{
+    internal string NuGetRoot { get; init; } = "";
+}
 
 internal static class MsBuild
 {
@@ -27,7 +30,7 @@ internal static class MsBuild
         "Identity", "Link", "LinkBase", "LogicalName", "ManifestResourceName", "DependentUpon", "Generator",
         "LastGenOutput", "AutoGen", "DesignTime", "CopyToOutputDirectory", "CopyToPublishDirectory",
         "Private", "Aliases", "HintPath", "Version", "PrivateAssets", "SubType", "TargetPath",
-        "ReferenceOutputAssembly", "EmbedInteropTypes"
+        "ReferenceOutputAssembly", "EmbedInteropTypes", "DefiningProjectFullPath"
     };
     private static readonly HashSet<string> IntrinsicMetadata = new(StringComparer.Ordinal)
     {
@@ -38,11 +41,11 @@ internal static class MsBuild
 
     public static string Version() => Execute(["--version"]).Trim();
 
-    public static EvaluatedProject Evaluate(string path, string configuration, string platform, string root)
+    public static EvaluatedProject Evaluate(string path, string configuration, string platform, string root, string? nugetRoot = null)
     {
         var text = Execute(["msbuild", path, "-nologo", "-verbosity:quiet",
             $"-property:Configuration={configuration}", $"-property:Platform={platform}",
-            "-getProperty:" + string.Join(',', Properties), "-getItem:" + string.Join(',', ItemNames)]);
+            "-getProperty:" + string.Join(',', Properties), "-getItem:" + string.Join(',', ItemNames)], nugetRoot);
         var start = text.IndexOf('{');
         if (start < 0) throw new InvalidOperationException("MSBuild returned no evaluated JSON.");
         using var document = JsonDocument.Parse(text[start..]);
@@ -70,7 +73,7 @@ internal static class MsBuild
             }
             items[itemType.Name] = rows.OrderBy(r => r["Identity"], StringComparer.Ordinal).ToList();
         }
-        return new(configuration, properties, items);
+        return new(configuration, properties, items) { NuGetRoot = packageRoot };
     }
 
     private static string Normalize(string value, string root) =>
@@ -78,7 +81,7 @@ internal static class MsBuild
             .Replace(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + "\\.nuget\\packages\\",
                 "{nuget}\\", StringComparison.OrdinalIgnoreCase);
 
-    private static string Execute(string[] arguments)
+    private static string Execute(string[] arguments, string? nugetRoot = null)
     {
         var start = new ProcessStartInfo("dotnet")
         {
@@ -90,6 +93,9 @@ internal static class MsBuild
         };
         start.Environment["DOTNET_NOLOGO"] = "1";
         start.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+        // Supply the restored source's cache location as a fallback, not a global property:
+        // project/import declarations must remain able to override it during output evaluation.
+        if (!string.IsNullOrEmpty(nugetRoot)) start.Environment["NuGetPackageRoot"] = nugetRoot;
         foreach (var argument in arguments) start.ArgumentList.Add(argument);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Could not start local dotnet.");
         var stdout = process.StandardOutput.ReadToEndAsync();

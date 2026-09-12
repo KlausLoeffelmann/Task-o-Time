@@ -9,7 +9,7 @@ source files, candidate refs or databases were modified.
 
 | Check | Result |
 | --- | --- |
-| Independent regression runner | 12 scenarios pass; emitted net472, net10, explicit-reference WPF/WinForms and VB consumers build |
+| Independent regression runner | 13 scenarios pass; emitted net472, net10, explicit-reference WPF/WinForms and restored MSTest/VB consumers build |
 | Repository inspection | 11 application/test projects, including all remaining VB tests |
 | Framework normalization | 8 project files changed; all 11 evaluate to net472 in Debug and Release |
 | SDK conversion | 3 classic projects changed; all 11 retain net472 and evaluate as SDK-style |
@@ -79,3 +79,32 @@ Both passed input/output evaluation for all 11 projects, with the same 8/3
 changed-project counts. The earlier manifest hashes above remain evidence for
 the initial run; the expanded dependency inventories intentionally change
 manifest content in this follow-up.
+
+## Already-restored input integration
+
+The restored-state regression uses actual MSTest.TestAdapter 2.2.10,
+MSTest.TestFramework 2.2.10 and Microsoft.NET.Test.Sdk 17.2.0 packages, plus a
+nested VB project and explicit NuGet-root-based assembly HintPath. It builds the
+source first and verifies:
+
+- Imported adapter `None` assets retain NuGet import provenance in the manifest.
+- Migration does not change the source's `obj\project.assets.json`.
+- Emitted source contains no copied DLLs or package cache tree.
+- Normal output restore/build deploys the adapter successfully.
+- A second invocation on built output is a no-op.
+- Explicit application links to cache files remain rejected.
+- Conditioning the actual adapter PackageReference on the old framework still
+  produces an output-dependency mismatch, rather than silently dropping it.
+
+A separate complete repository copy was **built/restored before normalization**
+at `artifacts\restored-source`, without changing application project/source
+files. This exposed and now covers the real graph's additional restored-state
+differences: NuGet-root HintPath expansion, imported VB reference-pack assemblies,
+and SDK default `None` globs including nested TestDoubles `bin`/`obj` files.
+
+Normalization of that built graph succeeded with 11 projects / 8 changed files;
+the emitted `artifacts\restored-net472` solution built successfully. SDK
+conversion then consumed that **built/restored normalized graph**, succeeded
+with 11 projects / 3 changed files, and `artifacts\restored-sdk` also built with
+zero warnings/errors. No source `obj` deletion, adapter removal, package-cache
+copying, or database operations were used.
