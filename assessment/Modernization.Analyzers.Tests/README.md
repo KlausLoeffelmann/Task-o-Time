@@ -280,7 +280,10 @@ current/default culture behavior through its bound setter, the bound `ICommand`
 `Execute` implementation and its direct callees or invoked callbacks, a resolved
 XAML UI event, or the reachable handlers installed
 by presentation constructors. Constructor-forwarded command delegates retain
-call-site arguments. Unbound/inert commands and private dead culture calls do
+call-site arguments. Roslyn interface-implementation and override resolution
+select the actual `ICommand.Execute` dispatch target; private overloads and
+overridden base bodies are not independent command roots.
+Unbound/inert commands and private dead culture calls do
 not establish this connection. Merely
 moving strings into a XAML dictionary is insufficient. The checker establishes
 static UI consumption, not that a particular window is ever opened or that every

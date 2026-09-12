@@ -284,6 +284,59 @@ public sealed class LocalizationFlowTests
         Assert.DoesNotContain(await Analyze(source, Files()), d => d.Id == "LOC001");
     }
 
+    [Theory]
+    [InlineData("private-overload", false)]
+    [InlineData("explicit-interface", true)]
+    [InlineData("empty-override", false)]
+    [InlineData("live-override", true)]
+    [InlineData("nonvirtual-shadow", true)]
+    public async Task Bound_command_follows_actual_interface_dispatch_not_execute_name_matches(string variant, bool connected)
+    {
+        var implementation = variant switch {
+            "private-overload" => """
+              public sealed class CultureCommand : System.Windows.Input.ICommand {
+                private readonly PreferencesModel model;
+                public CultureCommand(PreferencesModel model) { this.model = model; }
+                public event EventHandler CanExecuteChanged;
+                public bool CanExecute(object parameter) => true;
+                public void Execute(object parameter) {}
+                private void Execute() => model.Commit();
+              }
+              """,
+            "explicit-interface" => """
+              public sealed class CultureCommand : System.Windows.Input.ICommand {
+                private readonly PreferencesModel model;
+                public CultureCommand(PreferencesModel model) { this.model = model; }
+                public event EventHandler CanExecuteChanged;
+                public bool CanExecute(object parameter) => true;
+                void System.Windows.Input.ICommand.Execute(object parameter) => model.Commit();
+                private void Execute() {}
+              }
+              """,
+            _ => $$"""
+              public class BaseCommand : System.Windows.Input.ICommand {
+                protected readonly PreferencesModel model;
+                public BaseCommand(PreferencesModel model) { this.model = model; }
+                public event EventHandler CanExecuteChanged;
+                public bool CanExecute(object parameter) => true;
+                public {{(variant == "nonvirtual-shadow" ? "" : "virtual")}} void Execute(object parameter) {
+                  {{(variant == "live-override" ? "" : "model.Commit();")}}
+                }
+              }
+              public sealed class CultureCommand : BaseCommand {
+                public CultureCommand(PreferencesModel model) : base(model) {}
+                public {{(variant == "nonvirtual-shadow" ? "new" : "override")}} void Execute(object parameter) {
+                  {{(variant == "live-override" ? "model.Commit();" : "")}}
+                }
+              }
+              """
+        };
+        var source = Source.Replace("public System.Windows.Input.ICommand ApplyCommand => new ActionCommand(Commit);",
+            "public System.Windows.Input.ICommand ApplyCommand => new CultureCommand(this);") + " namespace Example { " + implementation + " }";
+        var found = await Analyze(source, Files());
+        Assert.Equal(!connected, found.Any(d => d.Id == "LOC001" && d.GetMessage().Contains("Options must")));
+    }
+
     [Fact]
     public async Task Required_bound_facade_retains_literal_mixed_with_lookup_and_ignores_dead_caller_keys()
     {

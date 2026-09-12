@@ -387,14 +387,11 @@ internal sealed class LocalizationFlow
             foreach (var creation in values.OfType<IObjectCreationOperation>())
             {
                 var callbacks = new HashSet<string>();
-                for (var type = creation.Type as INamedTypeSymbol; type != null; type = type.BaseType)
-                    foreach (var execute in type.GetMembers().OfType<IMethodSymbol>().Where(m =>
-                        m.Name == "Execute" || m.ExplicitInterfaceImplementations.Any(i => i.Name == "Execute" &&
-                            i.ContainingType.ToDisplayString() == "System.Windows.Input.ICommand")))
-                    {
-                        if (members.ContainsKey(Id(execute))) callbacks.Add(Id(execute));
-                        CommandExecution(execute, ConstructionEnvironment(creation), [], callbacks, 0);
-                    }
+                if (creation.Type is INamedTypeSymbol type && CommandExecute(type) is { } execute)
+                {
+                    if (members.ContainsKey(Id(execute))) callbacks.Add(Id(execute));
+                    CommandExecution(execute, ConstructionEnvironment(creation), [], callbacks, 0);
+                }
                 alternatives.Add(callbacks);
             }
             if (alternatives.Any(callbacks => callbacks.Count == 0 || !callbacks.SetEquals(alternatives[0]))) continue;
@@ -429,6 +426,21 @@ internal sealed class LocalizationFlow
             }
         }
         return reached;
+    }
+
+    private static IMethodSymbol? CommandExecute(INamedTypeSymbol type)
+    {
+        var contract = type.AllInterfaces.FirstOrDefault(i => i.ToDisplayString() == "System.Windows.Input.ICommand" &&
+            !i.Locations.Any(location => location.IsInSource));
+        var member = contract?.GetMembers("Execute").OfType<IMethodSymbol>().SingleOrDefault(m =>
+            m.Parameters.Length == 1 && m.Parameters[0].Type.SpecialType == SpecialType.System_Object);
+        if (member == null || type.FindImplementationForInterfaceMember(member) is not IMethodSymbol implementation) return null;
+        for (var current = type; current != null; current = current.BaseType)
+        foreach (var candidate in current.GetMembers().OfType<IMethodSymbol>().Where(m => m.IsOverride))
+        for (var overridden = candidate.OverriddenMethod; overridden != null; overridden = overridden.OverriddenMethod)
+            if (SymbolEqualityComparer.Default.Equals(overridden.OriginalDefinition, implementation.OriginalDefinition))
+                return candidate;
+        return implementation;
     }
 
     internal IEnumerable<Lookup> Indexer(INamedTypeSymbol type, string key)
