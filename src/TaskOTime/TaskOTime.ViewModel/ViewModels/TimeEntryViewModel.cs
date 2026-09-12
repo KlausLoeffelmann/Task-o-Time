@@ -1,6 +1,6 @@
 using System;
 using System.Globalization;
-using System.ComponentModel;
+using TaskOTime.ViewModel.Base;
 using TaskOTime.ViewModel.Localization;
 using ActiveDevelop.TimeTrackingServices;
 
@@ -40,10 +40,9 @@ namespace TaskOTime.ViewModel.ViewModels
             _title = title;
             _description = description;
             MarkerKind = markerKind;
-            PropertyChangedEventManager.AddHandler(LocalizationService.Current, OnCultureChanged, string.Empty);
+            WeakNotifications.SubscribePropertyChanged(LocalizationService.Current, this,
+                static target => target.OnPropertyChanged(string.Empty));
         }
-
-        private void OnCultureChanged(object sender, PropertyChangedEventArgs e) => OnPropertyChanged(string.Empty);
 
         public TimeEntryMarkerKind MarkerKind { get; private set; }
 

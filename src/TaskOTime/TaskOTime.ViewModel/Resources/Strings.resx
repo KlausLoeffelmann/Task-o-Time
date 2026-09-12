@@ -527,4 +527,204 @@
   <data name="Login_TenantInactive" xml:space="preserve">
     <value>The tenant is inactive, deleted, or unavailable.</value>
   </data>
+  <data name="Sample_MyDay" xml:space="preserve">
+    <value>My day</value>
+  </data>
+  <data name="Sample_TodayFocus" xml:space="preserve">
+    <value>Today's focus</value>
+  </data>
+  <data name="Sample_CheckBookings" xml:space="preserve">
+    <value>Check time bookings</value>
+  </data>
+  <data name="Sample_CheckBookingsDescription" xml:space="preserve">
+    <value>Compare today's times with the calendar.</value>
+  </data>
+  <data name="Sample_ClarifyQuestions" xml:space="preserve">
+    <value>Clarify questions</value>
+  </data>
+  <data name="Sample_ClarifyQuestionsDescription" xml:space="preserve">
+    <value>Follow up on open points from the morning meeting.</value>
+  </data>
+  <data name="Sample_PrepareDayEnd" xml:space="preserve">
+    <value>Prepare the end of the day</value>
+  </data>
+  <data name="Sample_PrepareDayEndDescription" xml:space="preserve">
+    <value>Collect notes and unfinished work before leaving.</value>
+  </data>
+  <data name="Sample_ProjectWork" xml:space="preserve">
+    <value>Project work</value>
+  </data>
+  <data name="Sample_Deliverables" xml:space="preserve">
+    <value>Active deliverables</value>
+  </data>
+  <data name="Sample_CoordinateUi" xml:space="preserve">
+    <value>Coordinate the interface</value>
+  </data>
+  <data name="Sample_CoordinateUiDescription" xml:space="preserve">
+    <value>Connect the task panel with time collection.</value>
+  </data>
+  <data name="Sample_ServiceContract" xml:space="preserve">
+    <value>Outline the service contract</value>
+  </data>
+  <data name="Sample_ServiceContractDescription" xml:space="preserve">
+    <value>Record the fields for future application-server tasks.</value>
+  </data>
+  <data name="Sample_Later" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="Sample_FollowUp" xml:space="preserve">
+    <value>Follow-up</value>
+  </data>
+  <data name="Sample_Waiting" xml:space="preserve">
+    <value>Waiting for a response</value>
+  </data>
+  <data name="Sample_GetApproval" xml:space="preserve">
+    <value>Obtain approval</value>
+  </data>
+  <data name="Sample_GetApprovalDescription" xml:space="preserve">
+    <value>Ask the relevant department for a status update.</value>
+  </data>
+  <data name="Sample_Tomorrow" xml:space="preserve">
+    <value>Tomorrow</value>
+  </data>
+  <data name="Sample_UpdateDocumentation" xml:space="preserve">
+    <value>Update documentation</value>
+  </data>
+  <data name="Sample_UpdateDocumentationDescription" xml:space="preserve">
+    <value>Prepare a brief note about using task status.</value>
+  </data>
+  <data name="Task_EditedTitle" xml:space="preserve">
+    <value>Edited: {0}</value>
+  </data>
+  <data name="Task_EditDescription" xml:space="preserve">
+    <value>The task was changed using the prepared edit action.</value>
+  </data>
+  <data name="Sample_DayPlanning" xml:space="preserve">
+    <value>Plan the day</value>
+  </data>
+  <data name="Sample_DayPlanningDescription" xml:space="preserve">
+    <value>Organize priorities and tasks for the day.</value>
+  </data>
+  <data name="Sample_BookingChainEnd" xml:space="preserve">
+    <value>End of the current booking sequence.</value>
+  </data>
+  <data name="Sample_Lunch" xml:space="preserve">
+    <value>Lunch break</value>
+  </data>
+  <data name="Sample_WorkBreak" xml:space="preserve">
+    <value>Work interruption.</value>
+  </data>
+  <data name="Sample_TimeCollectionImplementation" xml:space="preserve">
+    <value>Implement the time collection view.</value>
+  </data>
+  <data name="Sample_UiVerification" xml:space="preserve">
+    <value>Complete and verify the interface.</value>
+  </data>
+  <data name="Sample_Support" xml:space="preserve">
+    <value>Support</value>
+  </data>
+  <data name="Sample_CustomerQuestion" xml:space="preserve">
+    <value>Respond to a customer question.</value>
+  </data>
+  <data name="Sample_UnbookedActivity" xml:space="preserve">
+    <value>Switch to an unbooked activity.</value>
+  </data>
+  <data name="Report_ExportDay_Title" xml:space="preserve">
+    <value>Export day</value>
+  </data>
+  <data name="Report_ExportDay_Heading" xml:space="preserve">
+    <value>CSV export for the selected day</value>
+  </data>
+  <data name="Report_ExportDay_Lead" xml:space="preserve">
+    <value>The day {0:d} is selected for CSV export.</value>
+  </data>
+  <data name="Report_ExportDay_Detail1" xml:space="preserve">
+    <value>Placeholder for file selection, column selection, and export status.</value>
+  </data>
+  <data name="Report_ExportDay_Detail2" xml:space="preserve">
+    <value>A future implementation can start the export here.</value>
+  </data>
+  <data name="Report_ExportPeriod_Title" xml:space="preserve">
+    <value>Export period</value>
+  </data>
+  <data name="Report_ExportPeriod_Heading" xml:space="preserve">
+    <value>CSV export for a period</value>
+  </data>
+  <data name="Report_ExportPeriod_Lead" xml:space="preserve">
+    <value>Dialog placeholder for the start date, end date, and export options.</value>
+  </data>
+  <data name="Report_ExportPeriod_Detail1" xml:space="preserve">
+    <value>Placeholder for period selection, validation, and export status.</value>
+  </data>
+  <data name="Report_ExportPeriod_Detail2" xml:space="preserve">
+    <value>The command is already connected to the menu.</value>
+  </data>
+  <data name="Report_Day_Title" xml:space="preserve">
+    <value>Daily analysis</value>
+  </data>
+  <data name="Report_Day_Heading" xml:space="preserve">
+    <value>Analysis: daily statement</value>
+  </data>
+  <data name="Report_Day_Lead" xml:space="preserve">
+    <value>Dialog placeholder for the daily statement for {0:d}.</value>
+  </data>
+  <data name="Report_Day_Detail1" xml:space="preserve">
+    <value>Planned content: bookings, breaks, and target/actual comparison.</value>
+  </data>
+  <data name="Report_Day_Detail2" xml:space="preserve">
+    <value>Export or printing can be added to this view later.</value>
+  </data>
+  <data name="Report_Week_Title" xml:space="preserve">
+    <value>Weekly analysis</value>
+  </data>
+  <data name="Report_Week_Heading" xml:space="preserve">
+    <value>Analysis: weekly statement</value>
+  </data>
+  <data name="Report_Week_Lead" xml:space="preserve">
+    <value>Dialog placeholder for the weekly overview and target/actual comparison.</value>
+  </data>
+  <data name="Report_Week_Detail1" xml:space="preserve">
+    <value>Planned content: days, totals, and differences.</value>
+  </data>
+  <data name="Report_Week_Detail2" xml:space="preserve">
+    <value>The selection will follow the currently selected date.</value>
+  </data>
+  <data name="Report_Month_Title" xml:space="preserve">
+    <value>Monthly analysis</value>
+  </data>
+  <data name="Report_Month_Heading" xml:space="preserve">
+    <value>Analysis: monthly statement</value>
+  </data>
+  <data name="Report_Month_Lead" xml:space="preserve">
+    <value>Dialog placeholder for the monthly overview, balances, and approvals.</value>
+  </data>
+  <data name="Report_Month_Detail1" xml:space="preserve">
+    <value>Planned content: monthly calendar, total times, and open days.</value>
+  </data>
+  <data name="Report_Month_Detail2" xml:space="preserve">
+    <value>Month-end closing features can be added later.</value>
+  </data>
+  <data name="Report_Tenant_Title" xml:space="preserve">
+    <value>Tenant statistics</value>
+  </data>
+  <data name="Report_Tenant_Heading" xml:space="preserve">
+    <value>Analysis: tenant administration</value>
+  </data>
+  <data name="Report_Tenant_Lead" xml:space="preserve">
+    <value>Dialog placeholder for administrative statistics about users and projects.</value>
+  </data>
+  <data name="Report_Tenant_Detail1" xml:space="preserve">
+    <value>Planned content: utilization, booking quality, and pending approvals.</value>
+  </data>
+  <data name="Report_Tenant_Detail2" xml:space="preserve">
+    <value>This view is prepared as an entry point for administrative analysis.</value>
+  </data>
+  <data name="TaskList_Title" xml:space="preserve"><value>Task list</value></data>
+  <data name="Login_ConnectionRequired" xml:space="preserve"><value>Production requires TASKOTIME_CONNECTION_STRING for a configured Task-o-Time database.</value></data>
+  <data name="Login_InvalidMode" xml:space="preserve"><value>TASKOTIME_MODE must be Demo, LocalDemo, or Production.</value></data>
+  <data name="Login_ModeConfigured" xml:space="preserve"><value>Configured test services</value></data>
+  <data name="Login_TenantMismatch" xml:space="preserve"><value>The configured tenant does not match the signed-in account.</value></data>
+  <data name="Login_ModelConnectionMissing" xml:space="preserve"><value>The EF6 connection TaskOTimeContext is missing from App.config.</value></data>
+  <data name="Login_NoTenants" xml:space="preserve"><value>The configured Task-o-Time database contains no tenants.</value></data>
+  <data name="Login_DatabaseFailed" xml:space="preserve"><value>The configured Task-o-Time SQL database could not be loaded. {0}</value></data>
 </root>

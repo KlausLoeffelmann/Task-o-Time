@@ -527,4 +527,204 @@
   <data name="Login_TenantInactive" xml:space="preserve">
     <value>El cliente está inactivo, eliminado o no disponible.</value>
   </data>
+  <data name="Sample_MyDay" xml:space="preserve">
+    <value>Mi día</value>
+  </data>
+  <data name="Sample_TodayFocus" xml:space="preserve">
+    <value>Prioridades de hoy</value>
+  </data>
+  <data name="Sample_CheckBookings" xml:space="preserve">
+    <value>Revisar registros de tiempo</value>
+  </data>
+  <data name="Sample_CheckBookingsDescription" xml:space="preserve">
+    <value>Comparar los tiempos de hoy con el calendario.</value>
+  </data>
+  <data name="Sample_ClarifyQuestions" xml:space="preserve">
+    <value>Aclarar dudas</value>
+  </data>
+  <data name="Sample_ClarifyQuestionsDescription" xml:space="preserve">
+    <value>Dar seguimiento a los asuntos pendientes de la reunión de la mañana.</value>
+  </data>
+  <data name="Sample_PrepareDayEnd" xml:space="preserve">
+    <value>Preparar el cierre del día</value>
+  </data>
+  <data name="Sample_PrepareDayEndDescription" xml:space="preserve">
+    <value>Recopilar notas y trabajo pendiente antes de terminar la jornada.</value>
+  </data>
+  <data name="Sample_ProjectWork" xml:space="preserve">
+    <value>Trabajo del proyecto</value>
+  </data>
+  <data name="Sample_Deliverables" xml:space="preserve">
+    <value>Entregables en curso</value>
+  </data>
+  <data name="Sample_CoordinateUi" xml:space="preserve">
+    <value>Coordinar la interfaz</value>
+  </data>
+  <data name="Sample_CoordinateUiDescription" xml:space="preserve">
+    <value>Conectar el panel de tareas con el registro de tiempo.</value>
+  </data>
+  <data name="Sample_ServiceContract" xml:space="preserve">
+    <value>Esbozar el contrato del servicio</value>
+  </data>
+  <data name="Sample_ServiceContractDescription" xml:space="preserve">
+    <value>Documentar los campos para futuras tareas del servidor de aplicaciones.</value>
+  </data>
+  <data name="Sample_Later" xml:space="preserve">
+    <value>Más adelante</value>
+  </data>
+  <data name="Sample_FollowUp" xml:space="preserve">
+    <value>Seguimiento</value>
+  </data>
+  <data name="Sample_Waiting" xml:space="preserve">
+    <value>A la espera de respuesta</value>
+  </data>
+  <data name="Sample_GetApproval" xml:space="preserve">
+    <value>Obtener aprobación</value>
+  </data>
+  <data name="Sample_GetApprovalDescription" xml:space="preserve">
+    <value>Solicitar una actualización al departamento correspondiente.</value>
+  </data>
+  <data name="Sample_Tomorrow" xml:space="preserve">
+    <value>Mañana</value>
+  </data>
+  <data name="Sample_UpdateDocumentation" xml:space="preserve">
+    <value>Actualizar documentación</value>
+  </data>
+  <data name="Sample_UpdateDocumentationDescription" xml:space="preserve">
+    <value>Preparar una breve nota sobre el uso del estado de las tareas.</value>
+  </data>
+  <data name="Task_EditedTitle" xml:space="preserve">
+    <value>Editado: {0}</value>
+  </data>
+  <data name="Task_EditDescription" xml:space="preserve">
+    <value>La tarea se modificó mediante la acción de edición preparada.</value>
+  </data>
+  <data name="Sample_DayPlanning" xml:space="preserve">
+    <value>Planificación del día</value>
+  </data>
+  <data name="Sample_DayPlanningDescription" xml:space="preserve">
+    <value>Organizar las prioridades y tareas del día.</value>
+  </data>
+  <data name="Sample_BookingChainEnd" xml:space="preserve">
+    <value>Fin de la secuencia actual de registros.</value>
+  </data>
+  <data name="Sample_Lunch" xml:space="preserve">
+    <value>Pausa para almorzar</value>
+  </data>
+  <data name="Sample_WorkBreak" xml:space="preserve">
+    <value>Interrupción del trabajo.</value>
+  </data>
+  <data name="Sample_TimeCollectionImplementation" xml:space="preserve">
+    <value>Implementar la vista de registro de tiempo.</value>
+  </data>
+  <data name="Sample_UiVerification" xml:space="preserve">
+    <value>Completar y verificar la interfaz.</value>
+  </data>
+  <data name="Sample_Support" xml:space="preserve">
+    <value>Soporte</value>
+  </data>
+  <data name="Sample_CustomerQuestion" xml:space="preserve">
+    <value>Responder a una consulta del cliente.</value>
+  </data>
+  <data name="Sample_UnbookedActivity" xml:space="preserve">
+    <value>Cambiar a una actividad sin registro.</value>
+  </data>
+  <data name="Report_ExportDay_Title" xml:space="preserve">
+    <value>Exportar día</value>
+  </data>
+  <data name="Report_ExportDay_Heading" xml:space="preserve">
+    <value>Exportación CSV del día seleccionado</value>
+  </data>
+  <data name="Report_ExportDay_Lead" xml:space="preserve">
+    <value>El día {0:d} está seleccionado para exportar a CSV.</value>
+  </data>
+  <data name="Report_ExportDay_Detail1" xml:space="preserve">
+    <value>Vista provisional para seleccionar archivo y columnas y mostrar el estado de exportación.</value>
+  </data>
+  <data name="Report_ExportDay_Detail2" xml:space="preserve">
+    <value>Una futura implementación podrá iniciar aquí la exportación.</value>
+  </data>
+  <data name="Report_ExportPeriod_Title" xml:space="preserve">
+    <value>Exportar período</value>
+  </data>
+  <data name="Report_ExportPeriod_Heading" xml:space="preserve">
+    <value>Exportación CSV de un período</value>
+  </data>
+  <data name="Report_ExportPeriod_Lead" xml:space="preserve">
+    <value>Diálogo provisional para las fechas de inicio y fin y las opciones de exportación.</value>
+  </data>
+  <data name="Report_ExportPeriod_Detail1" xml:space="preserve">
+    <value>Vista provisional para seleccionar el período, validarlo y mostrar el estado de exportación.</value>
+  </data>
+  <data name="Report_ExportPeriod_Detail2" xml:space="preserve">
+    <value>El comando ya está conectado al menú.</value>
+  </data>
+  <data name="Report_Day_Title" xml:space="preserve">
+    <value>Análisis diario</value>
+  </data>
+  <data name="Report_Day_Heading" xml:space="preserve">
+    <value>Análisis: informe diario</value>
+  </data>
+  <data name="Report_Day_Lead" xml:space="preserve">
+    <value>Diálogo provisional para el informe diario del {0:d}.</value>
+  </data>
+  <data name="Report_Day_Detail1" xml:space="preserve">
+    <value>Contenido previsto: registros, pausas y comparación entre tiempo previsto y real.</value>
+  </data>
+  <data name="Report_Day_Detail2" xml:space="preserve">
+    <value>La exportación o impresión se podrá añadir más adelante.</value>
+  </data>
+  <data name="Report_Week_Title" xml:space="preserve">
+    <value>Análisis semanal</value>
+  </data>
+  <data name="Report_Week_Heading" xml:space="preserve">
+    <value>Análisis: informe semanal</value>
+  </data>
+  <data name="Report_Week_Lead" xml:space="preserve">
+    <value>Diálogo provisional para el resumen semanal y la comparación entre tiempo previsto y real.</value>
+  </data>
+  <data name="Report_Week_Detail1" xml:space="preserve">
+    <value>Contenido previsto: días, totales y diferencias.</value>
+  </data>
+  <data name="Report_Week_Detail2" xml:space="preserve">
+    <value>La selección se basará en la fecha seleccionada.</value>
+  </data>
+  <data name="Report_Month_Title" xml:space="preserve">
+    <value>Análisis mensual</value>
+  </data>
+  <data name="Report_Month_Heading" xml:space="preserve">
+    <value>Análisis: informe mensual</value>
+  </data>
+  <data name="Report_Month_Lead" xml:space="preserve">
+    <value>Diálogo provisional para el resumen mensual, los saldos y las aprobaciones.</value>
+  </data>
+  <data name="Report_Month_Detail1" xml:space="preserve">
+    <value>Contenido previsto: calendario mensual, tiempos totales y días pendientes.</value>
+  </data>
+  <data name="Report_Month_Detail2" xml:space="preserve">
+    <value>Las funciones de cierre mensual se podrán añadir más adelante.</value>
+  </data>
+  <data name="Report_Tenant_Title" xml:space="preserve">
+    <value>Estadísticas del cliente</value>
+  </data>
+  <data name="Report_Tenant_Heading" xml:space="preserve">
+    <value>Análisis: administración del cliente</value>
+  </data>
+  <data name="Report_Tenant_Lead" xml:space="preserve">
+    <value>Diálogo provisional para estadísticas administrativas de usuarios y proyectos.</value>
+  </data>
+  <data name="Report_Tenant_Detail1" xml:space="preserve">
+    <value>Contenido previsto: utilización, calidad de los registros y aprobaciones pendientes.</value>
+  </data>
+  <data name="Report_Tenant_Detail2" xml:space="preserve">
+    <value>Esta vista está preparada como punto de entrada para análisis administrativos.</value>
+  </data>
+  <data name="TaskList_Title" xml:space="preserve"><value>Lista de tareas</value></data>
+  <data name="Login_ConnectionRequired" xml:space="preserve"><value>Production requiere TASKOTIME_CONNECTION_STRING para una base de datos Task-o-Time configurada.</value></data>
+  <data name="Login_InvalidMode" xml:space="preserve"><value>TASKOTIME_MODE debe ser Demo, LocalDemo o Production.</value></data>
+  <data name="Login_ModeConfigured" xml:space="preserve"><value>Servicios de prueba configurados</value></data>
+  <data name="Login_TenantMismatch" xml:space="preserve"><value>El cliente configurado no coincide con la cuenta que ha iniciado sesión.</value></data>
+  <data name="Login_ModelConnectionMissing" xml:space="preserve"><value>Falta la conexión EF6 TaskOTimeContext en App.config.</value></data>
+  <data name="Login_NoTenants" xml:space="preserve"><value>La base de datos Task-o-Time configurada no contiene clientes.</value></data>
+  <data name="Login_DatabaseFailed" xml:space="preserve"><value>No se pudo cargar la base de datos SQL Task-o-Time configurada. {0}</value></data>
 </root>

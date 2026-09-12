@@ -13,7 +13,7 @@ namespace TaskOTime.ViewModel.ViewModels
         private bool _restoreMainWindowPlacement = true;
         private bool _saturdayIsWorkday;
         private bool _sundayIsWorkday;
-        // Zwei Wochen als Startwert erschien mir erstmal uebersichtlicher.
+        // Default to two weeks of booked dates.
         private int _bookedDateRangeCount = 14;
         private string _bookedDateRangeUnit = "Tage";
         private string _cultureName = LocalizationService.Current.Culture.Name;
@@ -46,12 +46,12 @@ namespace TaskOTime.ViewModel.ViewModels
             }
             set
             {
-                // Mit der Meldung merkt sich das Fenster seine Position dann vermutlich auch gleich dauerhaft.
+                // Notify the draft binding; persistence occurs only when Options is accepted.
                 SetProperty(ref _restoreMainWindowPlacement, value, nameof(RestoreMainWindowPlacement));
             }
         }
 
-        // Beide Wochenend-Haekchen getrennt, sonst kann man den Samstag garnicht einzeln waehlen.
+        // Weekend workdays can be enabled independently.
         public bool SaturdayIsWorkday
         {
             get
@@ -84,7 +84,7 @@ namespace TaskOTime.ViewModel.ViewModels
             }
             set
             {
-                // Eingabe erstmal zwischen 3 und 56 halten, die Zahl kommt ja direkt aus dem Dialog..
+                // Normalize the numeric input to the existing supported range.
                 int normalized = Math.Max(3, Math.Min(56, value));
                 if (SetProperty(ref _bookedDateRangeCount, normalized, nameof(BookedDateRangeCount)))
                 {
@@ -101,7 +101,7 @@ namespace TaskOTime.ViewModel.ViewModels
             }
             set
             {
-                // Nur Wochen extra erkennen; alles andere bleibt die Tagesauswahl
+                // Retain the stored week identifier; other input selects days.
                 string normalized = string.Equals(value, "Wochen", StringComparison.OrdinalIgnoreCase) ? "Wochen" : "Tage";
                 if (SetProperty(ref _bookedDateRangeUnit, normalized, nameof(BookedDateRangeUnit)))
                 {
@@ -142,9 +142,7 @@ namespace TaskOTime.ViewModel.ViewModels
             };
         }
 
-        // TODO: Beser bei Dutch nochmal nachfragen, weil, hier koennte das vielleicht sogar umgekehrt besser sein.
-        // Aber aufpassen, dass man einen Moment erwischt wo er wirklich zeit hat, und mach Notitsen!!
-        // Vielleicht lieber erst alle Fragen sammeln; wegen so einer kleinen Sache moechte ich nicht stoeren.
+        // Changing the unit applies its existing range constraints.
         private void NormalizeRangeForUnit()
         {
             if (BookedDateRangeUnit == "Wochen")

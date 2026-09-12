@@ -236,7 +236,7 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void ShowExportSelectedDayDialog()
         {
-            RequestDialog("Tag exportieren", "CSV-Export für den ausgewählten Tag", string.Format("Der Tag {0:dd.MM.yyyy} ist für den CSV-Export vorgemerkt.", SelectedDate), "Platzhalter für Dateiauswahl, Spaltenauswahl und Exportstatus.", "Die spätere Implementierung kann hier den Exportauftrag starten.");
+            RequestLocalizedDialog("Report_ExportDay", SelectedDate);
         }
 
         private void ShowOptionsDialog()
@@ -268,7 +268,7 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void ShowExportPeriodDialog()
         {
-            RequestDialog("Zeitraum exportieren", "CSV-Export für einen Zeitraum", "Dialoghülle für Startdatum, Enddatum und Exportoptionen.", "Platzhalter für Periodenauswahl, Validierung und Exportstatus.", "Der Befehl ist bereits für die Menübindung vorbereitet.");
+            RequestLocalizedDialog("Report_ExportPeriod");
         }
 
         private void ShowProjectsDialog()
@@ -293,27 +293,32 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void ShowDailyStatementDialog()
         {
-            RequestDialog("Tagesauswertung", "Analyse: Tagesnachweis", string.Format("Dialoghülle für den Tagesnachweis vom {0:dd.MM.yyyy}.", SelectedDate), "Geplante Inhalte: Buchungen, Pausen, Soll/Ist-Abgleich.", "Export oder Druck kann später an diese Ansicht angebunden werden.");
+            RequestLocalizedDialog("Report_Day", SelectedDate);
         }
 
         private void ShowWeeklyStatementDialog()
         {
-            RequestDialog("Wochenauswertung", "Analyse: Wochennachweis", "Dialoghülle für Wochenübersicht und Soll/Ist-Vergleich.", "Geplante Inhalte: Tage, Summen, Abweichungen.", "Die Auswahl orientiert sich künftig am aktuell gewählten Datum.");
+            RequestLocalizedDialog("Report_Week");
         }
 
         private void ShowMonthlyStatementDialog()
         {
-            RequestDialog("Monatsauswertung", "Analyse: Monatsnachweis", "Dialoghülle für Monatsübersicht, Salden und Freigaben.", "Geplante Inhalte: Monatskalender, Gesamtzeiten, offene Tage.", "Die spätere Implementierung kann Monatsabschluss-Funktionen ergänzen.");
+            RequestLocalizedDialog("Report_Month");
         }
 
         private void ShowTenantAdminStatisticsDialog()
         {
-            RequestDialog("Mandantenstatistik", "Analyse: Mandanten-Administration", "Dialoghülle für administrative Statistiken über Benutzer und Projekte.", "Geplante Inhalte: Auslastung, Buchungsqualität, offene Freigaben.", "Diese Ansicht ist als Einstieg für Admin-Auswertungen vorbereitet.");
+            RequestLocalizedDialog("Report_Tenant");
         }
 
-        private void RequestDialog(string title, string heading, string leadText, params string[] details)
+        private void RequestLocalizedDialog(string resourcePrefix, params object[] leadArguments)
         {
-            DialogRequested?.Invoke(this, new DialogRequestedEventArgs(new DialogShellViewModel(title, heading, leadText, details)));
+            DialogRequested?.Invoke(this, new DialogRequestedEventArgs(new DialogShellViewModel(
+                new LocalizedMessage(resourcePrefix + "_Title"),
+                new LocalizedMessage(resourcePrefix + "_Heading"),
+                new LocalizedMessage(resourcePrefix + "_Lead", leadArguments),
+                new LocalizedMessage(resourcePrefix + "_Detail1"),
+                new LocalizedMessage(resourcePrefix + "_Detail2"))));
         }
 
         private void OnTaskListEditRequested(object sender, TaskListEditRequestEventArgs e)

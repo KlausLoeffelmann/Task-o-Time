@@ -13,8 +13,8 @@ before the next sign-in window; a restart is not required to apply it.
 `TaskOTime.ViewModel\Localization` provides a shared
 `Microsoft.Extensions.Localization` resource-manager localizer. The pinned
 10.0.0 package contains .NET Framework 4.6.2, .NET Standard 2.0, and .NET 10
-assets; this application remains on **.NET Framework 4.7.2**. Framework
-migration is a separate change.
+assets. Localization was introduced on .NET Framework 4.7.2; the separately
+approved integration baseline now targets **.NET 10 for Windows**.
 
 `Resources\Strings.resx` is neutral English. `Strings.de.resx`,
 `Strings.nl.resx`, and `Strings.es.resx` have the same keys and translated
@@ -32,6 +32,18 @@ refresh computed text without retaining discarded view models. Stateful
 messages retain resource keys and arguments, not pretranslated strings.
 Clock input accepts the culture's short time and the editor's 24-hour form;
 elapsed durations remain durations, not calendar dates.
+
+The provider exposes framework-neutral `CultureInfo` and `CultureName` values.
+The WPF markup and `XmlLanguage` conversion live under `Views\Localization`,
+retaining the existing markup namespace for XAML compatibility. App startup
+registers the dispatcher-backed `ICultureChangeContext` before applying saved
+options and releases it on exit. Culture mutation on a worker thread is rejected
+while the WPF host is registered; notification and binding updates stay on its
+UI thread. Headless hosts need no WPF application and can supply their own access
+policy. Scoped policies are released in reverse registration order.
+`WeakNotifications` observes property and collection changes with weak recipients
+and non-capturing callbacks, removes dead recipients on notification, and supports
+immediate disposal. Providers and model code do not use WPF weak-event managers.
 
 Sign-in and temporary-password changes show the translated `TenantInactive`
 reason when the authentication service rejects an inactive, deleted, or
@@ -55,14 +67,29 @@ service request. The Project editor validates a blank name before saving.
 User-entered drafts and selected project identity survive language changes.
 New project names are localized when created, but their persisted identifier
 `NEW` remains invariant.
-Other maintenance and placeholder report dialogs are outside this scope.
+Main-menu export/report placeholders retain their existing behavior, with live
+localized headings, date formatting, details, and close tooltip. Editable sample
+tasks, task-list defaults, and sample bookings use the selected language at
+creation; later language changes do not overwrite these or user-authored content.
+The Main task-list editor uses live labels and preserves its draft. Server task
+due dates remain date values in the display model, so their short-date text
+refreshes when language changes. Startup configuration errors use the same real
+catalog and retain underlying database diagnostic details.
+Other maintenance tabs remain outside the four-surface translation scope.
+The unused empty App resource/designer pair and obsolete single-string XAML
+dictionary have been removed; the close tooltip uses the shared real catalog.
 
 Run localization resource, fallback, options, parsing, weak-subscription, and
 STA UI-binding tests without accessing SQL:
 
 ```powershell
 dotnet test .\TaskOTime.Localization.Tests\TaskOTime.Localization.Tests.csproj
+dotnet test .\TaskOTime.Localization.Core.Tests\TaskOTime.Localization.Core.Tests.csproj
 ```
+
+The second project compiles the actual provider, base classes, and representative
+maintenance/booking models for plain `net10.0`, without WindowsDesktop references,
+and exercises real satellite lookups, host-policy lifetime, and weak notifications.
 
 Build on Windows using the .NET 10 SDK pinned by the repository's `global.json`.
 The application uses SDK-style projects, production C#, and EF6 6.5.2 with SQL

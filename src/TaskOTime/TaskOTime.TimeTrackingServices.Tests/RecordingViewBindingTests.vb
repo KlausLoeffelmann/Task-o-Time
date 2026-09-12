@@ -48,7 +48,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Dim restorePlacement As Object = Nothing
             Try
                 application = New Application With {.ShutdownMode = ShutdownMode.OnExplicitShutdown}
-                For Each resource In {"Themes/ClassicDark.xaml", "Resources/Strings.xaml"}
+                For Each resource In {"Themes/ClassicDark.xaml"}
                     application.Resources.MergedDictionaries.Add(
                         DirectCast(Application.LoadComponent(
                             New Uri("/TaskOTime.App;component/" & resource, UriKind.Relative)), ResourceDictionary))

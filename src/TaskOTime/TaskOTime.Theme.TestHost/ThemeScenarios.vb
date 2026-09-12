@@ -622,8 +622,6 @@ Namespace TaskOTime.Theme.TestHost
                     Dim application As New Application With {.ShutdownMode = ShutdownMode.OnExplicitShutdown}
                     application.Resources.MergedDictionaries.Add(New ResourceDictionary With {
                         .Source = New Uri("/TaskOTime.App;component/Themes/ClassicDark.xaml", UriKind.Relative)})
-                    application.Resources.MergedDictionaries.Add(New ResourceDictionary With {
-                        .Source = New Uri("/TaskOTime.App;component/Resources/Strings.xaml", UriKind.Relative)})
                     Dim services As New TestApplicationServices()
                     Dim user = services.GetTenantUsers(services.Tenant.IdTenant).Value.Single()
                     Dim authentication As New TestAuthenticationService(user, "Theme-test-password-42")
@@ -701,8 +699,6 @@ Namespace TaskOTime.Theme.TestHost
                     Dim application As New Application With {.ShutdownMode = ShutdownMode.OnExplicitShutdown}
                     application.Resources.MergedDictionaries.Add(New ResourceDictionary With {
                         .Source = New Uri("/TaskOTime.App;component/Themes/ClassicDark.xaml", UriKind.Relative)})
-                    application.Resources.MergedDictionaries.Add(New ResourceDictionary With {
-                        .Source = New Uri("/TaskOTime.App;component/Resources/Strings.xaml", UriKind.Relative)})
                     Dim window As Window = Nothing
                     Dim environment As New TestThemeEnvironment()
                     Try

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.ObjectModel;
-using System.Collections.Specialized;
 using System.Linq;
 using TaskOTime.AppServer.Models;
 using TaskOTime.ViewModel.Base;
@@ -19,12 +18,12 @@ namespace TaskOTime.ViewModel.ViewModels
             NewCommand = Command(NewProject);
             SaveCommand = Command(SaveProject, () => SelectedProject != null);
             ArchiveCommand = Command(ArchiveProject, () => SelectedProject != null);
-            CollectionChangedEventManager.AddHandler(Projects, OnProjectsChanged);
+            WeakNotifications.SubscribeCollectionChanged(Projects, this, static target => target.OnProjectsChanged());
             SelectedProject = Projects.FirstOrDefault();
             SetStatus("Project_Ready");
         }
 
-        private void OnProjectsChanged(object sender, NotifyCollectionChangedEventArgs e)
+        private void OnProjectsChanged()
         {
             var selectedId = SelectedProject?.IdProject;
             SelectedProject = Projects.FirstOrDefault(project => project.IdProject == selectedId)
