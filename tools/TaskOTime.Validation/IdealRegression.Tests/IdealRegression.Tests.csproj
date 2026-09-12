@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework Condition="'$(ValidationFramework)' == ''">net472</TargetFramework>
+    <TargetFramework Condition="'$(ValidationFramework)' == ''">net10.0-windows</TargetFramework>
     <TargetFramework Condition="'$(ValidationFramework)' != ''">$(ValidationFramework)</TargetFramework>
     <UseWPF>true</UseWPF>
     <IsPackable>false</IsPackable>

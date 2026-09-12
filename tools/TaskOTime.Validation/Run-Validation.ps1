@@ -3,7 +3,7 @@ param(
     [switch] $IncludeSql,
     [switch] $IncludeIdeal,
     [string] $ApplicationRoot = '..\..\src\TaskOTime',
-    [string] $ValidationFramework = 'net472'
+    [string] $ValidationFramework = 'net10.0-windows'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -24,6 +24,13 @@ try {
 
     $source = (Resolve-Path $ApplicationRoot).Path
     $stageArguments = @("-p:ApplicationRoot=$source", "-p:ValidationFramework=$ValidationFramework")
+    Invoke-Validation 'stage-prerequisites' (@(
+        'msbuild', 'FixtureRunner\FixtureRunner.csproj', '-nologo',
+        '-target:ValidateValidationFramework'
+    ) + $stageArguments)
+    if (!$results[$results.Count - 1].passed) {
+        throw "ApplicationRoot and ValidationFramework do not match. See $run\stage-prerequisites.log."
+    }
     Invoke-Validation 'appserver' @(
         'test', "$source\TaskOTime.AppServer.Tests\TaskOTime.AppServer.Tests.csproj",
         '--logger', 'trx;LogFileName=appserver.trx', '--results-directory', $run
