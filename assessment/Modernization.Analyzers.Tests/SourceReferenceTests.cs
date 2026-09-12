@@ -18,6 +18,36 @@ public sealed class SourceReferenceTests
         false, true, [], [], IsolatedRefPath);
 
     [Theory]
+    [InlineData("{}", true)]
+    [InlineData("{\"ReferenceOutputAssembly\":\"\"}", true)]
+    [InlineData("{\"ReferenceOutputAssembly\":\"true\"}", true)]
+    [InlineData("{\"ReferenceOutputAssembly\":\"FALSE\"}", false)]
+    public void Only_evaluated_false_suppresses_the_compiler_reference_requirement(string json, bool expected)
+    {
+        using var metadata = JsonDocument.Parse(json);
+        Assert.Equal(expected, CompilerInputLoader.RequiresCompilerReference(metadata.RootElement));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Build_only_test_harness_role_does_not_hide_production_consumers(bool productionConsumer)
+    {
+        const string root = @"C:\fixture";
+        var helper = Library() with { IsTooling = false };
+        LoadedProject Consumer(string name, bool test, bool outputAssembly) =>
+            new(root + "\\" + name + ".csproj", name, "", helper.Compilation, test, false, [],
+                [new InputFile(root + "\\" + name + ".csproj.assessment",
+                    $"""<Project><ProjectReference Path="{helper.Path}" ReferenceOutputAssembly="{outputAssembly.ToString().ToLowerInvariant()}"/></Project>""")]);
+        var test = Consumer("Assertions", true, false);
+        var projects = productionConsumer ? new[] { helper, test, Consumer("Product", false, true) } : [helper, test];
+        Assert.Equal(!productionConsumer, CompilerInputLoader.ClassifyTestSupport(projects, root).Single(p => p.Path == helper.Path).IsTest);
+        // A suggestive name alone does not confer a helper role.
+        var standalone = helper with { Path = root + @"\CaptureHost\CaptureHost.csproj" };
+        Assert.False(CompilerInputLoader.ClassifyTestSupport([standalone], root)[0].IsTest);
+    }
+
+    [Theory]
     [InlineData("TargetPath")]
     [InlineData("TargetRefPath")]
     [InlineData("ReferenceAssembly")]

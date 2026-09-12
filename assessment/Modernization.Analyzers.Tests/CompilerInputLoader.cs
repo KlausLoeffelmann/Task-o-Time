@@ -83,8 +83,13 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
         var items = json.RootElement.GetProperty("Items");
         var properties = json.RootElement.GetProperty("Properties");
         var dependencies = new List<LoadedProject>();
+        var compilerDependencies = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var reference in items.GetProperty("ProjectReference").EnumerateArray())
-            dependencies.Add(await Load(reference.GetProperty("FullPath").GetString()!));
+        {
+            var dependency = await Load(reference.GetProperty("FullPath").GetString()!);
+            dependencies.Add(dependency);
+            if (RequiresCompilerReference(reference)) compilerDependencies.Add(dependency.Path);
+        }
         var vb = Path.GetExtension(projectPath).Equals(".vbproj", StringComparison.OrdinalIgnoreCase);
         var arguments = items.GetProperty(vb ? "VbcCommandLineArgs" : "CscCommandLineArgs")
             .EnumerateArray().Select(a => a.GetProperty("Identity").GetString()!).ToArray();
@@ -111,7 +116,7 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             }
             else references.Add(MetadataReference.CreateFromFile(referencePath, reference.Properties));
         }
-        foreach (var dependency in dependencies.Except(replaced))
+        foreach (var dependency in dependencies.Except(replaced).Where(d => compilerDependencies.Contains(d.Path)))
         {
             // A missing compiler reference is evidence of broken inputs, not permission to guess a reference.
             throw new InvalidOperationException($"Compiler input for {projectPath} omits project reference {dependency.OutputPath}");
@@ -172,7 +177,8 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             items.GetProperty("PackageReference").EnumerateArray().Select(a =>
                 new XElement("Package", new XAttribute("Name", a.GetProperty("Identity").GetString()!),
                     new XAttribute("Version", a.TryGetProperty("Version", out var v) ? v.GetString() ?? "" : ""))),
-            dependencies.Select(d => new XElement("ProjectReference", new XAttribute("Path", d.Path))),
+            dependencies.Select(d => new XElement("ProjectReference", new XAttribute("Path", d.Path),
+                new XAttribute("ReferenceOutputAssembly", compilerDependencies.Contains(d.Path)))),
             items.GetProperty("EmbeddedResource").EnumerateArray().Where(a =>
                 Path.GetExtension(a.GetProperty("FullPath").GetString()!).Equals(".resx", StringComparison.OrdinalIgnoreCase))
                 .Select(a => new XElement("Resource", new XAttribute("Path", a.GetProperty("FullPath").GetString()!),
@@ -195,6 +201,10 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
             Path.GetFullPath(path).ToUpperInvariant() + "\n" + configuration + "\n" + profile)));
 
+    internal static bool RequiresCompilerReference(JsonElement reference) =>
+        !reference.TryGetProperty("ReferenceOutputAssembly", out var value) ||
+        !string.Equals(value.GetString(), "false", StringComparison.OrdinalIgnoreCase);
+
     internal static ProjectState ReadState(string path, string language, bool test, bool tooling, JsonElement properties)
     {
         string Value(string key) => properties.TryGetProperty(key, out var value) ? value.GetString() ?? "" : "";
@@ -208,17 +218,23 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
         var all = projects.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
         bool InTestDirectory(string path) => Path.GetRelativePath(sourceRoot, path).Split(Path.DirectorySeparatorChar)
             .SkipLast(1).Any(s => s.EndsWith("Tests", StringComparison.Ordinal));
+        XElement[] References(LoadedProject p) => p.AdditionalFiles.Where(f => f.Path == p.Path + ".assessment")
+            .SelectMany(f => Evidence.Xml(f).Descendants("ProjectReference")).ToArray();
+        // Build-only executable dependencies of tests are harnesses, not shipped assemblies.
+        // A production consumer always takes precedence over this test role.
+        var helpers = all.Values.Where(p => p.IsTest).SelectMany(References)
+            .Where(e => string.Equals(e.Attribute("ReferenceOutputAssembly")?.Value, "false", StringComparison.OrdinalIgnoreCase))
+            .Select(e => e.Attribute("Path")?.Value).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
         var production = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var pending = new Stack<LoadedProject>(all.Values.Where(p => !p.IsTest && !InTestDirectory(p.Path)));
+        var pending = new Stack<LoadedProject>(all.Values.Where(p => !p.IsTest && !InTestDirectory(p.Path) && !helpers.Contains(p.Path)));
         while (pending.TryPop(out var current))
         {
             if (!production.Add(current.Path)) continue;
-            foreach (var file in current.AdditionalFiles.Where(f => f.Path == current.Path + ".assessment"))
-            foreach (var reference in Evidence.Xml(file).Descendants("ProjectReference"))
+            foreach (var reference in References(current))
                 if (reference.Attribute("Path")?.Value is { } path && all.TryGetValue(path, out var dependency))
                     pending.Push(dependency);
         }
-        return all.Values.Select(p => !p.IsTest && InTestDirectory(p.Path) && !production.Contains(p.Path)
+        return all.Values.Select(p => !p.IsTest && (InTestDirectory(p.Path) || helpers.Contains(p.Path)) && !production.Contains(p.Path)
             ? p with { IsTest = true, State = p.State == null ? null : p.State with { Test = true } } : p).ToArray();
     }
 
