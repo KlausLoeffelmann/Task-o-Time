@@ -13,6 +13,7 @@ param(
     [string]$CheckpointBindingFile,
     [string[]]$OutputProjects,
     [switch]$Unsupported,
+    [string]$UnsupportedContractFile,
     [switch]$Idempotent,
     [ValidateRange(60,600)][int]$CliTimeoutSeconds=120,
     [ValidateRange(60,900)][int]$TimeoutSeconds=240
@@ -20,9 +21,11 @@ param(
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'CompilerPlan.ps1')
 . (Join-Path $PSScriptRoot 'ReplayVerification.ps1')
+. (Join-Path $PSScriptRoot 'UnsupportedEvidence.ps1')
 if($Name -notmatch '^[A-Za-z0-9_.-]+$' -or ($Unsupported -and ($ExpectedOutputRoot -or $Idempotent -or $EvidenceFile)) -or
     (-not $Unsupported -and -not $ExpectedOutputRoot)) { throw 'Invalid isolated case contract.' }
 if($Unsupported -and ($CheckpointBindingFile -or $OutputProjects)) { throw 'Unsupported cases cannot claim compilation or checkpoint success.' }
+if([bool]$Unsupported -ne [bool]$UnsupportedContractFile) { throw 'Unsupported cases require a trusted case-specific unsupported contract, and positive cases cannot supply one.' }
 $checkpointHash=$(if($CheckpointBindingFile) { Get-CompilerFileHash $CheckpointBindingFile } else { $null })
 $checkpoint=$(if($CheckpointBindingFile) { Get-Content -LiteralPath $CheckpointBindingFile -Raw | ConvertFrom-Json } else { $null })
 function Snapshot([string]$root) {
@@ -52,6 +55,22 @@ foreach($file in $binary.Keys) {
 $inputHash=SnapshotHash (Snapshot $InputRoot)
 $binaryHash=SnapshotHash $binary
 $expectedHash=$(if($ExpectedOutputRoot) { SnapshotHash (Snapshot $ExpectedOutputRoot) } else { $null })
+$unsupportedContract=$null; $unsupportedContractHash=$null
+if($Unsupported) {
+    $contractPath=(Resolve-Path -LiteralPath $UnsupportedContractFile).Path
+    $assessment=(Split-Path $PSScriptRoot -Parent).TrimEnd('\')
+    if(-not $contractPath.StartsWith($assessment+'\',[StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Unsupported expectations must be in the private assessor tree.'
+    }
+    foreach($exposedRoot in @($runtime.BinaryRoot,$InputRoot,(Join-Path $env:ProgramFiles 'dotnet'),$PublicPackageRoot,$PublicFrameworkRoot) | Where-Object { $_ }) {
+        $exposed=(Resolve-Path -LiteralPath $exposedRoot).Path.TrimEnd('\')
+        if($contractPath.StartsWith($exposed+'\',[StringComparison]::OrdinalIgnoreCase)) {
+            throw 'Unsupported expectations must not be inside a staged or mapped root.'
+        }
+    }
+    $unsupportedContractHash=Get-CompilerFileHash $contractPath
+    $unsupportedContract=Read-UnsupportedContract $contractPath $Name (Get-ReplayTreeHash (Get-ReplayTree $InputRoot))
+}
 $runRoot=Join-Path (Split-Path $PSScriptRoot -Parent) ('Artifacts\isolated-case-'+$Name+'-'+[guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $runRoot | Out-Null
 $runs=New-Object 'Collections.Generic.List[object]'
@@ -73,6 +92,7 @@ $report=[ordered]@{
     ExpectedRoot=$(if($ExpectedOutputRoot) { (Resolve-Path $ExpectedOutputRoot).Path } else { $null })
     Command=@{ EntryAssembly=$runtime.EntryAssembly; Arguments=$CommandArguments }
     EvidenceContract=@{ FileName=$EvidenceFile; StatusProperty=$EvidenceStatusProperty; SuccessValue=$EvidenceSuccessValue }
+    UnsupportedContractSha256=$unsupportedContractHash; UnsupportedContract=$unsupportedContract
 }
 try {
     $initialOutput=$null; $initialHash=$null
@@ -86,11 +106,10 @@ try {
         $actual=Join-Path $execution.Export 'output'
         $actualFiles=$(if(Test-Path -LiteralPath $actual -PathType Container) { Snapshot $actual } else { $null })
         if($Unsupported) {
-            $text=Get-Content (Join-Path $execution.Export 'cli.stdout'),(Join-Path $execution.Export 'cli.stderr') -Raw
-            if($execution.ExitCode -eq 0 -or [string]::IsNullOrWhiteSpace(($text -join '')) -or
-                ($actualFiles -and $actualFiles.Count -gt 0) -or (Test-Path -LiteralPath $actual -PathType Leaf)) {
-                throw 'Unsupported input did not fail diagnostically without partial output.'
-            }
+            $stdout=[IO.File]::ReadAllText((Join-Path $execution.Export 'cli.stdout'))
+            $stderr=[IO.File]::ReadAllText((Join-Path $execution.Export 'cli.stderr'))
+            $hasOutput=($actualFiles -and $actualFiles.Count -gt 0) -or (Test-Path -LiteralPath $actual -PathType Leaf)
+            Assert-UnsupportedEvidence $unsupportedContract $execution.ExitCode $stdout $stderr $hasOutput
         }
         else {
             if($execution.HostExpectedBytesMatched -ne $true) { throw 'Host frozen expectation comparison did not pass.' }
@@ -108,6 +127,7 @@ try {
             (SnapshotHash (Snapshot $InputRoot)) -cne $inputHash -or
             (SnapshotHash (Snapshot $runtime.BinaryRoot)) -cne $binaryHash -or
             (Get-CompilerFileHash $RuntimeManifest) -cne $report.RuntimeManifestSha256 -or
+            ($Unsupported -and (Get-CompilerFileHash $UnsupportedContractFile) -cne $unsupportedContractHash) -or
             ($ExpectedOutputRoot -and (SnapshotHash (Snapshot $ExpectedOutputRoot)) -cne $expectedHash)) {
             throw 'Host fixture, oracle or producer artifact changed during execution.'
         }

@@ -197,26 +197,103 @@ Each initial/repeat/idempotent execution uses a fresh VM. The host verifies the
 runtime's complete file set/hashes, freezes input and expected snapshots before
 execution, and independently compares every emitted file except the exact
 declared execution JSON. The status/schema and raw JSON hash are verified on
-every run. `-Unsupported` instead requires a real nonzero exit, diagnostics and
-no emitted partial output; it cannot be combined with positive expectations or
+every run. `-Unsupported` requires `-UnsupportedContractFile`: an exact
+case/input-bound expected exit code **and specific unsupported diagnostic/status**,
+with no emitted partial output. An arbitrary nonzero exit plus diagnostics is
+not sufficient; access-denied, dependency, runtime and evaluation failures fail
+the contract. It cannot be combined with positive expectations or
 idempotence. No manifest `OutputFiles` list selects comparison files.
 
 The case result is intentionally named **`OutputChecksPassed`**, not formal
-acceptance. `OutputCompilationVerified`, `BehaviorVerified` and
-`BaselineCheckpointVerified` remain false: this helper does not pretend those
-additional requirements have run. No whole-replay signer is implemented here.
+acceptance. Without explicit additional verification, `OutputCompilationVerified`,
+`BehaviorVerified` and `BaselineCheckpointVerified` remain false. No whole-replay
+signer is implemented here.
 
-Actual project-producer runs passed initial/repeat/idempotent normalization and
-unsupported-downgrade checks:
+Historical runtime-packet observations covered initial/repeat/idempotent
+normalization and the former weak unsupported-downgrade predicate:
 
 - `Artifacts\isolated-case-project-normalize-single-line-heldout-1e7a4aed31cd4973a1f8829d865c9313\case-observation.json`
 - `Artifacts\isolated-case-project-unsupported-downgrade-69b9f0ba3ba44452b1104cc3b911267c\case-observation.json`
 
-The unmodified protected language producer also passed the no-VB unsupported
-input check in
+The unmodified protected language producer also satisfied that former weak predicate in
 `Artifacts\isolated-case-language-unsupported-no-vb-c870f36c627e445f8fd1ff9431879041\case-observation.json`.
-The final targeted suite contains **116 passing replay/Sandbox contract tests**;
+These two historical unsupported observations must not substitute for the strict
+reruns described below. The historical runtime-packet suite had **116 passing replay/Sandbox contract tests**;
 its TRX is `Artifacts\trusted-replay-validation\protected-runtime-packet.trx`.
+
+### Case-specific unsupported contracts
+
+The private contract binds `Name`, canonical `InputSha256`, `ExpectedExitCode`
+(1–255, excluding the reserved timeout code 124), `DiagnosticCode` and `Format`.
+It is validated before guest launch and its raw SHA256 is checked again after
+execution and recorded in the host observation. The file must be in the private
+assessor tree and outside every staged/mapped root; expectations never enter the VM.
+
+- `exact-streams` specifies exact `ExpectedStandardOutput` and
+  `ExpectedStandardError`, including line endings. One must be empty and the
+  other a single exact `DiagnosticCode: message` line. The language no-VB case
+  expects exit **1**, empty stdout and exactly
+  `NO_VB: No eligible VB projects. Already converted trees require no language conversion.`
+  followed by CRLF on stderr.
+- `json-diagnostics` specifies `StatusProperty`, `StatusValue`,
+  `AllowedProperties` and one exact `ExpectedDiagnostic` (`Severity`, `Code`,
+  `Project`, `Message`); stderr must be empty. The downgrade case expects exit
+  **2**, `Verification="planned-only"` and exactly the `framework-downgrade`
+  error for `Modern.csproj`. Any additional diagnostic, unexpected top-level
+  error, duplicate JSON property, wrong status/code/project/message or stderr
+  exception fails, even if the expected unsupported diagnostic is also present.
+
+This is semantic checking against an assessor-reviewed case contract, not a
+substring/regex search in candidate diagnostics. JSON formatting and unrelated
+allowed evaluation metadata need not be frozen, but all unsupported status and
+diagnostic fields are exact. No `OutputFiles` declaration is trusted.
+Future formal request/import wiring must bind this exact contract/hash; the
+existing unsigned observations cannot independently authorize a receipt.
+
+Both unchanged protected producers were rerun in fresh Sandboxes under contracts
+frozen before launch:
+
+- Project: exit **2**, exact `framework-downgrade` diagnostic/status, no output:
+  `Artifacts\isolated-case-project-unsupported-downgrade-strict-b3eb5deafc604fdcb02d8bc1bb57dbc2\case-observation.json`.
+  Contract SHA256:
+  `13142FFF88293CD3115CE6C05BE4956C5C8B2B0231C16F5BEFB6E7510F55432F`.
+- Language: exit **1**, exact `NO_VB` stderr and empty stdout, no output:
+  `Artifacts\isolated-case-language-unsupported-no-vb-strict-9ddd204937124932b5e53dcaa161f704\case-observation.json`.
+  Contract SHA256:
+  `D1F36EE65844A37CD40164D4FBC55494AC2817907B330D92AD0A1ED4F22F12DA`.
+
+An actual owned counterexample tried reading the already-protected guest
+controller file, caught `UnauthorizedAccessException`, returned **1** and
+emitted no output. The old predicate would have accepted those observations;
+the strict contract rejected them and retained `OutputChecksPassed=false`.
+No marker contents were disclosed. Evidence:
+`Artifacts\isolated-case-owned-unsupported-infrastructure-negative-cafdcacb2e4c4f6eb2363b2dc9eb97bb\case-observation.json`;
+comparison:
+`Artifacts\owned-unsupported-infrastructure\regression-result.json`.
+All three VMs terminated. No token restrictions changed.
+
+```powershell
+& .\assessment\Sandbox\Invoke-IsolatedToolCase.ps1 `
+  -Name project-unsupported-downgrade-strict -Unsupported `
+  -UnsupportedContractFile .\assessment\Artifacts\protected-tool-cases\project-unsupported-contract.json `
+  -RuntimeManifest .\assessment\Artifacts\protected-real-tools\project-runtime.json `
+  -InputRoot .\assessment\Artifacts\protected-tool-cases\project-unsupported `
+  -CommandArguments @('normalize-framework','--target','net472','--source','{input}','--output','{output}') `
+  -TimeoutSeconds 300
+& .\assessment\Sandbox\Invoke-IsolatedToolCase.ps1 `
+  -Name language-unsupported-no-vb-strict -Unsupported `
+  -UnsupportedContractFile .\assessment\Artifacts\protected-tool-cases\language-unsupported-contract.json `
+  -RuntimeManifest .\assessment\Artifacts\protected-real-tools\language-runtime.json `
+  -InputRoot .\assessment\Artifacts\protected-tool-cases\language-unsupported `
+  -CommandArguments @('convert-language','--input','{input}','--output','{output}','--restore') `
+  -TimeoutSeconds 300
+```
+
+Validation: **164 replay/Sandbox tests pass**, including 23 new unsupported
+contract tests covering infrastructure errors sharing the expected exit,
+dependency/runtime failures, extra diagnostics, wrong status/exit/project,
+duplicate properties, partial output and wrong case/input bindings.
+TRX: `Artifacts\trusted-replay-validation\strict-unsupported-contract.trx`.
 
 The initial multiline fixture failed strict comparison because its independently
 written expected XML used CRLF whereas XML parsing normalized line endings to LF.
@@ -276,9 +353,9 @@ replace or modify any modernization stage/ref. Session SQL table
 | Case | Actual status | Remaining |
 | --- | --- | --- |
 | Project held-out normalization | Initial, repeat, idempotent, JSON/source comparisons and protected **net472 emitted-output compilation** passed | Formal evidence import |
-| Project unsupported downgrade | Diagnostic nonzero exit/no output passed | Formal evidence import |
+| Project unsupported downgrade | Strict exit 2 + exact `framework-downgrade` diagnostic/status + no output passed | Formal contract binding/evidence import |
 | Language held-out behavior | Arithmetic diagnostic failed at named MMF creation | Portable capability, **predeclared frozen oracle and observational behavior fixture**, initial/repeat, compilation and behavior |
-| Language unsupported/no VB | Diagnostic nonzero exit/no output passed | Import, or rerun if language artifact/policy changes |
+| Language unsupported/no VB | Strict exit 1 + exact `NO_VB` diagnostic + no output passed | Formal contract binding/import, or rerun if language artifact/policy changes |
 | Prepared S0 → S1 normalization | No accepted reconciliation yet | Initial/repeat, compilation, checkpoint reconciliation |
 | S1 → S2 language conversion | Not run in this executor | Portable capability, initial/repeat, compilation, reconciliation |
 | S2 → S2a SDK conversion | Not run in this executor | Initial/repeat, compilation, reconciliation |
