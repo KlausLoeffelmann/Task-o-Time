@@ -6,6 +6,12 @@ ScenarioScope.xml
 .gitignore
 Bundle.files
 Candidate-Prompt.md
+Candidate-Prompt.S0.md
+Candidate-Prompt.S1.md
+Candidate-Prompt.S2.md
+Candidate-Prompt.S2a.md
+Candidate-Prompt.S3.md
+Write-CandidatePrompts.ps1
 Assessor-Guide.md
 Modernization.Analyzers.Tests\.gitignore
 Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj

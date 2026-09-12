@@ -4,6 +4,22 @@ This document is assessment material. Distribute only `Candidate-Prompt.md`
 with a checkout of the application branch; do not give the candidate this
 guide, evaluator sources, scope manifest, or diagnostic reports.
 
+For candidate exports, select the standalone brief rather than the shared
+stage-table template:
+
+| Export stage | Standalone candidate brief |
+| --- | --- |
+| `original` / S0 | `assessment\Candidate-Prompt.S0.md` |
+| `vb-net472` / S1 | `assessment\Candidate-Prompt.S1.md` |
+| `csharp-net472` / S2 | `assessment\Candidate-Prompt.S2.md` |
+| SDK net472 checkpoint / S2a | `assessment\Candidate-Prompt.S2a.md` |
+| `csharp-net10` / S3 | `assessment\Candidate-Prompt.S3.md` |
+
+Regenerate these versioned briefs with `assessment\Write-CandidatePrompts.ps1`
+after editing the shared `Candidate-Prompt.md`. Export only the selected brief,
+not the template, generator, other stage briefs, evaluator or preparation tools.
+S2/S3 prohibit production VB, not VB test projects.
+
 ## Branch model
 
 - `junior-dev-mvvm-imp` is the candidate application and its handover history.
