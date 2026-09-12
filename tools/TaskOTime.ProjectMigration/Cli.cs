@@ -13,7 +13,7 @@ public static class Cli
             if (args.Length == 0 || args is ["--help"])
             {
                 output.WriteLine("""
-                    ProjectMigration 1.1.1 (local .NET 10 MSBuild; trusted workspaces only)
+                    ProjectMigration 1.1.2 (local .NET 10 MSBuild; trusted workspaces only)
                     inspect --source <workspace> [--configuration Debug,Release] [--platform AnyCPU]
                     normalize-framework --target net472 --source <workspace> --output <new-workspace> [--dry-run]
                     convert-projects --sdk-style --source <workspace> --output <new-workspace> [--dry-run]

@@ -6,6 +6,7 @@ namespace TaskOTime.ProjectMigration;
 public sealed partial class Migration
 {
     private static readonly string[] SchemaExtensions = [".csdl", ".ssdl", ".msl"];
+    private sealed record MetadataLayout(string Source, string ModelFile, string Target);
 
     private bool CanRemoveEvaluatedReference(ProjectReport report, string name, bool entityFramework)
     {
@@ -76,7 +77,8 @@ public sealed partial class Migration
         {
             var consumerOutput = ResolveBuildPath("$(OutDir)", consumer, evaluation);
             if (consumerOutput == null) return false;
-            var layouts = MetadataOutputLayouts(evaluation.Configuration).ToArray();
+            var layouts = MetadataOutputLayouts(projects, evaluation.Configuration).ToArray();
+            var delivered = PropagatedMetadataLayouts(consumer, evaluation.Configuration).ToArray();
             var destinations = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (var copy in copies)
             {
@@ -99,7 +101,11 @@ public sealed partial class Migration
                         var matches = layouts.Where(l => l.Source.Equals(source, StringComparison.OrdinalIgnoreCase)).ToArray();
                         if (matches.Length == 0 || matches.Any(l =>
                                 !Path.GetFullPath(Path.Combine(destination, Path.GetFileName(source)))
-                                    .Equals(Path.GetFullPath(Path.Combine(consumerOutput, l.Target)), StringComparison.OrdinalIgnoreCase)))
+                                    .Equals(Path.GetFullPath(Path.Combine(consumerOutput, l.Target)), StringComparison.OrdinalIgnoreCase) ||
+                                !delivered.Any(d => d.Target.Equals(l.Target, StringComparison.OrdinalIgnoreCase) &&
+                                                    d.ModelFile.Equals(l.ModelFile, StringComparison.OrdinalIgnoreCase)) ||
+                                delivered.Any(d => d.Target.Equals(l.Target, StringComparison.OrdinalIgnoreCase) &&
+                                                   !d.ModelFile.Equals(l.ModelFile, StringComparison.OrdinalIgnoreCase))))
                             return false;
                     }
                 }
@@ -113,21 +119,74 @@ public sealed partial class Migration
         return true;
     }
 
-    private IEnumerable<(string Source, string Target)> MetadataOutputLayouts(string configuration)
+    private IEnumerable<MetadataLayout> PropagatedMetadataLayouts(ProjectReport consumer, string configuration)
     {
-        foreach (var producer in projects)
+        var pending = new Stack<(ProjectReport Project, bool Recurse)>();
+        var visited = new HashSet<(string Path, bool Recurse)>();
+        var emitted = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        pending.Push((consumer, true));
+        while (pending.TryPop(out var current))
+        {
+            if (!visited.Add((current.Project.Path, current.Recurse))) continue;
+            if (emitted.Add(current.Project.Path))
+                foreach (var layout in MetadataOutputLayouts([current.Project], configuration)) yield return layout;
+            var evaluation = current.Project.Evaluations.Single(e => e.Configuration == configuration);
+            if (!current.Recurse || !IsTrue(evaluation, "_GetChildProjectCopyToOutputDirectoryItems") ||
+                !IsTrue(evaluation, "_GetChildProjectCopyToPublishDirectoryItems") ||
+                IsTrue(evaluation, "UseCommonOutputDirectory") ||
+                evaluation.Properties["_GlobalPropertiesToRemoveFromProjectReferences"].Length != 0) continue;
+            var recursiveTarget = evaluation.Properties["_RecursiveTargetForContentCopying"];
+            if (recursiveTarget is not ("GetCopyToOutputDirectoryItems" or "_GetCopyToOutputDirectoryItemsFromThisProject")) continue;
+            foreach (var reference in evaluation.Items["ProjectReference"])
+            {
+                if (!DefaultContentReference(reference)) continue;
+                var fullPath = ResolveBuildPath(reference["Identity"], current.Project, evaluation);
+                if (fullPath == null) continue;
+                var relative = Path.GetRelativePath(options.Source, fullPath);
+                var child = projects.FirstOrDefault(p => p.Path.Equals(relative, StringComparison.OrdinalIgnoreCase));
+                if (child != null) pending.Push((child, recursiveTarget == "GetCopyToOutputDirectoryItems"));
+            }
+        }
+    }
+
+    private static bool DefaultContentReference(SortedDictionary<string, string> reference)
+    {
+        foreach (var (name, value) in reference)
+        {
+            if (value.Length == 0 || name is "Identity" or "DefiningProjectFullPath" or "Name" or "Project") continue;
+            if (name is "Private" or "BuildReference")
+            {
+                if (!value.Equals("true", StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            else if (name == "ReferenceOutputAssembly")
+            {
+                // Content propagation does not depend on referencing the producer's assembly.
+                if (!value.Equals("true", StringComparison.OrdinalIgnoreCase) &&
+                    !value.Equals("false", StringComparison.OrdinalIgnoreCase)) return false;
+            }
+            else if (name != "ReferenceSourceTarget" || value != "ProjectReference")
+                return false;
+        }
+        return true;
+    }
+
+    private IEnumerable<MetadataLayout> MetadataOutputLayouts(IEnumerable<ProjectReport> producers, string configuration)
+    {
+        foreach (var producer in producers)
             foreach (var evaluation in producer.Evaluations.Where(e => e.Configuration == configuration))
             {
                 var directory = ResolveBuildPath("$(OutDir)", producer, evaluation);
                 if (directory == null) continue;
                 foreach (var item in evaluation.Items["EntityDeploy"].Concat(evaluation.Items["EntityModel"]))
                 {
+                    var modelFile = ResolveBuildPath(item["Identity"], producer, evaluation);
+                    if (modelFile == null) continue;
                     var stem = item.GetValueOrDefault("MetadataPath") ??
                         Path.ChangeExtension(item.GetValueOrDefault("Link", item["Identity"]), null);
                     if (string.IsNullOrEmpty(stem) || Path.IsPathRooted(stem) || stem.Split('\\', '/').Contains("..") ||
                         stem.IndexOfAny(['$', '@', '%', '*', '?', ';']) >= 0) continue;
                     foreach (var extension in SchemaExtensions)
-                        yield return (Path.GetFullPath(Path.Combine(directory, stem + extension)), stem + extension);
+                        yield return new(Path.GetFullPath(Path.Combine(directory, stem + extension)), modelFile, stem + extension);
                 }
             }
     }

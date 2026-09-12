@@ -18,7 +18,10 @@ internal static class MsBuild
         "AppendTargetFrameworkToOutputPath", "AssemblyName", "RootNamespace", "OutputType",
         "DefineConstants", "StartupObject", "ApplicationIcon", "SignAssembly", "AssemblyOriginatorKeyFile",
         "OptionStrict", "OptionExplicit", "OptionInfer", "OptionCompare", "MyType",
-        "EnableDefaultItems", "GenerateAssemblyInfo", "EntityDeployDependsOn", "MSBuildToolsPath", "NuGetPackageRoot"
+        "EnableDefaultItems", "GenerateAssemblyInfo", "EntityDeployDependsOn", "MSBuildToolsPath", "NuGetPackageRoot",
+        "MSBuildCopyContentTransitively", "_GetChildProjectCopyToOutputDirectoryItems",
+        "_GetChildProjectCopyToPublishDirectoryItems", "_RecursiveTargetForContentCopying",
+        "UseCommonOutputDirectory", "_GlobalPropertiesToRemoveFromProjectReferences"
     ];
     private static readonly string[] ItemNames =
     [
@@ -65,7 +68,7 @@ internal static class MsBuild
             foreach (var item in itemType.Value.EnumerateArray())
             {
                 var row = new SortedDictionary<string, string>(StringComparer.Ordinal);
-                var dependency = itemType.Name is "Reference" or "PackageReference";
+                var dependency = itemType.Name is "Reference" or "PackageReference" or "ProjectReference";
                 foreach (var metadata in item.EnumerateObject().Where(m => dependency
                              ? !IntrinsicMetadata.Contains(m.Name) : Metadata.Contains(m.Name)))
                     row[metadata.Name] = NormalizeValue(metadata.Value.GetString() ?? "");

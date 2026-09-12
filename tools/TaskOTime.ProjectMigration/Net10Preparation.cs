@@ -111,7 +111,7 @@ public sealed partial class Migration
                 PreservesMetadataCopyLayout(report, target);
             if (!safe)
             {
-                Add("error", "unreviewed-metadata-target", report.Path, "Metadata target behavior or evaluated source/destination differs from project-output propagation. Review before replacing its copy paths.");
+                Add("error", "unreviewed-metadata-target", report.Path, "Metadata target source/destination is not guaranteed by the consumer's evaluated content-propagating reference graph or identical local EDMX generation. Review reference metadata, configuration overrides, and copy controls before removing this target.");
                 continue;
             }
             target.Remove();

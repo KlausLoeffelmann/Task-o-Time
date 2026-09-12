@@ -112,6 +112,11 @@ suppressed.
 - The subsequent 1.1.1 safety review adds a fifteenth scenario rejecting
   evaluated EF alias overrides, embedded EDMX deployment, and mismatched
   metadata copy sources/destinations. It does not change candidate build files.
+- Version 1.1.2 further proves reference-graph delivery rather than workspace
+  membership. Sixteen scenarios now cover unreachable/private/reconfigured
+  producers, disabled propagation, transitive content-only references, and
+  equivalent consumer-local linked metadata. Candidate build files remain
+  byte-identical.
 - Logs/TRX/published files remain under the private tool's ignored `artifacts`
   directory (`net10-final-rebuild.log`, `net10-final-tests*`, earlier
   `net10-acceptance-*`, `net10-publish.log`, `net10-app-publish`).

@@ -9,7 +9,7 @@ source files, candidate refs or databases were modified.
 
 | Check | Result |
 | --- | --- |
-| Independent regression runner | 15 scenarios cover emitted net472/net10, restored dependencies, evaluated preparation safety, and transitive structured metadata build/publish |
+| Independent regression runner | 16 scenarios cover emitted net472/net10, restored dependencies, evaluated preparation safety, actual propagation graphs, and metadata build/publish |
 | Repository inspection | 11 application/test projects, including all remaining VB tests |
 | Framework normalization | 8 project files changed; all 11 evaluate to net472 in Debug and Release |
 | SDK conversion | 3 classic projects changed; all 11 retain net472 and evaluate as SDK-style |
@@ -138,3 +138,32 @@ input through the fixed tool still produces all candidate project/target files
 byte-for-byte with version 1.1.1 (`artifacts\prepare-review-v111-prepared.json`,
 `artifacts\prepare-review-v111-final.json`). All 15 regression scenarios pass
 (`artifacts\prepare-review-full-tests.log`). No S3 tag or ideal merge is performed.
+
+## Content-propagation graph follow-up
+
+An additional review found that matching a metadata producer's output path did
+not prove that its output would reach the consumer. New failing-before cases
+(`artifacts\propagation-safety-before.log`) showed successful, unsafe publication
+with a real unreferenced producer, `Private=false`, a Release-only private
+reference, a reference configuration override, disabled child copying, and
+disabled transitive copying.
+
+Version 1.1.2 separately identifies the old source file and proves delivery
+through the consumer's evaluated reference graph. Full project-reference
+metadata and SDK content-copy controls are inventoried. Unsupported overrides
+cannot serve as propagation edges. A different consumer-local EDMX with the
+same filename is also rejected: local generation is equivalent only for the
+same physical source EDMX and logical destination.
+
+Positive coverage builds/publishes across a two-edge reference chain with
+`ReferenceOutputAssembly=false`. A separate fixture builds a consumer with
+its own identical linked EDMX and no producer reference, and verifies all
+metadata is delivered without ever building the unrelated producer project.
+This last case preserves the accepted candidate's integration-test layout.
+
+All 16 scenarios pass (`artifacts\propagation-full-tests.log`). The final
+candidate replay again returns preparation/retarget exit 0 with 8/11 changed
+files and reproduces all 12 candidate project/target files byte-for-byte
+(`artifacts\propagation-review-prepared.json`,
+`artifacts\propagation-review-final.json`). The parent's documentation-only
+candidate update is untouched; no application files or S3 refs are changed.

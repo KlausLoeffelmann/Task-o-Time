@@ -118,6 +118,15 @@ workspace concern. There are no third-party package dependencies for this CLI.
   metadata layout in every selected configuration. Custom folders, unrelated
   producers, unresolved paths and unmatched directory-creation effects are
   rejected rather than silently redirected.
+  A matching producer merely existing in the workspace is not sufficient:
+  metadata must reach the consumer through the evaluated content-copy graph.
+  `Private=false`, disabled child-copy controls, common-output overrides and
+  disabled transitive copying are respected. Nondefault reference configuration/
+  platform/framework/global-property overrides and unknown reference behavior
+  are conservatively rejected as proof paths. `ReferenceOutputAssembly=false`
+  remains valid for content propagation. A consumer's own linked EDMX can replace
+  a copy only when it uses the exact same source file and logical target path;
+  a different local model with the same basename cannot substitute for it.
 - Modern retargeting requires an SDK checkpoint, removes obsolete reference-
   assembly packages and simple implicit Framework references, and propagates
   `net10.0-windows` from WPF/WinForms projects through project references.

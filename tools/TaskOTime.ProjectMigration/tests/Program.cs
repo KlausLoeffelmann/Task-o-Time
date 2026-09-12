@@ -95,6 +95,45 @@ try
                 """);
             Reject(wrongSource ? "unrelated producer" : "custom metadata destination", source, "unreviewed-metadata-target");
         }
+        foreach (var variant in new[]
+                 {
+                     (Name: "existing-unreferenced", Reference: "", Properties: ""),
+                     (Name: "different-local-model", Reference: "", Properties: ""),
+                     (Name: "private-reference", Reference: """<ProjectReference Include="..\Models\Models.csproj"><Private>false</Private></ProjectReference>""", Properties: ""),
+                     (Name: "release-private-reference", Reference: """<ProjectReference Include="..\Models\Models.csproj"><Private Condition="'$(Configuration)' == 'Release'">false</Private></ProjectReference>""", Properties: ""),
+                     (Name: "configuration-override", Reference: """<ProjectReference Include="..\Models\Models.csproj"><SetConfiguration>Configuration=Release</SetConfiguration></ProjectReference>""", Properties: ""),
+                     (Name: "disabled-child-copy", Reference: """<ProjectReference Include="..\Models\Models.csproj" />""", Properties: "<_GetChildProjectCopyToOutputDirectoryItems>false</_GetChildProjectCopyToOutputDirectoryItems>"),
+                     (Name: "disabled-transitive-copy", Reference: """<ProjectReference Include="..\Bridge\Bridge.csproj" />""", Properties: "<MSBuildCopyContentTransitively>false</MSBuildCopyContentTransitively>")
+                 })
+        {
+            var source = Path.Combine(workspace, variant.Name);
+            Write(source, "Models\\Models.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework>
+                <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath></PropertyGroup>
+                <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+                """);
+            Write(source, "Models\\Model\\Independent.edmx", schema);
+            Write(source, "Bridge\\Bridge.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+                <ItemGroup><ProjectReference Include="..\Models\Models.csproj" /></ItemGroup></Project>
+                """);
+            Write(source, "Consumer\\Consumer.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework>{variant.Properties}</PropertyGroup>
+                <ItemGroup>{variant.Reference}</ItemGroup>
+                <Target Name="MetadataDeployment" AfterTargets="Build">
+                  <ItemGroup><Metadata Include="..\Models\bin\$(Configuration)\Model\Independent.csdl" /></ItemGroup>
+                  <Copy SourceFiles="@(Metadata)" DestinationFolder="$(OutDir)Model" SkipUnchangedFiles="true" />
+                </Target></Project>
+                """);
+            if (variant.Name == "different-local-model")
+            {
+                var consumer = XDocument.Load(Path.Combine(source, "Consumer\\Consumer.csproj"));
+                consumer.Root!.Add(new XElement("ItemGroup", new XElement("EntityDeploy", new XAttribute("Include", "Model\\Independent.edmx"))));
+                Write(source, "Consumer\\Consumer.csproj", consumer.ToString());
+                Write(source, "Consumer\\Model\\Independent.edmx", schema);
+            }
+            Reject(variant.Name, source, "unreviewed-metadata-target");
+        }
         var filesystemSource = Path.Combine(workspace, "root-filesystem-edmx");
         Write(filesystemSource, "Filesystem.csproj", """
             <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
@@ -436,11 +475,15 @@ try
             """);
         Write(source, "Consumer\\Consumer.csproj", """
             <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
-            <ItemGroup><ProjectReference Include="..\Models\Models.csproj" /></ItemGroup>
+            <ItemGroup><ProjectReference Include="..\Bridge\Bridge.csproj" /></ItemGroup>
             <Target Name="OldMetadataCopy" AfterTargets="Build">
               <ItemGroup><LegacyMetadata Include="..\Models\bin\$(Configuration)\net472\Model\Independent.csdl" /></ItemGroup>
               <Copy SourceFiles="@(LegacyMetadata)" DestinationFolder="$(OutDir)Model" SkipUnchangedFiles="true" />
             </Target></Project>
+            """);
+        Write(source, "Bridge\\Bridge.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><ProjectReference Include="..\Models\Models.csproj"><ReferenceOutputAssembly>false</ReferenceOutputAssembly></ProjectReference></ItemGroup></Project>
             """);
         const string model = """
             <edmx:Edmx xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx"><edmx:Runtime>
@@ -472,6 +515,39 @@ try
         var timestamp = File.GetLastWriteTimeUtc(generated);
         Build(consumer);
         Check(timestamp == File.GetLastWriteTimeUtc(generated), "unchanged EDMX was regenerated");
+    });
+    Test("a consumer's identical linked EDMX supplies metadata without a producer reference", () =>
+    {
+        var source = Path.Combine(workspace, "linked-own-metadata");
+        Write(source, "Models\\Models.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework>
+            <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+            """);
+        Write(source, "Models\\Model\\Independent.edmx", """
+            <edmx:Edmx xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx"><edmx:Runtime>
+              <edmx:ConceptualModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" Namespace="Independent" /></edmx:ConceptualModels>
+              <edmx:StorageModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl" Namespace="Independent.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" /></edmx:StorageModels>
+              <edmx:Mappings><Mapping xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs" Space="C-S" /></edmx:Mappings>
+            </edmx:Runtime></edmx:Edmx>
+            """);
+        Write(source, "Consumer\\Consumer.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="..\Models\Model\Independent.edmx" Link="Model\Independent.edmx" /></ItemGroup>
+            <Target Name="OldMetadataCopy" AfterTargets="Build">
+              <ItemGroup><Metadata Include="..\Models\bin\$(Configuration)\Model\Independent.*" /></ItemGroup>
+              <Copy SourceFiles="@(Metadata)" DestinationFolder="$(TargetDir)Model\" SkipUnchangedFiles="true" />
+            </Target></Project>
+            """);
+        var prepared = source + "-prepared";
+        Run(0, "prepare-net10", "--source", source, "--output", prepared);
+        var modern = source + "-modern";
+        Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", prepared, "--output", modern);
+        Build(Path.Combine(modern, "Consumer\\Consumer.csproj"));
+        Check(!Directory.Exists(Path.Combine(modern, "Models\\bin")), "fixture unexpectedly built the unreferenced producer");
+        foreach (var extension in new[] { ".csdl", ".ssdl", ".msl" })
+            Check(File.Exists(Path.Combine(modern, "Consumer\\bin\\Debug\\net10.0\\Model\\Independent" + extension)),
+                "consumer-local metadata was not generated");
     });
     Console.WriteLine($"PASS: {passed} regression scenarios; artifacts: {workspace}");
     return 0;

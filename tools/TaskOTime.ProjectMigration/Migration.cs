@@ -129,7 +129,7 @@ public sealed partial class Migration(Options options)
 
     private bool HasErrors => diagnostics.Any(d => d.Severity == "error");
     private Manifest CreateManifest(string sdk, string verification) => new(
-        "TaskOTime.ProjectMigration", "1.1.1", sdk,
+        "TaskOTime.ProjectMigration", "1.1.2", sdk,
         new
         {
             options.Command,
