@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace></RootNamespace>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>On</OptionInfer>
+    <OptionStrict>On</OptionStrict>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TaskOTime.Theme.TestHost\TaskOTime.Theme.TestHost.vbproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <Target Name="CopyThemeTestHost" AfterTargets="Build">
+    <MSBuild Projects="..\TaskOTime.Theme.TestHost\TaskOTime.Theme.TestHost.vbproj"
+             Targets="GetTargetPath" Properties="Configuration=$(Configuration)" RemoveProperties="TargetFramework">
+      <Output TaskParameter="TargetOutputs" ItemName="ThemeHostTarget" />
+    </MSBuild>
+    <PropertyGroup>
+      <ThemeHostDirectory>@(ThemeHostTarget->'%(RootDir)%(Directory)')</ThemeHostDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <ThemeHostFiles Include="$(ThemeHostDirectory)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ThemeHostFiles)"
+          DestinationFiles="@(ThemeHostFiles->'$(OutDir)ThemeHost\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>
