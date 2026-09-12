@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<?xml version="1.0" encoding="utf-8"?><Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net472</TargetFramework>
@@ -19,8 +19,8 @@
 
   <ItemGroup>
     <ProjectReference Include="TestDoubles\TaskOTime.TimeTrackingServices.TestDoubles.csproj" />
-    <ProjectReference Include="..\TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj" />
-    <ProjectReference Include="..\TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj" />
+    <ProjectReference Include="..\TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.csproj" />
+    <ProjectReference Include="..\TaskOTime.ViewModel\TaskOTime.ViewModel.csproj" />
     <ProjectReference Include="..\TaskOTime.AppServer\TaskOTime.AppServer.csproj" />
     <ProjectReference Include="..\TaskOTime.App\TaskOTime.App.csproj" />
   </ItemGroup>
