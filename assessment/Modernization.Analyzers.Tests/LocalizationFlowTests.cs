@@ -217,7 +217,10 @@ public sealed class LocalizationFlowTests
         Assert.DoesNotContain(found, d => d.Location.GetLineSpan().Path?.EndsWith("EmptyTemplate.resx") == true ||
             d.GetMessage().Contains("Unrequired maintenance"));
         if (mutation == "literal") Assert.Contains(found, d => d.Id == "LOC002" && d.GetMessage().Contains("Literal override"));
-        if (mutation == "disconnected-options") Assert.Contains(found, d => d.GetMessage().Contains("Options must"));
+        if (mutation is "disconnected-options" or "dead-culture-call" or "unbound-command" or "inert-command" or "overwritten-command")
+            Assert.Contains(found, d => d.Id == "LOC001" && d.GetMessage().Contains("Options must"));
+        if (mutation is "overwritten-provider" or "overwritten-factory")
+            Assert.Contains(found, d => d.Id == "LOC001" && d.GetMessage().Contains("meaningfully applied"));
     }
 
     [Fact]

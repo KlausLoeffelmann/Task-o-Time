@@ -171,7 +171,12 @@ public sealed class SourceReferenceTests
     public void Build_only_test_harness_role_does_not_hide_production_consumers(bool productionConsumer)
     {
         const string root = @"C:\fixture";
-        var helper = Library() with { IsTooling = false };
+        var helper = Library() with {
+            IsTooling = false,
+            Compilation = ((CSharpCompilation)AnalyzerTests.Compile(LanguageNames.CSharp,
+                "public static class Program { public static void Main() {} }"))
+                .WithOptions(new CSharpCompilationOptions(OutputKind.ConsoleApplication))
+        };
         LoadedProject Consumer(string name, bool test, bool outputAssembly) =>
             new(root + "\\" + name + ".csproj", name, "", helper.Compilation, test, false, [],
                 [new InputFile(root + "\\" + name + ".csproj.assessment",
