@@ -25,6 +25,8 @@ Modernization.Analyzers.Tests\AssessmentModel.cs
 Modernization.Analyzers.Tests\OutcomeAnalyzer.cs
 Modernization.Analyzers.Tests\CommentLanguageAnalyzer.cs
 Modernization.Analyzers.Tests\LocalizationAnalysis.cs
+Modernization.Analyzers.Tests\LocalizationFlow.cs
+Modernization.Analyzers.Tests\LocalizationFlowTests.cs
 Modernization.Analyzers.Tests\ThemeAnalysis.cs
 Modernization.Analyzers.Tests\MigrationToolAnalysis.cs
 Modernization.Analyzers.Tests\OutcomeTests.cs
