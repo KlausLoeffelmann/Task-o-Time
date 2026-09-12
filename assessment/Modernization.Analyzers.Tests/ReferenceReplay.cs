@@ -59,6 +59,9 @@ internal static class ReferenceReplay
         if (plan.SourceRoots is not { Length: 1 })
             throw new InvalidDataException("Reference builds require one complete reviewed source root, including linked projects/imports.");
         var root = Path.GetFullPath(plan.SourceRoots[0]);
+        foreach (var project in ProjectRoles.Read(plan).Keys)
+            if (!File.Exists(project) || !ProjectRoles.InApplication(project, root))
+                throw new InvalidDataException("Role project is outside the approved source snapshot: " + project);
         if (approval.Purpose != "owned-reference" || string.IsNullOrWhiteSpace(approval.ReviewId) ||
             string.IsNullOrWhiteSpace(approval.Reviewer) || string.IsNullOrWhiteSpace(approval.SourceRevision) ||
             approval.SourceHash != ExternalReplay.HashSourceTree(root))
@@ -109,6 +112,7 @@ internal static class ReferenceReplay
             var commands = new List<string>();
             var compilerInputs = new SortedDictionary<string, string>(StringComparer.Ordinal);
             var outputs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var roles = ProjectRoles.Read(plan);
             foreach (var project in plan.Projects)
             {
                 var copied = Path.Combine(source, Path.GetRelativePath(original, project));
@@ -124,6 +128,15 @@ internal static class ReferenceReplay
                     "-property:Configuration=" + EvaluatorConfiguration.BuildConfiguration,
                     "-getProperty:TargetPath,TargetFramework,SkipCompilerExecution",
                     "-getItem:CscCommandLineArgs,VbcCommandLineArgs" };
+                if (roles.GetValueOrDefault(Path.GetFullPath(project))?.BuildProperties is { } properties)
+                    arguments = arguments.Concat(properties.Select(property =>
+                    {
+                        var value = property.Value;
+                        if (Path.IsPathFullyQualified(value) &&
+                            (value.Equals(original, StringComparison.OrdinalIgnoreCase) || ProjectRoles.InApplication(value, original)))
+                            value = Path.Combine(source, Path.GetRelativePath(original, value));
+                        return "-property:" + property.Key + "=" + value;
+                    })).ToArray();
                 commands.Add("dotnet " + string.Join(" ", arguments));
                 var result = await Build(source, arguments);
                 if (result.ExitCode != 0) throw new InvalidDataException("Approved producer build failed: " + result.Error + result.Output);

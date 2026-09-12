@@ -101,17 +101,21 @@ public sealed class RepositoryTests
         {
             var policy = StagePolicy.Current;
             ReferenceReplay.ValidateBeforeProjectEvaluation();
+            var roles = ProjectRoles.Read(ToolReplay.Plan);
+            var discovered = EvaluatorConfiguration.DiscoveryRoots.SelectMany(DiscoverProjects).ToArray();
+            ProjectRoles.ValidateInventory(discovered, root, roles);
             var loader = new CompilerInputLoader(Path.Combine(EvaluatorConfiguration.ArtifactRoot, "compiler-inputs"),
-                EvaluatorConfiguration.BuildConfiguration, policy.Identity);
+                EvaluatorConfiguration.BuildConfiguration, policy.Identity, roles);
             foreach (var directory in new[] { "TaskOTime.App" })
             {
                 var projectPath = Directory.EnumerateFiles(Path.Combine(root, directory), "*.*proj")
                     .Single(p => Path.GetExtension(p) is ".csproj" or ".vbproj");
                 await loader.Load(projectPath);
             }
-            await LoadProjectSet(EvaluatorConfiguration.DiscoveryRoots.SelectMany(DiscoverProjects),
-                ToolReplay.DeclaredProjects, loader.Load);
+            await LoadProjectSet(discovered, roles.Keys, loader.Load);
             var loaded = CompilerInputLoader.ClassifyTestSupport(loader.Projects, root);
+            ProjectRoles.ValidateInventory(loaded.Select(p => p.Path), root, roles);
+            ProjectRoles.ValidateDependencies(loaded);
             evaluated.AddRange(loaded.Select(p => p.State!).Where(p => p != null));
             diagnostics.AddRange(loaded.Where(p => p.IsTest).SelectMany(p =>
                 p.Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => Convert(root, p.Name, d))));
@@ -321,7 +325,7 @@ public sealed class RepositoryTests
             }
         }
     }
-    private static IEnumerable<string> DiscoverProjects(string root)
+    internal static IEnumerable<string> DiscoverProjects(string root)
     {
         if (Path.GetFullPath(root).TrimEnd('\\').Equals(EvaluatorConfiguration.AssessmentRoot.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
             yield break;
@@ -331,7 +335,7 @@ public sealed class RepositoryTests
         foreach (var directory in Directory.EnumerateDirectories(root).Order(StringComparer.Ordinal))
         {
             var name = Path.GetFileName(directory);
-            if (name.StartsWith('.') || name is "bin" or "obj" or "Artifacts" or "packages") continue;
+            if (name.StartsWith('.') || new[] { "bin", "obj", "artifacts", "packages" }.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
             foreach (var project in DiscoverProjects(directory)) yield return project;
         }
     }

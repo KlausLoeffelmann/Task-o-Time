@@ -89,6 +89,18 @@ public sealed class ReferenceReplayTests : IDisposable
                   System.IO.File.Copy(file, System.IO.Path.Combine(args[1], System.IO.Path.GetFileName(file)));
                 return 0;
               }
+
+              [Fact]
+              public async Task Trusted_tool_build_properties_reach_the_actual_fresh_producer()
+              {
+                  var (plan, approval) = Fixture();
+                  var path = Path.Combine(root, "producer", "Program.cs");
+                  File.WriteAllText(path, "#if !REVIEWED\n#error Missing trusted producer configuration\n#endif\n" + File.ReadAllText(path));
+                  plan = plan with { ProjectRoles = [new(plan.Projects[0], "tool", new() { ["DefineConstants"] = "REVIEWED" })] };
+                  approval = approval with { SourceHash = ExternalReplay.HashSourceTree(plan.SourceRoots![0]) };
+                  var result = await ReferenceReplay.Run(plan, StagePolicy.Parse("S2", "final-delivery"), root, approval);
+                  Assert.True(result.ReferenceVerified, result.Message);
+              }
             }
             """);
         var result = await ReferenceReplay.Run(plan, StagePolicy.Parse("S2", "final-delivery"), root, approval);

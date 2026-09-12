@@ -54,6 +54,51 @@ supplied tooling projects first**; they need not be referenced by the applicatio
 Trusted replay `Projects` paths are explicitly unioned into the load set even
 outside all discovery roots. Missing project files or source-compilation errors
 invalidate the evaluation; a declared CLI binary cannot substitute for its source.
+
+All discovered projects outside the trusted application `SourceRoot` require an
+exact private role declaration. `Projects` already declares tool producers;
+additional `ProjectRoles` entries in the same trusted replay plan identify
+`tool`, `fixture` or `validation` projects, including standalone fixtures/test
+executables without a test-framework reference:
+
+```json
+"ProjectRoles": [
+  { "Project": "C:\\submission\\utility\\tests\\Canary.vbproj", "Role": "fixture" },
+  { "Project": "C:\\submission\\validation\\Harness.csproj", "Role": "validation",
+    "BuildProperties": {
+      "ApplicationRoot": "C:\\submission\\src\\TaskOTime",
+      "ValidationFramework": "net10.0-windows"
+    }
+  }
+]
+```
+
+These are exact absolute paths, never candidate-controlled flags, globs or a
+blanket tools-directory exclusion. Every declared project is loaded and its
+source must compile. Fixture/validation outcomes remain separate from application
+LNG/PRJ/stage requirements, while evaluated framework/language/role metadata is
+retained. Unknown external projects, missing/uncompilable declarations, application
+inventory exemptions, conflicting roles and production/tool dependencies on
+fixture exemptions invalidate evaluation. Generated `artifacts`, `bin`, `obj`
+and `packages` directories are ignored case-insensitively; `tests`/`Fixtures` are
+not skipped. Application test projects still belong to the application target
+inventory, even when written in VB.
+
+Optional trusted `BuildProperties` select each declared project's evaluated
+configuration (including validation harness overrides); infrastructure/compiler
+skips and injected property lists are rejected. They participate in compiler
+cache identity and signed request binding. Tool producer overrides also reach
+the actual fresh owned-reference build; paths within its reviewed source root
+are remapped to the fresh copy. All role projects must be covered by the reviewed
+source roots. Roles do **not** supply replay coverage or award TOOL002 credit.
+
+`dotnet test $p --filter 'Category=ProjectInventory'` writes
+`project-inventory.json` using the actual discovery logic without invoking any
+submission MSBuild or CLI. It is safe for a read-only inventory of the owned
+Golden tree; actual compilation/replay must use an assessor-owned source copy
+or the isolated execution boundary. Builds must not write into another owner's
+worktree. A private plan with `Cases: []` can support inventory/compilation only;
+it deliberately cannot satisfy TOOL002.
 Hidden/build/package folders and the assessment itself are excluded. Test projects
 are loaded for evaluated framework validity, but excluded from production
 quality diagnostics using test-framework references and `IsTestProject`.

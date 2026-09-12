@@ -6,7 +6,10 @@ internal enum StartingStage { S0, S1, S2, S2a, S3, S4 }
 internal enum EvaluationMode { StartingPointIntegrity, FinalDelivery }
 public sealed record ProjectState(string Path, string Language, bool Test, bool Tooling, bool SdkStyle,
     string TargetFramework, string FrameworkIdentifier, string FrameworkVersion, string Platform,
-    string Configuration, string Configurations);
+    string Configuration, string Configurations)
+{
+    public string Role { get; init; } = Tooling ? "tool" : "application";
+}
 public sealed record CriterionResult(string Id, double Weight, double? Score, string Applicability, string Status,
     string StartingState);
 

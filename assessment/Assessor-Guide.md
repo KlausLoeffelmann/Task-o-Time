@@ -190,6 +190,13 @@ A rich companion fixture beside a converter that emits an empty class is not
 conversion acceptance; the replay negative regression exercises that exact case.
 
 See the analyzer README's replay contract for private plans and fixtures.
+External tool, fixture and validation projects now require exact trusted
+`ProjectRoles` declarations (producer `Projects` entries imply `tool`). All are
+compiled; fixtures/validators retain their evaluated metadata but are not
+application stage targets. Application inventory cannot be exempted, and
+unknown external projects fail closed. `Category=ProjectInventory` exercises
+discovery read-only without MSBuild. Compilation/replay uses owned copies or
+isolation, never another owner's output directories.
 Its optional trusted `EvidenceFile` declaration separates one exact execution
 JSON artifact from source equality, validates its success status on every run,
 and retains raw artifact hashes. All other output remains independently checked;

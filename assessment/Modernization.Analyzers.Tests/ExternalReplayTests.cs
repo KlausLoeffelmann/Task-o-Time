@@ -133,6 +133,25 @@ public sealed class ExternalReplayTests : IDisposable
         Assert.Equal([outside], calls);
     }
 
+    [Fact]
+    public void Declared_fixture_source_and_build_properties_are_bound_into_receipts()
+    {
+        var plan = Plan();
+        var project = FileIn(@"outside-discovery\Fixtures\Fixture.vbproj", "<Project/>");
+        var role = new ProjectRoleDeclaration(project, "fixture", new() { ["Flavor"] = "Legacy" });
+        plan = plan with { ProjectRoles = [role] };
+        var challenge = Guid.NewGuid().ToString("N");
+        using var key = RSA.Create(3072);
+        var signed = Sign(Attestation(plan, challenge), key);
+        Assert.True(ExternalReplay.Verify(plan, policy, challenge, signed, key.ExportSubjectPublicKeyInfoPem()).Verified);
+        Assert.False(ExternalReplay.Verify(plan with
+        {
+            ProjectRoles = [role with { BuildProperties = new() { ["Flavor"] = "Modern" } }]
+        }, policy, challenge, signed, key.ExportSubjectPublicKeyInfoPem()).Verified);
+        File.WriteAllText(project, "<Project Sdk=\"Changed\"/>");
+        Assert.False(ExternalReplay.Verify(plan, policy, challenge, signed, key.ExportSubjectPublicKeyInfoPem()).Verified);
+    }
+
     [Theory]
     [InlineData("valid", true)]
     [InlineData("missing-check", false)]

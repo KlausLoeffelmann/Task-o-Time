@@ -127,6 +127,13 @@ must have a successful status; its raw hash is retained. All other output is
 independently hashed/compared, never selected using a manifest's file list.
 The approval, input, source and binary hashes are not narrowed by this contract.
 
+Trusted `ProjectRoles` separate external fixture/validation projects from
+application stage targets without skipping source compilation. Their exact
+paths must remain inside the reviewed complete source root. Tool
+`BuildProperties` are used for the fresh producer too, with reviewed-root paths
+remapped to the copy. This does not grant replay credit to fixture declarations;
+the real commands, outputs and required coverage still decide acceptance.
+
 Child processes receive a runtime/OS environment allowlist plus workspace-owned
 temporary, profile, CLI and NuGet state. The existing package cache is offered
 as a fallback; user credential/configuration environment variables are not

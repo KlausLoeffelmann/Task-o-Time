@@ -32,6 +32,8 @@ Modernization.Analyzers.Tests\OutcomeTests.cs
 Modernization.Analyzers.Tests\MigrationToolTests.cs
 Modernization.Analyzers.Tests\SourceReferenceTests.cs
 Modernization.Analyzers.Tests\StagePolicy.cs
+Modernization.Analyzers.Tests\ProjectRoles.cs
+Modernization.Analyzers.Tests\ProjectRolesTests.cs
 Modernization.Analyzers.Tests\StagePolicyTests.cs
 Modernization.Analyzers.Tests\ToolReplay.cs
 Modernization.Analyzers.Tests\ToolReplayTests.cs

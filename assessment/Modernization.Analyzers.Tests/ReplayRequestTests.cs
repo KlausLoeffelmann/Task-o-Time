@@ -8,6 +8,24 @@ namespace Modernization.Analyzers.Tests;
 public sealed class ReplayRequestTests
 {
     [Fact]
+    [Trait("Category", "ProjectInventory")]
+    public void Export_trusted_inventory_without_evaluating_or_building_projects()
+    {
+        var root = EvaluatorConfiguration.SourceRoot;
+        var roles = ProjectRoles.Read(ToolReplay.Plan);
+        var projects = EvaluatorConfiguration.DiscoveryRoots.SelectMany(RepositoryTests.DiscoverProjects)
+            .Concat(roles.Keys).Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal).ToArray();
+        ProjectRoles.ValidateInventory(projects, root, roles);
+        var output = Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports", StagePolicy.Current.Identity);
+        Directory.CreateDirectory(output);
+        File.WriteAllText(Path.Combine(output, "project-inventory.json"), JsonSerializer.Serialize(projects.Select(path =>
+            new { Project = path, Role = roles.TryGetValue(path, out var role) ? role.Role : "application",
+                BuildProperties = roles.GetValueOrDefault(path)?.BuildProperties }),
+            new JsonSerializerOptions { WriteIndented = true }));
+        Assert.NotEmpty(projects);
+    }
+
+    [Fact]
     [Trait("Category", "ReplayRequest")]
     public void Export_external_request_without_executing_submission_projects()
     {

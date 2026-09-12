@@ -72,7 +72,7 @@ internal static class ExternalReplay
         }
         bool Within(string path, string root) => Path.GetFullPath(path).StartsWith(
             Path.GetFullPath(root).TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase);
-        foreach (var project in plan.Projects)
+        foreach (var project in ProjectRoles.Read(plan).Keys)
         {
             if (!Path.IsPathFullyQualified(project) || !File.Exists(project) ||
                 !plan.SourceRoots.Any(root => Within(project, root)))

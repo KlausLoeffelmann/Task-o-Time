@@ -24,7 +24,8 @@ internal sealed class SourceCompilationException(string project, IEnumerable<Dia
 
 // MSBuild supplies the exact compiler arguments, including WPF-generated VB and framework references.
 // Project references are replaced by source compilations; stale frontend DLLs cannot decide the verdict.
-internal sealed class CompilerInputLoader(string intermediateRoot, string configuration = "Debug", string profile = "unit")
+internal sealed class CompilerInputLoader(string intermediateRoot, string configuration = "Debug", string profile = "unit",
+    IReadOnlyDictionary<string, ProjectRoleDeclaration>? projectRoles = null)
 {
     internal List<LoadedProject> Projects { get; } = [];
     private readonly HashSet<string> loading = new(StringComparer.OrdinalIgnoreCase);
@@ -37,7 +38,9 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
         if (cached is not null) return cached;
         if (!loading.Add(projectPath)) throw new InvalidOperationException("Cyclic project reference: " + projectPath);
         var directory = Path.GetDirectoryName(projectPath)!;
-        var intermediate = Path.Combine(intermediateRoot, CacheIdentity(projectPath, configuration, profile));
+        ProjectRoleDeclaration? role = null;
+        projectRoles?.TryGetValue(projectPath, out role);
+        var intermediate = Path.Combine(intermediateRoot, CacheIdentity(projectPath, configuration, profile, role));
         Directory.CreateDirectory(intermediate);
         var start = new ProcessStartInfo("dotnet")
         {
@@ -65,6 +68,8 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             "-getItem:CscCommandLineArgs,VbcCommandLineArgs,ProjectReference,Compile,Page,ApplicationDefinition,EmbeddedResource,ReferencePath,ReferencePathWithRefAssemblies,PackageReference,None,Content",
             "-getProperty:TargetPath,TargetRefPath,AssemblyName,IsTestProject,TargetFramework,TargetFrameworkIdentifier,TargetFrameworkVersion,TargetPlatformIdentifier,Configuration,Configurations,RootNamespace,UsingMicrosoftNETSdk"
         }) start.ArgumentList.Add(argument);
+        foreach (var property in role?.BuildProperties ?? [])
+            start.ArgumentList.Add("-property:" + property.Key + "=" + property.Value);
         using var process = Process.Start(start) ?? throw new InvalidOperationException("Cannot start dotnet MSBuild.");
         var outputTask = process.StandardOutput.ReadToEndAsync();
         var errorTask = process.StandardError.ReadToEndAsync();
@@ -144,6 +149,11 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
         var tooling = compilation.ReferencedAssemblyNames.Any(a => a.Name == "Microsoft.CodeAnalysis.VisualBasic") && !test;
         // A trusted replay declaration may identify a wrapper or project-only CLI without direct VB references.
         tooling |= ToolReplay.DeclaredProjects.Contains(projectPath, StringComparer.OrdinalIgnoreCase) && !test;
+        if (role != null)
+        {
+            tooling = true;
+            test = role.Role is "fixture" or "validation";
+        }
         var generated = items.GetProperty("Compile").EnumerateArray().Where(a =>
             a.TryGetProperty("AutoGen", out var v) && v.GetString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true)
             .Select(a => a.GetProperty("FullPath").GetString()!).ToArray();
@@ -161,6 +171,7 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
         }
         var metadata = new XElement("Project", new XAttribute("Path", projectPath), new XAttribute("Name", name),
             new XAttribute("Test", test), new XAttribute("Tooling", tooling),
+            new XAttribute("Role", role?.Role ?? (tooling ? "tool" : "application")),
             new XAttribute("SdkStyle", properties.TryGetProperty("UsingMicrosoftNETSdk", out var sdk) &&
                 sdk.GetString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true),
             new XAttribute("TargetFramework", properties.TryGetProperty("TargetFramework", out var framework)
@@ -185,15 +196,16 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             compilation, test, tooling, generated, additional.DistinctBy(f => f.Path).ToArray(),
             properties.TryGetProperty("TargetRefPath", out var targetRef) && !string.IsNullOrWhiteSpace(targetRef.GetString())
                 ? Path.GetFullPath(targetRef.GetString()!, directory) : null,
-            ReadState(projectPath, compilation.Language, test, tooling, properties));
+            ReadState(projectPath, compilation.Language, test, tooling, properties) with
+                { Role = role?.Role ?? (tooling ? "tool" : "application") });
         Projects.Add(loaded);
         loading.Remove(projectPath);
         return loaded;
     }
 
-    internal static string CacheIdentity(string path, string configuration, string profile) =>
+    internal static string CacheIdentity(string path, string configuration, string profile, ProjectRoleDeclaration? role = null) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
-            Path.GetFullPath(path).ToUpperInvariant() + "\n" + configuration + "\n" + profile)));
+            Path.GetFullPath(path).ToUpperInvariant() + "\n" + configuration + "\n" + profile + "\n" + JsonSerializer.Serialize(role))));
 
     internal static ProjectState ReadState(string path, string language, bool test, bool tooling, JsonElement properties)
     {
@@ -207,7 +219,7 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
     {
         var all = projects.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
         bool InTestDirectory(string path) => Path.GetRelativePath(sourceRoot, path).Split(Path.DirectorySeparatorChar)
-            .SkipLast(1).Any(s => s.EndsWith("Tests", StringComparison.Ordinal));
+            .SkipLast(1).Any(s => s.EndsWith("Tests", StringComparison.OrdinalIgnoreCase));
         var production = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         var pending = new Stack<LoadedProject>(all.Values.Where(p => !p.IsTest && !InTestDirectory(p.Path)));
         while (pending.TryPop(out var current))
@@ -218,7 +230,7 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
                 if (reference.Attribute("Path")?.Value is { } path && all.TryGetValue(path, out var dependency))
                     pending.Push(dependency);
         }
-        return all.Values.Select(p => !p.IsTest && InTestDirectory(p.Path) && !production.Contains(p.Path)
+        return all.Values.Select(p => !p.IsTest && !p.IsTooling && InTestDirectory(p.Path) && !production.Contains(p.Path)
             ? p with { IsTest = true, State = p.State == null ? null : p.State with { Test = true } } : p).ToArray();
     }
 

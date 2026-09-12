@@ -4,9 +4,10 @@
        never candidate project properties. Stage integrity retains 6.5.1 through S2a;
        S3/S4 and final delivery require the reviewed EF6 6.5.2 compatibility update.
        RepositoryTests supplies that strict version to the unchanged EF contract check. -->
-  <!-- Paths are relative to TaskOTimeSourceRoot. Assessment/Artifacts/bin/obj and tests
-       are excluded from production discovery. MIGRATION_TOOL_ROOT adds another root.
-       Tooling projects are discovered even without application project references. -->
+  <!-- Paths are relative to TaskOTimeSourceRoot. Generated artifacts/bin/obj are
+       excluded case-insensitively; tests/fixtures are discovered and compiled.
+       External projects require exact trusted replay-plan roles, not path-wide skips.
+       MIGRATION_TOOL_ROOT adds another root without granting an exemption. -->
   <Discovery>
     <Root>.</Root>
     <Root>..\..\tools</Root>

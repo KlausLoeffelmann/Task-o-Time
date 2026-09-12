@@ -14,7 +14,8 @@ internal sealed record ReplayCase(string Name, string Kind, ReplayCommand Comman
     string? ExpectedDirectory, string? BehaviorFile = null, bool Unsupported = false,
     bool Idempotent = false, bool Checkpoint = false, EvidenceFileContract? EvidenceFile = null);
 internal sealed record ReplayPlan(string[] Projects, ReplayCase[] Cases,
-    string[]? SourceRoots = null, string[]? ArtifactRoots = null);
+    string[]? SourceRoots = null, string[]? ArtifactRoots = null,
+    ProjectRoleDeclaration[]? ProjectRoles = null);
 public sealed record ReplayEvidence(string Name, bool Passed, string Message, string InputHash,
     string OutputHash, string Command, int ExitCode, string StandardOutput, string StandardError)
 {
