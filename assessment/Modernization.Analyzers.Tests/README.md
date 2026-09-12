@@ -438,12 +438,20 @@ Dead checks, constant result helpers, self-comparisons and unrelated CLI names
 are not fixture evidence. Test compilations are supplied separately from the
 production corpus; they do not become application criteria inputs.
 Assertion guards must execute in the called assertion body, not merely occur in
-an uncalled nested function or conditional dead branch. Stdout comparisons trace
+an uncalled nested function or conditional dead branch. The bounded guaranteed-
+continuation check also rejects preceding returns, jumps, throws and potentially
+noncontinuing control flow before a guard; enclosing caller statements are not
+mistaken for a local function's execution path. Stdout comparisons trace
 call-site-bound process launch values through helper returns and aliases: both
 sides must have known, distinct executable/argument origins. Aliases of the same
 run and repeat launches of the same resolved input do not establish before/after
 coverage. Unknown/multiple origins fail closed; arbitrary runtime path equivalence
 and behavioral correctness remain trusted-replay responsibilities.
+Process launch fingerprints use effective `FileName`/`Arguments` initializer
+values, not overwritten constructor arguments. Subsequent launch-property writes,
+unmodeled `ArgumentList` edits/escapes, and additions not ordered before use fail
+closed (including inspected local aliases and helper parameters). This is not a
+general mutable-object analysis; trusted replay remains mandatory.
 
 MSBuild-evaluated/structured-XML **project** migration is not required to pretend
 to be a Roslyn language emitter. Its executable checkpoint evidence belongs in

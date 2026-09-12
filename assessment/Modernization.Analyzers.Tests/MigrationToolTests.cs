@@ -402,6 +402,38 @@ public sealed class MigrationToolTests
     }
 
     [Theory]
+    [InlineData("Path.Combine(root, \"Canary.exe\")", "start.FileName = Path.Combine(\"input\", \"Canary.exe\");", true)]
+    [InlineData("Path.Combine(root, \"Canary.exe\")", "var alias = start; alias.FileName = Path.Combine(\"input\", \"Canary.exe\");", true)]
+    [InlineData("Path.Combine(root, \"Canary.exe\")", "Overwrite(start);", true)]
+    [InlineData("\"Canary.exe\", root", "start.Arguments = \"input\";", true)]
+    [InlineData("\"Canary.exe\"", "start.ArgumentList.Add(root); start.ArgumentList.Clear(); start.ArgumentList.Add(\"input\");", true)]
+    [InlineData("Path.Combine(root, \"Canary.exe\")", "", false)]
+    public async Task Canary_launch_factory_mutation_cannot_authenticate_constructor_input(string constructor, string mutation, bool rejected)
+    {
+        var driver = CanaryDriver.Replace(
+            "new ProcessStartInfo(Path.Combine(root, \"Canary.exe\")) { RedirectStandardOutput = true }",
+            "MakeStart(root)").Replace("static int Convert()", $$"""
+                static ProcessStartInfo MakeStart(string root) {
+                    var start = new ProcessStartInfo({{constructor}}) { RedirectStandardOutput = true };
+                    {{mutation}}
+                    return start;
+                }
+                static void Overwrite(ProcessStartInfo info) {
+                    info.FileName = Path.Combine("input", "Canary.exe");
+                }
+                static int Convert()
+                """);
+        Assert.Equal(rejected, (await Analyze(CompileAdapter(ExternalAdapter), driver: driver)).Any(d => d.Id == "TOOL001"));
+    }
+
+    [Fact]
+    public async Task Canary_launch_initializer_uses_effective_filename_not_overwritten_constructor()
+    {
+        var driver = CanaryDriver.Replace("RedirectStandardOutput = true", "RedirectStandardOutput = true, FileName = Path.Combine(\"input\", \"Canary.exe\")");
+        Assert.Contains(await Analyze(CompileAdapter(ExternalAdapter), driver: driver), d => d.Id == "TOOL001");
+    }
+
+    [Theory]
     [InlineData("return (process.ExitCode, text);", "return (0, \"Always fine\");")]
     [InlineData("before.Text == after.Text", "before.Code == after.Code")]
     [InlineData("before.Text == after.Text", "before.Text == before.Text")]
@@ -415,6 +447,9 @@ public sealed class MigrationToolTests
     [InlineData("var after = Run(\"output\");", "var alias = before; var after = alias;")]
     [InlineData("var after = Run(\"output\");", "var sameInput = \"input\"; var after = Run(sameInput);")]
     [InlineData("if (!success) throw new Exception(\"Failed\");", "if (false) { if (!success) throw new Exception(\"Failed\"); }")]
+    [InlineData("if (!success) throw new Exception(\"Failed\");", "return; if (!success) throw new Exception(\"Failed\");")]
+    [InlineData("if (!success) throw new Exception(\"Failed\");", "if (true) return; if (!success) throw new Exception(\"Failed\");")]
+    [InlineData("if (!success) throw new Exception(\"Failed\");", "goto Done; if (!success) throw new Exception(\"Failed\"); Done: return;")]
     public async Task Canary_dependencies_stubs_dead_checks_and_unrelated_processes_are_not_fixture_evidence(string oldValue, string replacement)
     {
         Assert.Contains(await Analyze(CompileAdapter(ExternalAdapter), driver: CanaryDriver.Replace(oldValue, replacement)), d => d.Id == "TOOL001");
