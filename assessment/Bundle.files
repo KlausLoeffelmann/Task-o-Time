@@ -13,6 +13,7 @@ Candidate-Prompt.S2a.md
 Candidate-Prompt.S3.md
 Write-CandidatePrompts.ps1
 Assessor-Guide.md
+Reference-Replay.md
 Modernization.Analyzers.Tests\.gitignore
 Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj
 Modernization.Analyzers.Tests\CompilerInputs.targets
@@ -36,4 +37,7 @@ Modernization.Analyzers.Tests\ToolReplay.cs
 Modernization.Analyzers.Tests\ToolReplayTests.cs
 Modernization.Analyzers.Tests\ExternalReplay.cs
 Modernization.Analyzers.Tests\ExternalReplayTests.cs
+Modernization.Analyzers.Tests\ReferenceReplay.cs
+Modernization.Analyzers.Tests\ReferenceReplayTests.cs
+Modernization.Analyzers.Tests\ReplayRequestTests.cs
 Modernization.Analyzers.Tests\README.md

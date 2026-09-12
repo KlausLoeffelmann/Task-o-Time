@@ -66,6 +66,8 @@ extension, not a list of original VB project filenames.
 | `Category=RepositoryScan` | Complete source compilation plus report generation; passes on a compilable bad application |
 | `Category=ReplayUnit` | Actual child-process replay, converter-shaped empty-class rejection, emitted compilation/behavior and unsupported-input harness regressions |
 | `Category=StagePreservation` | Explicit starting-point-integrity only; requires stage language/style/targets and original nonmigration defects, including exactly one BUS001/BUS002 |
+| `Category=ReplayRequest` | Explicit metadata-only external request export; no submission project evaluation or acceptance verdict |
+| `Category=ReferenceReviewRequest` | Explicit metadata-only owned-source review request export; not review approval or acceptance |
 | `Category=Modernization` | Final-delivery only; requires valid inputs **and zero mandatory acceptance diagnostics**; intentionally fails on the bad baseline |
 
 Use explicit category filters. Never include StagePreservation in ideal/final
@@ -102,7 +104,7 @@ diagnostics, per-criterion integer metrics, evaluation-valid/hard-gate/unverifie
 status, evaluated project framework identifier/version/platform, SDK style and
 configuration, trusted stage/mode, stage-integrity failures, actual replay
 evidence, criterion applicability, applicable denominator and remaining-work
-score. CSV rubric `2026-09-stage-v3`
+score. CSV rubric `2026-09-stage-v4`
 uses bounded criterion scores rather than dividing by diagnostic counts:
 business 28, MVVM 18, localization 14, VB-to-C# 9, theme 9, comments 5,
 Main Data naming 5, migration tool 5, SDK-style 3.5, and .NET 10 target 3.5.
@@ -370,8 +372,8 @@ engine identity/licensing; successful fixture replay is not a general proof.
 `ASSESSMENT_REPLAY_EXECUTION=external-receipt` executes no CLI or emitted behavior
 on the assessor host. It fails closed until a separately trusted isolated
 executor supplies a valid signed receipt. There is no bundled sandbox and no
-provisioned external executor in this repository. Missing isolation is a blocker,
-not permission to mark TOOL002 satisfied.
+provisioned external executor in this repository. Missing isolation is a formal
+candidate-evaluation blocker, not permission to relabel a local process isolated.
 
 For development of **source-reviewed, assessor-owned reference tooling only**,
 explicitly set `ASSESSMENT_REPLAY_EXECUTION=local-reviewed`. Local case checks
@@ -380,6 +382,13 @@ can pass and `LocalEvidencePassed` can be true, but `Verified` remains false,
 Never use this mode for an untrusted submission. An owned fixture-copying stub
 regression demonstrates why: it can reproduce accessible expected files perfectly
 without performing conversion, yet cannot earn formal verification.
+
+For independently reviewed **owned reference tools**, the separately labelled
+`reference-reviewed` lane can satisfy reference TOOL acceptance after exact-source
+approval, a fresh producer build and actual replay. It never sets formal
+`Verified=true`. See `..\Reference-Replay.md` for the runnable commands, approval
+contract, producer/binary provenance checks and limitations. Merely choosing this
+mode or providing a supplied binary does not establish approval or a pass.
 
 Set `ASSESSMENT_REPLAY_PLAN` to an absolute JSON path **inside the private
 assessment tree**, not the candidate checkout. Plans, fixture inputs, expected
@@ -498,9 +507,14 @@ $env:ASSESSMENT_REPLAY_EXECUTION = 'external-receipt' # default
 $env:ASSESSMENT_REPLAY_CHALLENGE = [guid]::NewGuid().ToString('N')
 $env:ASSESSMENT_REPLAY_PUBLIC_KEY = 'C:\private\assessment\executor-public.pem'
 $env:ASSESSMENT_REPLAY_RECEIPT = 'C:\private\assessment\executor-receipt.json'
+$p = '.\assessment\Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj'
+dotnet test $p --filter 'Category=ReplayRequest'
 ```
 
-With a private plan and challenge, the verifier writes
+Set `ASSESSMENT_REPLAY_PLAN` and the trusted stage/mode/configuration as above.
+This explicit selector reads/hashes files but does not evaluate candidate
+MSBuild projects, launch their binaries or issue an acceptance verdict.
+With a private plan and challenge, it writes
 `Artifacts\Reports\<profile>\external-replay-request.json`. Its `PayloadBase64`
 decodes to a `ReplayRequest`; `Sha256` is the uppercase SHA256 of those exact
 decoded bytes, avoiding cross-platform JSON canonicalization ambiguity.

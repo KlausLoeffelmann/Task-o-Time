@@ -11,7 +11,7 @@ namespace Modernization.Analyzers.Tests;
 public sealed record ScanDiagnostic(string Id, string Severity, string Project, string Path, int Line, int Column, string Message);
 public sealed record ScanReport(bool CompilationValid, string[] Projects, ScanDiagnostic[] Diagnostics)
 {
-    public string RubricVersion { get; init; } = "2026-09-stage-v3";
+    public string RubricVersion { get; init; } = "2026-09-stage-v4";
     public bool EvaluationValid { get; init; }
     public bool HardGatePassed { get; init; }
     public bool FullModernizationPassed { get; init; }
@@ -27,6 +27,7 @@ public sealed record ScanReport(bool CompilationValid, string[] Projects, ScanDi
     public CriterionResult[] Criteria { get; init; } = [];
     public ScanDiagnostic[] AcceptanceDiagnostics { get; init; } = [];
     public ReplayResult? Replay { get; init; }
+    public string AcceptanceBasis { get; init; } = "static-quality-only";
     public string[] ArchitectureTypes { get; init; } = [];
     public string[] SourcePaths { get; init; } = [];
     public string[] AdditionalPaths { get; init; } = [];
@@ -99,6 +100,7 @@ public sealed class RepositoryTests
         try
         {
             var policy = StagePolicy.Current;
+            ReferenceReplay.ValidateBeforeProjectEvaluation();
             var loader = new CompilerInputLoader(Path.Combine(EvaluatorConfiguration.ArtifactRoot, "compiler-inputs"),
                 EvaluatorConfiguration.BuildConfiguration, policy.Identity);
             foreach (var directory in new[] { "TaskOTime.App" })
@@ -182,7 +184,8 @@ public sealed class RepositoryTests
         var replay = report.CompilationValid ? await ToolReplay.Run(policy, EvaluatorConfiguration.ArtifactRoot) :
             new ReplayResult(false, [], "Input invalid; replay not executed.");
         var allDiagnostics = report.Diagnostics.ToList();
-        if (policy.ProjectReplay && !replay.Verified)
+        var toolAccepted = replay.Verified || replay.ReferenceVerified;
+        if (policy.ProjectReplay && !toolAccepted)
             allDiagnostics.Add(new("TOOL002", "Warning", "replay", "", 0, 0,
                 replay.Message + " " + string.Join("; ", replay.Cases.Where(c => !c.Passed).Select(c => c.Name + ": " + c.Message))));
         report = report with { Diagnostics = allDiagnostics.ToArray(), Replay = replay };
@@ -197,13 +200,15 @@ public sealed class RepositoryTests
             report = report with { Diagnostics = report.Diagnostics.Concat(acceptance.Where(d => d.Id == "STG001")).ToArray() };
         }
         var valid = IsValid(report);
-        var rows = Rubric(report.Diagnostics, valid, replay.Verified);
-        var criteria = CriteriaFor(report.Diagnostics, policy, valid, replay.Verified);
+        var rows = Rubric(report.Diagnostics, valid, toolAccepted);
+        var criteria = CriteriaFor(report.Diagnostics, policy, valid, toolAccepted);
         var applicableWeight = criteria.Where(c => c.Applicability == "applicable").Sum(c => c.Weight);
         var integrity = policy.CheckIntegrity(report.EvaluatedProjects, acceptance);
         report = report with
         {
             EvaluationValid = valid,
+            AcceptanceBasis = replay.ReferenceVerified ? "owned-reference-reviewed; NOT formal candidate isolation" :
+                replay.Verified ? "external-replay-attested; whole-scan isolation requires executor custody" : "static-quality-only",
             HardGatePassed = valid && policy.Mode == EvaluationMode.FinalDelivery && acceptance.Length == 0,
             FullModernizationPassed = valid && acceptance.Length == 0 && rows.All(r => r.Score == 1),
             AcceptanceDiagnostics = acceptance,
@@ -214,24 +219,24 @@ public sealed class RepositoryTests
                 criteria.Where(c => c.Applicability == "applicable").Sum(c => c.Weight * c.Score!.Value) / applicableWeight : null,
             UnverifiedCount = Math.Max(report.Diagnostics.Count(d => d.Id == "THM002"),
                 report.Metrics.Values.Sum(m => m.Unverified)),
-            OverallScore = FullScore(report.Diagnostics, valid, replay.Verified)
+            OverallScore = FullScore(report.Diagnostics, valid, toolAccepted)
         };
         await File.WriteAllTextAsync(Path.Combine(output, "roslyn-diagnostics.json"),
             JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine);
-        var csv = new StringBuilder("rubric_version,criterion_id,criterion_name,weight,full_outcome_score,full_weighted_contribution,status,evidence,applicability,starting_state\r\n");
+        var csv = new StringBuilder("rubric_version,criterion_id,criterion_name,weight,full_outcome_score,full_weighted_contribution,status,evidence,applicability,starting_state,acceptance_basis\r\n");
         foreach (var row in rows)
             csv.AppendLine(string.Join(",", new[] { report.RubricVersion, row.Id, row.Name,
                 row.Weight.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
                 row.Score.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture),
                 (row.Weight * row.Score / 100d).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
                 criteria.Single(c => c.Id == row.Id).Status, row.Evidence,
-                policy.Applicability(row.Id), policy.StartingState(row.Id) }.Select(Csv)));
+                policy.Applicability(row.Id), policy.StartingState(row.Id), report.AcceptanceBasis }.Select(Csv)));
         csv.AppendLine(string.Join(",", new[] { report.RubricVersion, "OVERALL", "Normalized overall score", "100.0",
             report.OverallScore.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture),
             report.OverallScore.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
             !report.EvaluationValid ? "INVALID" : report.HardGatePassed ? "PASS" : "FAIL",
             $"evaluation-valid={report.EvaluationValid}; hard-gate={report.HardGatePassed}; unverified={report.UnverifiedCount}; stage={policy.Stage}; mode={policy.Mode}; applicable-weight={applicableWeight}; remaining-score={report.RemainingWorkScore}",
-            "full-outcome", policy.Stage.ToString() }.Select(Csv)));
+            "full-outcome", policy.Stage.ToString(), report.AcceptanceBasis }.Select(Csv)));
         await File.WriteAllTextAsync(Path.Combine(output, "repository-assessment.csv"), csv.ToString());
         return report;
     }

@@ -169,7 +169,7 @@ final submission. HardGatePassed is final-delivery only.
 
 Reports live under `Artifacts\Reports\<stage>-<mode>-<configuration>`.
 Compiler intermediates additionally hash full project path/configuration/profile.
-CSV/JSON rubric `2026-09-stage-v3` preserves the 100-point full-outcome score,
+CSV/JSON rubric `2026-09-stage-v4` preserves the 100-point full-outcome score,
 reports applicability and an applicable-only normalized remaining-work score.
 Deferred work is not a pass; pre-satisfied work is not newly earned. A
 pre-satisfied regression still fails final acceptance. S3's tool criterion is
@@ -200,11 +200,25 @@ Do not run candidate MSBuild projects, CLI binaries or emitted code locally:
 the full untrusted build/scan must also run inside the external boundary.
 The README specifies request hashing, pinned RSA-PSS receipt verification and
 executor obligations. Missing isolation remains a formal acceptance blocker.
+For the source-reviewed owned Golden reference, `Reference-Replay.md` documents
+a separate runnable `reference-reviewed` path: exact-source independent approval,
+fresh evaluated producer builds and actual replay can satisfy reference TOOL
+acceptance. Supplied binaries and fixture-copying replacements cannot substitute
+for the approved producer. JSON/CSV explicitly distinguish this reference claim
+from formal candidate isolation; no other quality rule is waived.
 Preparation tooling, expected outputs, logs and evaluator files are never
 candidate handover material. Export only application allowlisted files and the
 stage-appropriate candidate brief, without Git history or private support refs.
 
 ### Stage-profile implementation verification
+
+Owned-reference follow-up: **305 combined tests pass**, including a real fresh
+managed producer build, compiler-output/target byte binding, rejection of
+post-build binary substitution, stale supplied binaries and unapproved
+fixture-copying source. Both metadata-only request export commands also passed
+against deliberately invalid project XML/non-executable artifacts without
+evaluating them. Rubric v4 records the explicit reference/formal acceptance basis;
+weights and other quality rules are unchanged.
 
 Independent-review follow-up: the combined filter below now passes **296 tests**
 on the owned S0 Debug baseline, including absent/uncompilable/out-of-discovery

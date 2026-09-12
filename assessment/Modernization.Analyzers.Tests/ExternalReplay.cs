@@ -26,14 +26,7 @@ internal static class ExternalReplay
             var challenge = Environment.GetEnvironmentVariable("ASSESSMENT_REPLAY_CHALLENGE");
             if (challenge == null)
                 return new(false, [], "Formal replay requires a trusted external executor receipt, pinned public key and fresh challenge. No candidate process was executed.");
-            var payload = JsonSerializer.SerializeToUtf8Bytes(BuildRequest(plan, policy, challenge));
-            var output = Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports", policy.Identity);
-            Directory.CreateDirectory(output);
-            File.WriteAllText(Path.Combine(output, "external-replay-request.json"), JsonSerializer.Serialize(new
-            {
-                PayloadBase64 = Convert.ToBase64String(payload),
-                Sha256 = Convert.ToHexString(SHA256.HashData(payload))
-            }, new JsonSerializerOptions { WriteIndented = true }));
+            WriteRequest(plan, policy, challenge);
             if (receipt == null || key == null)
                 return new(false, [], "Exported external-replay-request.json; formal acceptance is blocked until a trusted isolated executor returns a signed receipt. No candidate process was executed.");
             return Verify(plan, policy, challenge,
@@ -44,6 +37,20 @@ internal static class ExternalReplay
         {
             return new(false, [], "External replay evidence invalid: " + error.Message);
         }
+    }
+
+    internal static string WriteRequest(ReplayPlan plan, StagePolicy policy, string challenge)
+    {
+        var payload = JsonSerializer.SerializeToUtf8Bytes(BuildRequest(plan, policy, challenge));
+        var output = Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports", policy.Identity);
+        Directory.CreateDirectory(output);
+        var path = Path.Combine(output, "external-replay-request.json");
+        File.WriteAllText(path, JsonSerializer.Serialize(new
+        {
+            PayloadBase64 = Convert.ToBase64String(payload),
+            Sha256 = Convert.ToHexString(SHA256.HashData(payload))
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        return path;
     }
 
     internal static string RequestHash(ReplayPlan plan, StagePolicy policy, string challenge)
@@ -148,7 +155,7 @@ internal static class ExternalReplay
         }
     }
     private static string HashFile(string path) => Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path)));
-    private static string HashSourceTree(string root)
+    internal static string HashSourceTree(string root)
     {
         if (!Path.IsPathFullyQualified(root) || !Directory.Exists(root))
             throw new InvalidDataException("Source roots must be existing absolute paths.");
