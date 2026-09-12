@@ -17,9 +17,15 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="5.0.0" />
     <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.0" />
+    <PackageDownload Include="ICSharpCode.CodeConverter" Version="[10.0.1.923]" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" GeneratePathProperty="true" />
   </ItemGroup>
   <Target Name="WriteFrameworkReferencePath" AfterTargets="Build">
+    <WriteLinesToFile File="$(TargetDir)compiler-engine-reference.txt"
+                     Lines="$(NuGetPackageRoot)icsharpcode.codeconverter\10.0.1.923\lib\netstandard2.0\ICSharpCode.CodeConverter.dll"
+                     Overwrite="true" />
     <WriteLinesToFile File="$(TargetDir)framework-reference-root.txt"
                       Lines="$(PkgMicrosoft_NETFramework_ReferenceAssemblies_net461)\build\.NETFramework"
                       Overwrite="true" />

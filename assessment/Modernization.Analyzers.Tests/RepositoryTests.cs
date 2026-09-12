@@ -141,7 +141,9 @@ public sealed class RepositoryTests
                 }
                 var analyzer = new OutcomeAnalyzer(corpus.Select(p => new AssessmentProject(p.Path, p.Compilation,
                     p.IsTooling, p.IsTest, p.GeneratedPaths)).ToArray(), EvaluatorConfiguration.Selection.Includes,
-                    EvaluatorConfiguration.Selection.IncludesSource, contracts: true);
+                    EvaluatorConfiguration.Selection.IncludesSource, contracts: true,
+                    toolFixtures: loaded.Where(p => p.IsTest).Select(p => new AssessmentProject(p.Path, p.Compilation,
+                        p.IsTooling, p.IsTest, p.GeneratedPaths)).ToArray());
                 var scenario = new InputFile(Path.Combine(EvaluatorConfiguration.AssessmentRoot, "ScenarioScope.xml.assessment"),
                     ScenarioText(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml")), policy));
                 var options = new AnalyzerOptions(corpus.SelectMany(p => p.AdditionalFiles).Append(scenario).DistinctBy(f => f.Path).ToImmutableArray());

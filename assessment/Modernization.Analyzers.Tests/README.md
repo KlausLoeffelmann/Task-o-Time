@@ -394,12 +394,53 @@ are covered. Unused imports,
 dummy construction, constant unrelated output, absent output checks and obvious
 clock/random output dependencies do not satisfy the rule.
 
+Alternatively, an adapter may delegate language conversion to a proven external
+compiler engine instead of rebuilding its syntax construction algorithm. The
+currently modeled external API is the metadata-resolved
+`ICSharpCode.CodeConverter.Common.ProjectConversion.ConvertDocumentsAsync<VBToCSConversion>`
+contract (regression fixtures compile against CodeConverter 10.0.1.923).
+Merely naming that dependency, defining a lookalike in candidate source, or
+discarding its result is insufficient. Reachable document input must depend on
+caller-supplied Roslyn documents/projects or file content loaded into a workspace.
+The result's failure branch must exit before consuming `ConvertedCode`; that
+code must flow through source-defined postprocessor returns and optional
+dictionary accumulation to `File.WriteAllText`/`WriteAllTextAsync`. Call-site
+parameter substitution, async results, tuple projections, LINQ document creation
+and workspace population are modeled. Constant-return postprocessors, discarded
+content, reversed/conditional failure guards, dead entry paths, output resets and
+dictionary replacement are rejected. This bounded contract is reusable across
+tool names and repositories; other engine APIs require an independently reviewed
+contract model, not a package-name exemption.
+
 Supply representative VB/C# fixture sources as evaluated `None` or `Content`
 items in the tooling project (exclude expected-output `.cs` files from its own
 `Compile` items). Corresponding input/output basenames pair fixtures; no particular
 basename is mandatory. Both fixture sources must compile using supplied tooling
 references and share at least three structural construct categories: properties,
 events, generics, loops, exception handling or lambdas.
+
+Basename pairs are not mandatory when a compiling companion test executable
+references the tooling assembly and supplies representative VB fixture inputs
+beneath its test root. Its reachable assertions must connect to the referenced
+tool (direct call or named CLI process with observed exit code), inspect emitted
+source read from disk (including inline construct assertions), and compare
+distinct before/after process stdout values. Top-level and ordinary entry points,
+local functions, argument arrays and async stream/tuple results are supported.
+Dead checks, constant result helpers, self-comparisons and unrelated CLI names
+are not fixture evidence. Test compilations are supplied separately from the
+production corpus; they do not become application criteria inputs.
+
+MSBuild-evaluated/structured-XML **project** migration is not required to pretend
+to be a Roslyn language emitter. Its executable checkpoint evidence belongs in
+the existing assessor-owned `ASSESSMENT_REPLAY_PLAN`: list the actual project CLI
+in `Projects`, use `Kind: "project"` cases with independently owned input/expected
+directories, `Idempotent: true`, required `Checkpoint: true` cases and unsupported
+input cases. For the staged CLI interface, configure `dotnet` with arguments
+`[absoluteCliDll, "normalize-framework", "--target", "net472", "--source", "{input}", "--output", "{output}"]`,
+or replace the verb/options with `"convert-projects", "--sdk-style"`, or
+`"retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows"`.
+Build/check each resulting checkpoint independently; a declaration alone does
+not award static language-pipeline evidence or satisfy mandatory TOOL002 replay.
 
 The analyzer does not execute the migration tool. This is evidence that a reusable,
 compiler-assisted deliverable and companion fixtures **exist**, not proof the

@@ -14,6 +14,125 @@ public sealed class MigrationToolTests
         .Split(Path.PathSeparator).Concat(new[] { typeof(Compilation).Assembly.Location, typeof(CSharpCompilation).Assembly.Location,
             typeof(VisualBasicCompilation).Assembly.Location }).Distinct(StringComparer.OrdinalIgnoreCase)
         .Select(p => MetadataReference.CreateFromFile(p)).ToArray();
+    private const string ExternalAdapter = """
+        using System;
+        using System.IO;
+        using System.Collections.Generic;
+        using System.Threading.Tasks;
+        using ICSharpCode.CodeConverter.Common;
+        using ICSharpCode.CodeConverter.CSharp;
+        using Microsoft.CodeAnalysis;
+        public static class DocumentPorter {
+          public static async Task Convert(IReadOnlyCollection<Document> documents, string output) {
+            var emitted = new Dictionary<string, string>();
+            await foreach (var result in ProjectConversion.ConvertDocumentsAsync<VBToCSConversion>(documents, new ConversionOptions())) {
+              if (!result.Success) throw new InvalidOperationException("Conversion failed");
+              var code = Repair(result.ConvertedCode);
+              emitted.Add(result.TargetPathOrNull, code);
+            }
+            foreach (var (path, code) in emitted)
+              await File.WriteAllTextAsync(Path.Combine(output, path), code);
+          }
+          private static string Repair(string code) => code;
+        }
+        """;
+
+    private static Compilation CompileAdapter(string source)
+    {
+        var references = References.Concat(new[] {
+            MetadataReference.CreateFromFile(typeof(Document).Assembly.Location),
+            MetadataReference.CreateFromFile(File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "compiler-engine-reference.txt")).Trim())
+        }).DistinctBy(r => r.Display);
+        var compilation = CSharpCompilation.Create("ExternalPorter", [CSharpSyntaxTree.ParseText(source)],
+            references, new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
+        Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+        return compilation;
+    }
+
+    [Fact]
+    public async Task Guarded_external_compiler_engine_flows_through_postprocessor_and_async_emission()
+    {
+        Assert.DoesNotContain(await Analyze(CompileAdapter(ExternalAdapter)), d => d.Id == "TOOL001");
+    }
+
+    [Fact]
+    public async Task Source_defined_engine_lookalike_is_not_a_verified_external_contract()
+    {
+        var lookalike = """
+            namespace ICSharpCode.CodeConverter.Common {
+              public static class ProjectConversion {
+                public static async IAsyncEnumerable<FakeResult> ConvertDocumentsAsync<T>(
+                    IReadOnlyCollection<Document> documents, ConversionOptions options) {
+                  await Task.Yield();
+                  yield return new FakeResult();
+                }
+              }
+              public sealed class FakeResult {
+                public bool Success => true;
+                public string ConvertedCode => "public class Empty {}";
+                public string TargetPathOrNull => "Empty.cs";
+              }
+            }
+            """;
+        Assert.Contains(await Analyze(CompileAdapter(ExternalAdapter + lookalike)), d => d.Id == "TOOL001");
+    }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task External_engine_requires_document_content_not_only_workspace_paths(bool discardedContent)
+    {
+        var source = ExternalAdapter.Replace("using System.IO;", "using System.IO; using System.Linq; using Microsoft.CodeAnalysis.Text;")
+            .Replace("IReadOnlyCollection<Document> documents", "string input")
+            .Replace("var emitted =", """
+                using var workspace = new AdhocWorkspace();
+                Populate(workspace, input);
+                var selected = workspace.CurrentSolution.Projects.OrderBy(p => p.FilePath).ToArray();
+                var emitted =
+                """)
+            .Replace("await foreach", """
+                foreach (var project in selected) {
+                var documents = project.Documents.Where(d => d.FilePath != null).ToArray();
+                await foreach
+                """)
+            .Replace("foreach (var (path, code)", "} foreach (var (path, code)")
+            .Replace("private static string Repair", """
+                private static void Populate(AdhocWorkspace workspace, string input) {
+                    var id = ProjectId.CreateNewId();
+                    var documents = System.Collections.Immutable.ImmutableArray.Create(input).Select(path => {
+                        using var stream = File.OpenRead(path);
+                        var text = SourceText.From(stream);
+                        return DocumentInfo.Create(DocumentId.CreateNewId(id), "Input.vb",
+                            loader: TextLoader.From(TextAndVersion.Create(text, VersionStamp.Create())), filePath: path);
+                    }).ToArray();
+                    workspace.AddProject(ProjectInfo.Create(id, VersionStamp.Create(), "Source", "Source",
+                        LanguageNames.VisualBasic, documents: documents));
+                }
+                private static string Repair
+                """);
+        if (discardedContent) source = source.Replace("var text = SourceText.From(stream);", "var text = SourceText.From(\"Public Class Empty\\nEnd Class\");");
+        var found = await Analyze(CompileAdapter(source));
+        Assert.Equal(discardedContent, found.Any(d => d.Id == "TOOL001"));
+    }
+
+    [Theory]
+    [InlineData("if (!result.Success)", "if (result.Success)")]
+    [InlineData("if (!result.Success)", "if (!result.Success && output.Length < 0)")]
+    [InlineData("throw new InvalidOperationException(\"Conversion failed\");", "Console.WriteLine(\"Conversion failed\");")]
+    [InlineData("private static string Repair(string code) => code;", "private static string Repair(string code) => \"public class Empty {}\";")]
+    [InlineData("var code = Repair(result.ConvertedCode);", "var code = Repair(result.ConvertedCode); code = \"public class Empty {}\";")]
+    [InlineData("emitted.Add(result.TargetPathOrNull, code);", "emitted.Add(code, \"public class Empty {}\");")]
+    [InlineData("var code = Repair(result.ConvertedCode);", "Repair(result.ConvertedCode); var code = Repair(\"public class Empty {}\");")]
+    [InlineData("ConvertDocumentsAsync<VBToCSConversion>(documents,", "ConvertDocumentsAsync<VBToCSConversion>(Array.Empty<Document>(),")]
+    [InlineData("public static async Task Convert(", "private static async Task Convert(")]
+    [InlineData("await foreach", "if (false) await foreach")]
+    [InlineData("await File.WriteAllTextAsync", "if (false) await File.WriteAllTextAsync")]
+    [InlineData("foreach (var (path, code)", "emitted.Clear(); foreach (var (path, code)")]
+    [InlineData("foreach (var (path, code)", "emitted = new(); foreach (var (path, code)")]
+    [InlineData("emitted.Add(result.TargetPathOrNull, code);", "emitted.Add(result.TargetPathOrNull, code); emitted[result.TargetPathOrNull] = \"public class Empty {}\";")]
+    public async Task External_engine_dependencies_dead_results_stubs_and_invalid_guards_do_not_count(string oldValue, string replacement)
+    {
+        Assert.Contains(await Analyze(CompileAdapter(ExternalAdapter.Replace(oldValue, replacement))), d => d.Id == "TOOL001");
+    }
     internal const string CSharpTool = """
         using System;
         using System.Linq;
@@ -94,15 +213,116 @@ public sealed class MigrationToolTests
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
         return compilation;
     }
-    private static async Task<ImmutableArray<Diagnostic>> Analyze(Compilation tool, bool fixtures = true, string? output = null)
+    private static async Task<ImmutableArray<Diagnostic>> Analyze(Compilation tool, bool fixtures = true, string? output = null,
+        string? driver = null)
     {
         var app = AnalyzerTests.Compile(LanguageNames.CSharp, "public class Entry {}");
-        var analyzer = new OutcomeAnalyzer([new("", app), new(@"C:\tooling\Porter.csproj", tool, Tooling: true)]);
-        var options = new AnalyzerOptions(fixtures ? [new InputFile(@"C:\tooling\fixtures\Representative.vb", Input),
+        var corpus = new List<AssessmentProject> { new("", app), new(@"C:\tooling\Porter.csproj", tool, Tooling: true) };
+        if (driver != null)
+        {
+            var test = CSharpCompilation.Create("Driver", [CSharpSyntaxTree.ParseText(driver)],
+                References.Append(tool.ToMetadataReference()), new CSharpCompilationOptions(OutputKind.ConsoleApplication));
+            Assert.DoesNotContain(test.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error);
+            corpus.Add(new(@"C:\tooling\tests\Driver.csproj", test, Test: true));
+        }
+        var analyzer = new OutcomeAnalyzer(corpus);
+        var options = new AnalyzerOptions(driver != null ? [new InputFile(@"C:\tooling\tests\fixtures\Legacy.vb", Input)] :
+            fixtures ? [new InputFile(@"C:\tooling\fixtures\Representative.vb", Input),
             new InputFile(@"C:\tooling\fixtures\Representative.cs", output ?? Output)] : []);
         var found = await app.WithAnalyzers([analyzer], options).GetAnalyzerDiagnosticsAsync();
         Assert.DoesNotContain(found, d => d.Id == "AD0001");
         return found;
+    }
+    private const string CanaryDriver = """
+        using System;
+        using System.IO;
+        using System.Diagnostics;
+        class Driver {
+          static void Main() {
+            var before = Run("input");
+            var conversion = Convert();
+            Require(conversion == 0);
+            var code = File.ReadAllText(@"output\Converted.cs");
+            Require(code.Contains("Value"));
+            var after = Run("output");
+            Require(after.Code == 0 && before.Text == after.Text);
+          }
+          static int Convert() {
+            var start = new ProcessStartInfo("dotnet");
+            start.ArgumentList.Add("ExternalPorter.dll");
+            using var process = Process.Start(start);
+            process.WaitForExit();
+            return process.ExitCode;
+          }
+          static (int Code, string Text) Run(string root) {
+            using var process = Process.Start(new ProcessStartInfo(Path.Combine(root, "Canary.exe")) { RedirectStandardOutput = true });
+            var text = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+            return (process.ExitCode, text);
+          }
+          static void Require(bool success) { if (!success) throw new Exception("Failed"); }
+        }
+        """;
+
+    [Fact]
+    public async Task Compiling_executable_canary_and_actual_output_assertions_replace_basename_fixture_conventions()
+    {
+        Assert.DoesNotContain(await Analyze(CompileAdapter(ExternalAdapter), driver: CanaryDriver), d => d.Id == "TOOL001");
+    }
+
+    [Fact]
+    public async Task Top_level_canary_local_functions_are_reachable()
+    {
+        var driver = CanaryDriver.Replace("\r\n", "\n").Replace("class Driver {\n  static void Main() {", "")
+            .Replace("\n  }\n  static int Convert()", "\n  static int Convert()");
+        driver = driver[..driver.LastIndexOf('}')];
+        Assert.DoesNotContain(await Analyze(CompileAdapter(ExternalAdapter), driver: driver), d => d.Id == "TOOL001");
+    }
+
+    [Fact]
+    public async Task Async_canary_tracks_argument_arrays_streams_and_tuple_results()
+    {
+        var driver = """
+            using System;
+            using System.IO;
+            using System.Diagnostics;
+            using System.Threading.Tasks;
+            var cli = Path.Combine("tool", "ExternalPorter.dll");
+            var before = await Run("input.exe", "input");
+            var conversion = await Convert("input", "output");
+            Require(conversion.Code == 0, conversion.Text);
+            var code = File.ReadAllText(@"output\Converted.cs");
+            Require(code.Contains("Value"), "output construct");
+            var after = await Run("output.exe", "output");
+            Require(after.Code == 0 && before.Text == after.Text, "behavior");
+            async Task<(int Code, string Text)> Convert(string from, string to, params string[] extra) =>
+                await Run("dotnet", "tool", ["exec", cli, "convert", "--input", from, "--output", to, .. extra]);
+            static async Task<(int Code, string Text)> Run(string file, string directory, params string[] args) {
+                var start = new ProcessStartInfo(file) { WorkingDirectory = directory, RedirectStandardOutput = true, RedirectStandardError = true };
+                foreach (var arg in args) start.ArgumentList.Add(arg);
+                using var process = Process.Start(start)!;
+                var streams = await Task.WhenAll(process.StandardOutput.ReadToEndAsync(), process.StandardError.ReadToEndAsync());
+                await process.WaitForExitAsync();
+                return (process.ExitCode, string.Concat(streams));
+            }
+            static void Require(bool success, string message) {
+                if (!success) throw new InvalidOperationException(message);
+            }
+            """;
+        Assert.DoesNotContain(await Analyze(CompileAdapter(ExternalAdapter), driver: driver), d => d.Id == "TOOL001");
+    }
+
+    [Theory]
+    [InlineData("return (process.ExitCode, text);", "return (0, \"Always fine\");")]
+    [InlineData("before.Text == after.Text", "before.Code == after.Code")]
+    [InlineData("before.Text == after.Text", "before.Text == before.Text")]
+    [InlineData("Require(code.Contains(\"Value\"));", "Require(true);")]
+    [InlineData("if (!success) throw new Exception(\"Failed\");", "Console.WriteLine(success);")]
+    [InlineData("start.ArgumentList.Add(\"ExternalPorter.dll\");", "start.ArgumentList.Add(\"Unrelated.dll\");")]
+    [InlineData("static void Main() {", "static void Main() { } static void Unused() {")]
+    public async Task Canary_dependencies_stubs_dead_checks_and_unrelated_processes_are_not_fixture_evidence(string oldValue, string replacement)
+    {
+        Assert.Contains(await Analyze(CompileAdapter(ExternalAdapter), driver: CanaryDriver.Replace(oldValue, replacement)), d => d.Id == "TOOL001");
     }
     [Theory]
     [InlineData(LanguageNames.CSharp)]
@@ -134,9 +354,9 @@ public sealed class MigrationToolTests
     public static IEnumerable<object[]> GuardCases()
     {
         foreach (var language in new[] { LanguageNames.CSharp, LanguageNames.VisualBasic })
-        foreach (var variant in new[] { "false-predicate", "negated-rejects-success", "warning-predicate",
+            foreach (var variant in new[] { "false-predicate", "negated-rejects-success", "warning-predicate",
             "partial-exit", "conditional-guard", "negated-error-else", "where-errors", "local-error-flag" })
-            yield return [language, variant, variant is "negated-error-else" or "where-errors" or "local-error-flag"];
+                yield return [language, variant, variant is "negated-error-else" or "where-errors" or "local-error-flag"];
     }
 
     [Theory]
