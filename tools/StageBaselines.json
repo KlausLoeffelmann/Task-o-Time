@@ -114,5 +114,53 @@
     "testsFailed": 0,
     "testsSkipped": 0,
     "desktopVisualRun": false
+  },
+  "S3": {
+    "applicationCommit": "073d1c4483ffec987937f8f4c865958d82bb10e3",
+    "applicationRef": "modernization-S3-csharp-net10",
+    "applicationBinarySourceCommit": "d157288c55c49a8b3eae8fac2691b5e8632a6823",
+    "inputCommit": "307ecf3acbf38910b73f0e19caf665810b4ccc2a",
+    "toolCommit": "fffdd73",
+    "replayVerificationToolCommit": "10ce5fd",
+    "operations": [
+      "prepare-net10",
+      "retarget --framework net10.0 --wpf-framework net10.0-windows"
+    ],
+    "manualFollowups": [
+      "Replaced the CLI JavaScriptSerializer seam with reviewed Newtonsoft.Json compatibility parsing.",
+      "Added the Windows platform attribute to handwritten App assembly metadata.",
+      "Added three JSON compatibility tests.",
+      "Updated runtime prerequisites, launch paths and legacy-probe documentation; no binary changes."
+    ],
+    "verifiedConfigurations": ["Debug", "Release"],
+    "sdk": "10.0.401",
+    "applicationProjectCount": 11,
+    "generatedProjectAndTargetFiles": 12,
+    "generatedFilesMatchReplay": true,
+    "productionLanguage": "C#",
+    "testLanguage": "C# and VB",
+    "allProductionProjectsSdkStyle": true,
+    "allApplicationAndTestTargets": "net10.0 or net10.0-windows",
+    "entityFrameworkVersion": "6.5.2",
+    "intentionalBusinessDefectsPreserved": true,
+    "buildErrors": 0,
+    "buildWarnings": 5,
+    "buildWarningExplanation": "Unchanged PBKDF2 constructors emit SYSLIB0060; warnings are not suppressed.",
+    "timeTrackingTestsPassed": 33,
+    "appServerTestsPassed": 33,
+    "isolatedIntegrationTestsPassed": 15,
+    "stageIntegrityTestsPassed": 2,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "desktopStartupRun": true,
+    "desktopStartupFeatures": "core",
+    "desktopStartupConfigurations": ["Debug", "Release"],
+    "desktopStartupHarnessCommit": "62119a0",
+    "desktopStartupOwnedDatabaseCleanupVerified": true,
+    "desktopVisualRun": false,
+    "applicationStageAccepted": true,
+    "formalToolReplayAccepted": false,
+    "reusableToolReview": "Separate acceptance remains pending: metadata-copy removal must prove producer reachability. No demonstrated failure in this candidate.",
+    "goldenIdealAccepted": false
   }
 }
