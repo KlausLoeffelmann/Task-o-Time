@@ -3,6 +3,11 @@
 The Windows desktop application provides time bookings, task recording, and
 master-data maintenance through the **Stammdaten** menu.
 
+Build on Windows using the .NET 10 SDK pinned by the repository's `global.json`.
+The application uses SDK-style projects, production C#, and EF6 6.5.2 with SQL
+Server; the collection tests remain in VB. LocalDB is required for local SQL
+integration checks.
+
 ## Local demo
 
 The default startup uses the named EF6 `TaskOTimeContext` connection in
@@ -13,7 +18,7 @@ From `src\TaskOTime`, using PowerShell on Windows:
 
 ```powershell
 dotnet build .\TaskOTime.App\TaskOTime.App.csproj
-& .\TaskOTime.App\bin\Debug\net472\TaskOTime.App.exe
+& .\TaskOTime.App\bin\Debug\net10.0-windows\TaskOTime.App.exe
 ```
 
 Generated local data uses the accounts configured in
@@ -79,11 +84,16 @@ booking days are authoritative.
 dotnet build .\TaskOTime.slnx
 dotnet test .\TaskOTime.TimeTrackingServices.Tests\TaskOTime.TimeTrackingServices.Tests.vbproj
 dotnet test .\TaskOTime.AppServer.Tests\TaskOTime.AppServer.Tests.csproj
-powershell.exe -NoProfile -Sta -File .\TaskOTime.App\VerifyDesktop.ps1
+dotnet test .\TaskOTime.AppServer.IntegrationTests\TaskOTime.AppServer.IntegrationTests.csproj
 ```
 
-The desktop smoke uses the generated local SQL credentials, rolls back its
-authentication and booking probes, loads service-backed categories, constructs
-the windows and resources, and verifies the time list's collection source.
-The STA desktop test also inventories menu, command-strip, time-panel, and
-direct master-data handlers at runtime.
+SQL integration tests create GUID-named databases and remove only databases
+whose ownership they established; they do not reset the shared demo database.
+Build and publish deploy the model's CSDL, SSDL, and MSL files alongside the
+application through the shared metadata target.
+
+`VerifyDesktop.ps1` is retained as a legacy .NET Framework construction probe,
+not a .NET 10 acceptance command. Windows PowerShell cannot load the modern
+application assemblies. Desktop automation requires a .NET 10 Windows STA host
+and an explicitly isolated database; do not run the legacy probe against shared
+demo data. Unit and SQL tests alone do not establish desktop startup acceptance.
