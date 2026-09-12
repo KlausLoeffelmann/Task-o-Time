@@ -60,7 +60,7 @@ namespace TaskOTime.AppServer.IntegrationTests
                 context.SaveChanges();
             }
             var secondProjectId = GuidFromSuffix(501);
-            var admin = new AdminMasterDataService(database.CreateContext, hasher);
+            var admin = new AdminMainDataService(database.CreateContext, hasher);
             AssertSucceeded(admin.CreateProject(new SaveProjectRequest
             {
                 IdTenant = TenantId, IdActingUser = AdminUserId,
