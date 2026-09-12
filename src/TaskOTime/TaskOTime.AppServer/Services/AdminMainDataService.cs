@@ -20,6 +20,52 @@ namespace TaskOTime.AppServer.Services
         {
         }
 
+        public ServiceResult<TenantDto> GetTenant(GetTenantRequest request)
+        {
+            if (request == null)
+                return ServiceResult<TenantDto>.Fail("InvalidRequest", "A tenant request is required.");
+
+            using (var context = CreateContext())
+            {
+                var authorization = Authorize<TenantDto>(context, request.IdTenant, request.IdActingUser, allowInactiveTenant: true);
+                if (authorization != null) return authorization;
+                return ServiceResult<TenantDto>.Ok(ToTenantDto(context.Tenant.Single(t => t.IdTenant == request.IdTenant)));
+            }
+        }
+
+        public ServiceResult<TenantDto> UpdateTenant(UpdateTenantRequest request)
+        {
+            if (request == null)
+                return ServiceResult<TenantDto>.Fail("InvalidRequest", "A tenant update request is required.");
+
+            try
+            {
+                var name = NormalizeRequired(request.TenantName, nameof(request.TenantName));
+                if (name.Length > 200)
+                    return ServiceResult<TenantDto>.Fail("InvalidRequest", "TenantName cannot exceed 200 characters.");
+
+                using (var context = CreateContext())
+                {
+                    // An existing active admin may reactivate their tenant, but may never edit a deleted tenant.
+                    var authorization = Authorize<TenantDto>(context, request.IdTenant, request.IdActingUser, allowInactiveTenant: true);
+                    if (authorization != null) return authorization;
+                    if (context.Tenant.Any(t => t.IdTenant != request.IdTenant && !t.IsDeleted && t.TenantName == name))
+                        return ServiceResult<TenantDto>.Fail("TenantExists", "A tenant with this name already exists.");
+
+                    var tenant = context.Tenant.Single(t => t.IdTenant == request.IdTenant);
+                    tenant.TenantName = name;
+                    tenant.IsActive = request.IsActive;
+                    tenant.DateModified = DateTimeOffset.UtcNow;
+                    context.SaveChanges();
+                    return ServiceResult<TenantDto>.Ok(ToTenantDto(tenant));
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                return ServiceResult<TenantDto>.Fail("InvalidRequest", ex.Message);
+            }
+        }
+
         public ServiceResult<IReadOnlyList<ProjectMainDataDto>> GetProjects(MainDataQueryRequest request)
         {
             if (request == null)
@@ -1876,14 +1922,14 @@ namespace TaskOTime.AppServer.Services
             }
         }
 
-        private static ServiceResult<T> Authorize<T>(TaskOTimeContext context, Guid idTenant, Guid idActingUser)
+        private static ServiceResult<T> Authorize<T>(TaskOTimeContext context, Guid idTenant, Guid idActingUser, bool allowInactiveTenant = false)
         {
             if (idTenant == Guid.Empty || idActingUser == Guid.Empty)
             {
                 return ServiceResult<T>.Fail("InvalidRequest", "Tenant and acting user ids are required.");
             }
 
-            if (!context.Tenant.Any(t => t.IdTenant == idTenant && t.IsActive && !t.IsDeleted))
+            if (!context.Tenant.Any(t => t.IdTenant == idTenant && (allowInactiveTenant || t.IsActive) && !t.IsDeleted))
             {
                 return ServiceResult<T>.Fail("TenantNotFound", "The tenant was not found or is inactive.");
             }

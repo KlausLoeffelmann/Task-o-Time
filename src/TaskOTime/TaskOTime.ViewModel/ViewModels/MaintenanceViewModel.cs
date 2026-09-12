@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
+using System.ComponentModel;
 using TaskOTime.ViewModel.Base;
 using TaskOTime.AppServer.Models;
 using TaskOTime.ViewModel.Localization;
@@ -19,11 +20,13 @@ namespace TaskOTime.ViewModel.ViewModels
             Store = store ?? throw new ArgumentNullException(nameof(store));
             Interaction = interaction ?? throw new ArgumentNullException(nameof(interaction));
             CollectionChangedEventManager.AddHandler(Store.Users, OnUsersChanged);
+            PropertyChangedEventManager.AddHandler(Store, OnWorkspaceChanged, string.Empty);
         }
 
         private void OnUsersChanged(object sender, NotifyCollectionChangedEventArgs e) => RefreshCommands();
+        private void OnWorkspaceChanged(object sender, PropertyChangedEventArgs e) => RefreshCommands();
 
-        public bool CanManage => Store.CanManage;
+        public bool CanManage => Store.CanManage && Store.Tenant.IsActive;
         public string OperationStatusText => _status?.ToString() ?? string.Empty;
 
         protected void SetStatus(string key, params object[] arguments) =>
@@ -52,9 +55,10 @@ namespace TaskOTime.ViewModel.ViewModels
             return result.Value;
         }
 
-        protected DelegateCommand Command(Action action, Func<bool> enabled = null)
+        protected DelegateCommand Command(Action action, Func<bool> enabled = null, bool allowInactiveTenant = false)
         {
-            bool CanExecute() => CanManage && (enabled == null || enabled());
+            bool CanExecute() => Store.CanManage && (allowInactiveTenant || Store.Tenant.IsActive)
+                && (enabled == null || enabled());
             var command = new DelegateCommand(_ =>
             {
                 // Guard direct command execution as well as disabled UI controls.

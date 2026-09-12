@@ -4,12 +4,13 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using TaskOTime.AppServer.Models;
 using TaskOTime.AppServer.Services;
+using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel
 {
 
     /// <summary>Shared service-backed collections for the Main Data workspace.</summary>
-    public sealed class ServiceWorkspace
+    public sealed class ServiceWorkspace : ViewModelBase
     {
         public ServiceWorkspace(TenantDto tenant, Guid actingUserId, IAdminMainDataService adminService, IUserAdministrationService userService, ITimeBookingService timeBookingService)
         {
@@ -45,6 +46,16 @@ namespace TaskOTime.ViewModel
         public IAdminMainDataService AdminService { get; private set; }
         public IUserAdministrationService UserService { get; private set; }
         public ITimeBookingService TimeBookingService { get; private set; }
+        public void ApplyTenant(TenantDto tenant)
+        {
+            if (tenant == null || tenant.IdTenant != Tenant.IdTenant)
+                throw new InvalidOperationException("The saved tenant does not match this workspace.");
+            var index = Tenants.IndexOf(Tenant);
+            Tenant = tenant;
+            Tenants[index] = tenant;
+            OnPropertyChanged(nameof(Tenant));
+        }
+
         public bool CanManage => Users.Any(user => user.IdUser == ActingUserId
             && user.IdTenant == Tenant.IdTenant && user.IsAdmin && user.IsActive && !user.IsDeleted);
         public readonly ObservableCollection<TenantDto> Tenants = new ObservableCollection<TenantDto>();

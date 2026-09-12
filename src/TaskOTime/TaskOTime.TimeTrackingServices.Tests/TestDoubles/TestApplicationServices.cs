@@ -103,7 +103,7 @@ namespace TaskOTime.TimeTrackingServices.Tests.Doubles
             AddSeedTime(14, 12, 30, "Projektarbeit", SystemTimeMarkerKind.Normal);
         }
 
-        public TenantDto Tenant { get; }
+        public TenantDto Tenant { get; private set; }
         public Guid ActingUserId { get; }
         public Guid ProjectId { get; }
         public Guid CategoryId { get; }
@@ -113,6 +113,34 @@ namespace TaskOTime.TimeTrackingServices.Tests.Doubles
         public Guid LastMutationActingUser { get; private set; }
         public DeleteMainDataRequest LastDeleteRequest { get; private set; }
         public CreateUserRequest LastCreateUserRequest { get; private set; }
+        public UpdateTenantRequest LastUpdateTenantRequest { get; private set; }
+
+        public ServiceResult<TenantDto> GetTenant(GetTenantRequest request)
+        {
+            if (request == null || request.IdTenant != Tenant.IdTenant
+                || !users.Any(user => user.IdUser == request.IdActingUser && user.IdTenant == request.IdTenant
+                    && user.IsAdmin && user.IsActive && !user.IsDeleted))
+                return ServiceResult<TenantDto>.Fail("NotAuthorized", "An active tenant admin is required.");
+            return ServiceResult<TenantDto>.Ok(Tenant);
+        }
+
+        public ServiceResult<TenantDto> UpdateTenant(UpdateTenantRequest request)
+        {
+            MutationCalls++;
+            LastUpdateTenantRequest = request;
+            if (FailMutations) return ServiceResult<TenantDto>.Fail("TestFailure", "Requested test failure.");
+            var access = GetTenant(new GetTenantRequest { IdTenant = request.IdTenant, IdActingUser = request.IdActingUser });
+            if (!access.Success) return access;
+            if (string.IsNullOrWhiteSpace(request.TenantName) || request.TenantName.Trim().Length > 200)
+                return ServiceResult<TenantDto>.Fail("InvalidRequest", "A valid tenant name is required.");
+            Tenant = new TenantDto
+            {
+                IdTenant = Tenant.IdTenant, TenantIdentifier = Tenant.TenantIdentifier,
+                Description = Tenant.Description, IsDeleted = Tenant.IsDeleted, DateCreated = Tenant.DateCreated,
+                TenantName = request.TenantName.Trim(), IsActive = request.IsActive, DateModified = DateTimeOffset.UtcNow
+            };
+            return ServiceResult<TenantDto>.Ok(Tenant);
+        }
 
         public ServiceResult<IReadOnlyList<ProjectMainDataDto>> GetProjects(MainDataQueryRequest request) =>
             Query(request, projects);

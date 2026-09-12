@@ -41,6 +41,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
         Private Shared Sub VerifyRuntimeBinding()
             Dim application As Application = Nothing
             Dim window As MainWindow = Nothing
+            Dim master As MainDataWindow = Nothing
             Dim login As LoginViewModel = Nothing
             Dim settings As Object = Nothing
             Dim placementProperty As Reflection.PropertyInfo = Nothing
@@ -97,7 +98,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 AssertMainCommandInventory(window, vm)
                 ExerciseForwardedRecordingActions(window, vm, testServices, login.Session)
 
-                Dim master = New MainDataWindow()
+                master = New MainDataWindow()
                 Dim masterViewModel = New MainDataViewModel(
                     testServices.Tenant, testServices.ActingUserId,
                     testServices, testServices, testServices, 1, New TestMaintenanceInteraction())
@@ -109,10 +110,18 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 GC.KeepAlive(masterViewModel)
                 master.Close()
             Finally
+                If master IsNot Nothing Then master.Close()
                 If window IsNot Nothing Then window.Close()
                 If login IsNot Nothing Then login.Logout()
                 If placementProperty IsNot Nothing AndAlso settings IsNot Nothing Then placementProperty.SetValue(settings, restorePlacement)
                 If application IsNot Nothing Then application.Shutdown()
+                Dim ownerDispatcher = Dispatcher.CurrentDispatcher
+                If Not ownerDispatcher.HasShutdownStarted Then
+                    ' Drain Application.Shutdown and release thread-affine WPF resources before the STA exits.
+                    ownerDispatcher.BeginInvokeShutdown(DispatcherPriority.ApplicationIdle)
+                    Dispatcher.Run()
+                End If
+                Assert.IsTrue(ownerDispatcher.HasShutdownFinished, "WPF dispatcher cleanup must finish on its owning STA.")
             End Try
         End Sub
 
@@ -279,16 +288,25 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Next
             Assert.AreSame(vm.Projects.Projects, master.ProjectScreen.ProjectListView.ItemsSource)
             Assert.AreSame(vm.Projects.SelectedProject, master.ProjectScreen.ProjectListView.SelectedItem)
+            Dim projectB = vm.Projects.Projects.Last()
+            master.WorkspaceTabs.SelectedIndex = 2
+            Dim taskProjectSelector = FindLogicalDescendants(Of ComboBox)(master.TaskScreen).Single()
+            taskProjectSelector.SelectedItem = projectB
+            master.WorkspaceTabs.SelectedIndex = 1
+            master.ProjectScreen.ProjectListView.SelectedItem = projectB
             master.ProjectScreen.ProjectNameTextBox.Text = "Updated through binding"
             Assert.AreEqual("Updated through binding", vm.Projects.ProjectName)
             master.ProjectScreen.SaveButton.Command.Execute(Nothing)
             Assert.AreEqual("Updated through binding", vm.Projects.SelectedProject.ProjectName)
             Assert.AreSame(vm.Projects.SelectedProject, master.ProjectScreen.ProjectListView.SelectedItem)
+            Assert.AreSame(vm.Projects.SelectedProject, taskProjectSelector.SelectedItem)
             master.ProjectScreen.NewButton.Command.Execute(Nothing)
             Assert.AreSame(vm.Projects.SelectedProject, master.ProjectScreen.ProjectListView.SelectedItem)
             master.ProjectScreen.DeleteButton.Command.Execute(Nothing)
             Assert.AreSame(vm.Projects.SelectedProject, master.ProjectScreen.ProjectListView.SelectedItem)
             master.WorkspaceTabs.SelectedIndex = 2
+            master.TaskScreen.AddListButton.Command.Execute(Nothing)
+            Assert.AreEqual(projectB.IdProject, vm.Tasks.SelectedList.IdProject)
             master.TaskScreen.AddTaskButton.Command.Execute(Nothing)
             Assert.AreSame(vm.Tasks.SelectedTask, master.TaskScreen.TaskListView.SelectedItem)
             master.TaskScreen.TaskNameTextBox.Text = "Bound task"
@@ -316,6 +334,11 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 Assert.AreEqual(previousCount, selectors(index).Items.Count)
             Next
             master.WorkspaceTabs.SelectedIndex = 0
+            master.TenantUserScreen.TenantNameTextBox.Text = "Tenant saved through binding"
+            master.TenantUserScreen.SaveTenantButton.Command.Execute(Nothing)
+            Assert.AreEqual("Tenant saved through binding", vm.Tenant.TenantName)
+            Assert.AreEqual("Tenant saved through binding", master.ApplicationStatusLabel.Text)
+            Assert.AreSame(vm.TenantUsers.SelectedTenant, master.TenantUserScreen.TenantListView.SelectedItem)
             Dim passwordBox = DirectCast(master.TenantUserScreen.FindName("TemporaryPasswordBox"), PasswordBox)
             passwordBox.Password = "Binding-initial-password-42!"
             Assert.AreEqual(passwordBox.Password, vm.TenantUsers.TemporaryPassword)
