@@ -6,6 +6,7 @@ using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.Text;
 using Microsoft.CodeAnalysis.VisualBasic;
+using Microsoft.CodeAnalysis.CSharp;
 
 namespace TaskOTime.Migration;
 
@@ -25,13 +26,13 @@ internal static class CompilerCapture
         return version;
     }
 
-    internal static async Task<CompilerInputEvidence> LoadAsync(AdhocWorkspace workspace, string root, string project, string configuration)
+    private static async Task<string[]> CaptureArgumentsAsync(string root, string project, string configuration, string item)
     {
         var fullPath = Path.Combine(root, project);
         var directory = Path.GetDirectoryName(fullPath)!;
         var start = new ProcessStartInfo("dotnet") { WorkingDirectory = directory, RedirectStandardOutput = true, RedirectStandardError = true };
         foreach (var arg in new[] { "msbuild", fullPath, "-t:Rebuild", "-p:ProvideCommandLineArgs=true", "-p:BuildProjectReferences=false",
-                     "-p:Configuration=" + configuration, "-getItem:VbcCommandLineArgs", "-nr:false", "-p:UseSharedCompilation=false", "-nologo", "-verbosity:quiet" })
+                     "-p:Configuration=" + configuration, "-getItem:" + item, "-nr:false", "-p:UseSharedCompilation=false", "-nologo", "-verbosity:quiet" })
             start.ArgumentList.Add(arg);
         using var process = Process.Start(start) ?? throw new MigrationException("CAPTURE", "Cannot start dotnet msbuild.");
         var stdout = process.StandardOutput.ReadToEndAsync();
@@ -42,9 +43,32 @@ internal static class CompilerCapture
         var jsonStart = text.IndexOf('{');
         if (jsonStart < 0) throw new MigrationException("CAPTURE", "MSBuild returned no compiler arguments.");
         using var json = JsonDocument.Parse(text[jsonStart..]);
-        var arguments = json.RootElement.GetProperty("Items").GetProperty("VbcCommandLineArgs")
+        var arguments = json.RootElement.GetProperty("Items").GetProperty(item)
             .EnumerateArray().Select(e => e.GetProperty("Identity").GetString()!).ToArray();
-        if (arguments.Length == 0) throw new MigrationException("CAPTURE", $"No Vbc compiler invocation captured for {project}.");
+        if (arguments.Length == 0) throw new MigrationException("CAPTURE", $"No {item} compiler invocation captured for {project}.");
+        return arguments;
+    }
+
+    internal static async Task<OutputCompilationEvidence> VerifyOutputAsync(string root, string project, string[] expected, string configuration)
+    {
+        var directory = Path.GetDirectoryName(Path.Combine(root, project))!;
+        var arguments = await CaptureArgumentsAsync(root, project, configuration, "CscCommandLineArgs");
+        var parsed = CSharpCommandLineParser.Default.Parse(arguments, directory, directory);
+        var errors = parsed.Errors.Where(e => e.Severity == DiagnosticSeverity.Error).ToArray();
+        if (errors.Length != 0) throw new MigrationException("CAPTURE_PARSE", string.Join(Environment.NewLine, errors.Select(e => e.ToString())));
+        var compiled = parsed.SourceFiles.Select(f => Migration.SafeRelative(root, Path.Combine(directory, f.Path)))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var missing = expected.Where(p => !compiled.Contains(p)).ToArray();
+        if (missing.Length != 0)
+            throw new MigrationException("OUTPUT_COMPILE_COVERAGE", $"{project} did not compile emitted sources: {string.Join(", ", missing)}");
+        return new(project, expected.Order(StringComparer.Ordinal).ToArray());
+    }
+
+    internal static async Task<CompilerInputEvidence> LoadAsync(AdhocWorkspace workspace, string root, string project, string configuration)
+    {
+        var fullPath = Path.Combine(root, project);
+        var directory = Path.GetDirectoryName(fullPath)!;
+        var arguments = await CaptureArgumentsAsync(root, project, configuration, "VbcCommandLineArgs");
         var parsed = VisualBasicCommandLineParser.Default.Parse(arguments, directory, directory);
         var errors = parsed.Errors.Where(e => e.Severity == DiagnosticSeverity.Error).ToArray();
         if (errors.Length != 0) throw new MigrationException("CAPTURE_PARSE", string.Join(Environment.NewLine, errors.Select(e => e.ToString())));

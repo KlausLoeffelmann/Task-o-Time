@@ -4,7 +4,7 @@ Imports System.Collections.Specialized
 
 ' Keep this comment verbatim: sortering is bewust.
 Public Class IdentityCollection
-    Implements IList, INotifyCollectionChanged
+    Implements IList, IReadOnlyList(Of String), INotifyCollectionChanged
 
     Private ReadOnly items As New List(Of String)
     Public Event CollectionChanged As NotifyCollectionChangedEventHandler Implements INotifyCollectionChanged.CollectionChanged
@@ -33,6 +33,12 @@ Public Class IdentityCollection
         Set(value As Object)
             Me(index) = DirectCast(value, String)
         End Set
+    End Property
+
+    Private ReadOnly Property ReadOnlyTyped(index As Integer) As String Implements IReadOnlyList(Of String).Item
+        Get
+            Return Me(index)
+        End Get
     End Property
 
     Public Function Add(value As Object) As Integer Implements IList.Add
@@ -68,7 +74,10 @@ Public Class IdentityCollection
     Public Function GetEnumerator() As IEnumerator Implements IEnumerable.GetEnumerator
         Return items.GetEnumerator()
     End Function
-    Public ReadOnly Property Count As Integer Implements ICollection.Count
+    Private Function GetTypedEnumerator() As IEnumerator(Of String) Implements IEnumerable(Of String).GetEnumerator
+        Return items.GetEnumerator()
+    End Function
+    Public ReadOnly Property Count As Integer Implements ICollection.Count, IReadOnlyCollection(Of String).Count
         Get
             Return items.Count
         End Get

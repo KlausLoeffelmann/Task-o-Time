@@ -38,6 +38,7 @@ public static class Migration
                     throw new MigrationException("PROJECT", $"Expected an existing .vbproj: {project}");
                 ProjectEdits.Check(Path.Combine(input, project));
             }
+            ProjectEdits.ValidateDestinations(input, projects.ToDictionary(p => p, p => Path.ChangeExtension(p, ".csproj"), StringComparer.OrdinalIgnoreCase));
             manifest = new RunManifest {
                 Configuration = options.Configuration, Projects = projects,
                 InputFiles = HashFiles(input, files), Status = options.DryRun ? "planned" : "incomplete",
@@ -65,11 +66,11 @@ public static class Migration
             var selected = workspace.CurrentSolution.Projects.OrderBy(p => p.FilePath, StringComparer.Ordinal).ToArray();
             var emitted = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             var mapping = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var expectedOutputs = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase);
             foreach (var project in selected) {
                 var compilation = await project.GetCompilationAsync() ?? throw new MigrationException("COMPILATION", project.Name);
                 var errors = compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
                 if (errors.Length > 0) throw new MigrationException("INPUT_COMPILATION", string.Join(Environment.NewLine, errors.Select(e => e.ToString())));
-                await WpfEdits.ApplyAsync(project, manifest.AppliedRepairs);
                 var documents = project.Documents.Where(d => d.FilePath is not null && !IsGenerated(Path.GetRelativePath(staging, d.FilePath))).ToArray();
                 if (documents.Length == 0) throw new MigrationException("EMPTY", $"No source documents: {project.Name}");
                 foreach (var doc in documents) SafeRelative(staging, doc.FilePath!);
@@ -96,20 +97,27 @@ public static class Migration
                     if (!mapping.ContainsKey(Path.GetRelativePath(staging, doc.FilePath!)))
                         throw new MigrationException("MISSING_OUTPUT", doc.FilePath!);
                 mapping.Add(Path.GetRelativePath(staging, project.FilePath!), Path.ChangeExtension(Path.GetRelativePath(staging, project.FilePath!), ".csproj"));
+                expectedOutputs.Add(Path.GetRelativePath(staging, project.FilePath!),
+                    documents.Select(d => mapping[Path.GetRelativePath(staging, d.FilePath!)]).ToArray());
             }
+            ProjectEdits.ValidateDestinations(staging, mapping);
+            foreach (var project in selected)
+                await WpfEdits.ApplyAsync(project, manifest.AppliedRepairs);
+            ProjectEdits.Apply(staging, mapping, manifest.Compilations);
             foreach (var (target, code) in emitted) {
                 if (File.Exists(Path.Combine(staging, target))) throw new MigrationException("FILE_COLLISION", target);
                 Directory.CreateDirectory(Path.GetDirectoryName(Path.Combine(staging, target))!);
                 await File.WriteAllTextAsync(Path.Combine(staging, target), code);
             }
-            ProjectEdits.Apply(staging, mapping, manifest.Compilations);
             foreach (var source in mapping.Keys) File.Delete(Path.Combine(staging, source));
             foreach (var path in Directory.GetDirectories(staging, "*", SearchOption.AllDirectories)
                          .Where(p => Path.GetFileName(p) is "obj" or "bin").OrderByDescending(p => p.Length))
                 if (Directory.Exists(path)) Directory.Delete(path, true);
             workspace.Dispose();
-            foreach (var project in projects)
+            foreach (var project in projects) {
                 await BuildAsync(staging, mapping[project], options.Configuration, true, "output", manifest);
+                manifest.CompiledOutputs.Add(await CompilerCapture.VerifyOutputAsync(staging, mapping[project], expectedOutputs[project], options.Configuration));
+            }
             var currentHashes = HashFiles(input, Files(input));
             if (!manifest.InputFiles.SequenceEqual(currentHashes)) throw new MigrationException("INPUT_CHANGED", "Input changed during conversion.");
             manifest.OutputFiles = HashFiles(staging, Files(staging));
@@ -220,7 +228,7 @@ public sealed record CompilerInputEvidence(string Project, string[] Arguments, F
 public sealed class RunManifest
 {
     public int SchemaVersion { get; } = 1;
-    public string ToolVersion { get; } = "1.0.0";
+    public string ToolVersion { get; } = "1.0.1";
     public string Engine { get; } = "ICSharpCode.CodeConverter/10.0.1.923 (MIT)";
     public string Roslyn { get; } = "4.14.0";
     public string SdkVersion { get; set; } = "10.0.401 (required; not yet evaluated)";
@@ -236,10 +244,13 @@ public sealed class RunManifest
     public string[] ChangedFiles { get; set; } = [];
     public List<CompilationEvidence> Compilations { get; } = [];
     public List<CompilerInputEvidence> CompilerInputs { get; } = [];
+    public List<OutputCompilationEvidence> CompiledOutputs { get; } = [];
     public List<BuildEvidence> Builds { get; } = [];
     public List<RunDiagnostic> Diagnostics { get; } = [];
     public List<string> AppliedRepairs { get; } = [];
 }
+
+public sealed record OutputCompilationEvidence(string Project, string[] EmittedSources);
 
 internal sealed record Options(string Input, string Output, List<string> Projects, string Configuration, bool DryRun, bool Restore)
 {

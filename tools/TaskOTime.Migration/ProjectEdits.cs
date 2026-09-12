@@ -7,6 +7,11 @@ internal static class ProjectEdits
     internal static void Check(string path)
     {
         var xml = XDocument.Load(path, LoadOptions.PreserveWhitespace);
+        foreach (var attribute in xml.Descendants().Where(e => e.Name.LocalName == "Compile").Attributes()
+                     .Where(a => a.Name.LocalName is "Include" or "Update" or "Remove" or "Exclude")) {
+            if (attribute.Value.IndexOfAny(['$', '@', '%', '*', '?', ';']) >= 0)
+                throw new MigrationException("UNSUPPORTED_COMPILE", $"Use explicit Compile paths before conversion: {path}: {attribute}");
+        }
         foreach (var import in xml.Descendants().Where(e => e.Name.LocalName == "Import")) {
             var value = import.Attribute("Project")?.Value ?? "";
             if (!value.EndsWith("Microsoft.VisualBasic.targets", StringComparison.OrdinalIgnoreCase) &&
@@ -22,6 +27,7 @@ internal static class ProjectEdits
 
     internal static void Apply(string root, Dictionary<string, string> mapping, List<CompilationEvidence> compilations)
     {
+        ValidateDestinations(root, mapping);
         foreach (var relative in Migration.Files(root).Where(p => p.EndsWith("proj", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".slnx", StringComparison.OrdinalIgnoreCase)).ToArray()) {
             var path = Path.Combine(root, relative);
             var xml = XDocument.Load(path, LoadOptions.PreserveWhitespace);
@@ -68,6 +74,17 @@ internal static class ProjectEdits
             var contents = File.ReadAllText(Path.Combine(root, relative));
             if (mapping.Keys.Where(p => p.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase)).Any(p => contents.Contains(Path.GetFileName(p), StringComparison.OrdinalIgnoreCase)))
                 throw new MigrationException("LEGACY_SOLUTION", $"Migrate {relative} to .slnx first; legacy solution rewriting is not supported.");
+        }
+    }
+
+    internal static void ValidateDestinations(string root, IReadOnlyDictionary<string, string> mapping)
+    {
+        var targets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (source, target) in mapping) {
+            var relative = Migration.SafeRelative(root, target);
+            var fullPath = Path.Combine(root, relative);
+            if (!targets.Add(relative) || File.Exists(fullPath) || Directory.Exists(fullPath))
+                throw new MigrationException("FILE_COLLISION", $"Refusing to overwrite destination '{target}' from '{source}'.");
         }
     }
 

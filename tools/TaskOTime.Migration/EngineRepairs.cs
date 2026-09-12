@@ -27,6 +27,7 @@ internal static class EngineRepairs
             .Select(t => t.ToDisplayString()).ToHashSet(StringComparer.Ordinal);
         foreach (var type in root.DescendantNodes().OfType<ClassDeclarationSyntax>()) {
             var updated = type;
+            var memberReplacements = new Dictionary<MemberDeclarationSyntax, MemberDeclarationSyntax?>();
             var methods = type.Members.OfType<MethodDeclarationSyntax>().Where(m => m.ExplicitInterfaceSpecifier is not null).ToArray();
             foreach (var getter in methods.Where(m => m.Identifier.ValueText.StartsWith("get_", StringComparison.Ordinal))) {
                 var iface = model.GetSymbolInfo(getter.ExplicitInterfaceSpecifier!.Name).Symbol as INamedTypeSymbol;
@@ -53,10 +54,13 @@ internal static class EngineRepairs
                     .WithExplicitInterfaceSpecifier(getter.ExplicitInterfaceSpecifier)
                     .WithParameterList(BracketedParameterList(getter.ParameterList.Parameters))
                     .WithAccessorList(AccessorList(List(accessors))).WithTriviaFrom(getter).NormalizeWhitespace();
-                updated = updated.WithMembers(List(updated.Members.SelectMany<MemberDeclarationSyntax, MemberDeclarationSyntax>(m =>
-                    m == getter ? [indexer] : m == setter ? [] : [m])));
+                memberReplacements.Add(getter, indexer);
+                if (setter is not null) memberReplacements.Add(setter, null);
                 appliedRules.Add("explicit-interface-indexer-accessors");
             }
+            if (memberReplacements.Count > 0)
+                updated = type.WithMembers(List(type.Members.SelectMany<MemberDeclarationSyntax, MemberDeclarationSyntax>(m =>
+                    memberReplacements.TryGetValue(m, out var replacement) ? replacement is null ? [] : [replacement] : [m])));
             var symbol = model.GetDeclaredSymbol(type);
             if (symbol is not null && implicitDesignerTypes.Contains(symbol.ToDisplayString())) {
                 var constructor = updated.Members.OfType<ConstructorDeclarationSyntax>().SingleOrDefault(c => c.ParameterList.Parameters.Count == 0);

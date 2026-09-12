@@ -55,6 +55,10 @@ VB options, conditional symbols, explicit/linked compile items and generated WPF
 members come from the **real compiler invocation**, not source-text heuristics.
 The dependency graph is built first; referenced assemblies retain full symbols.
 No bin/obj source is emitted: WPF and assembly-info sources are regenerated.
+Before publication, the wrapper captures the actual **C# compiler invocation**
+as well and verifies that every emitted source is present in that project's
+compiled source set (`CompiledOutputs` in the manifest). A successful build of
+an accidentally empty or incomplete assembly cannot satisfy this check.
 
 Three narrow adapters address reproduced upstream gaps:
 
@@ -67,6 +71,8 @@ Three narrow adapters address reproduced upstream gaps:
    responsibilities. XAML `x:Class` is root-namespace-qualified.
 
 Project/solution-reference and linked-source edits use `XDocument`, not regex.
+All source/project destinations are checked for existing files, directories and
+duplicate targets before any converted project/source/XAML is written.
 Namespaces, field modifiers, comments, business behavior and MVVM defects are
 not "cleaned up." No product-specific type names occur in adapter logic.
 
@@ -102,6 +108,11 @@ implicit XAML initialization, `Handles Me.Loaded`, named-button events and
 idempotent initialization. Negative tests cover collisions, unsupported imports,
 dry-run side effects, already-converted input and rejected generated-control
 reassignment (including failed-manifest state).
+Review regressions additionally exercise **two explicit interface indexers in
+one class** (`IList` and `IReadOnlyList<string>`), rejection of wildcard,
+property-expanded and semicolon Compile items with default compilation
+disabled, existing C# project/source destination collisions, and a deliberately
+excluded emitted C# source whose otherwise-successful build must not publish.
 
 ## Application execution evidence
 
@@ -145,6 +156,12 @@ The SQL fixture was inspected before execution: it uses GUID-named databases,
 ownership markers and validated schema batches. No old fixed-name reset helper
 was run. The canonical candidate tree was not modified.
 
+Version 1.0.1 was replayed on the same accepted S1 input after the independent
+review fixes. All **178 application output hashes remained identical** to the
+handoff above; no generated application changes are required. The new manifest
+additionally confirms that all 11 service and 29 ViewModel emitted sources were
+present in their respective actual C# compiler invocations.
+
 The original tests pass against the converted graph: **33/33
 TimeTrackingServices.Tests and 30/30 AppServer.Tests**. At deeply nested paths,
 the Framework MSTest runner reported that
@@ -172,6 +189,11 @@ old fixed-name SQL reset helper copied from the original graph.
 
 - Only one Debug/Release configuration per run; multitargeting, custom targets,
   unknown imports and valued conditional constants are rejected.
+- Explicit Compile Include/Update/Remove/Exclude expressions containing
+  wildcards, MSBuild property/item/metadata expansion, or semicolon lists are
+  rejected in selected VB project files. Expand these to explicit paths first.
+  SDK implicit compile items remain supported; evaluated C# compiler coverage
+  also catches exclusions inherited through imported properties/targets.
 - `.resx` designer/resource identity transformations and legacy `.sln` reference
   rewriting are rejected rather than guessed; use `.slnx`.
 - Reassigned generated WPF WithEvents controls and multiple handlers combined
