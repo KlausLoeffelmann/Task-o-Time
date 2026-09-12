@@ -9,7 +9,7 @@ source files, candidate refs or databases were modified.
 
 | Check | Result |
 | --- | --- |
-| Independent regression runner | 10 scenarios pass; emitted net472, net10 and WPF/VB consumers build |
+| Independent regression runner | 16 scenarios cover emitted net472/net10, restored dependencies, evaluated preparation safety, actual propagation graphs, and metadata build/publish |
 | Repository inspection | 11 application/test projects, including all remaining VB tests |
 | Framework normalization | 8 project files changed; all 11 evaluate to net472 in Debug and Release |
 | SDK conversion | 3 classic projects changed; all 11 retain net472 and evaluate as SDK-style |
@@ -58,3 +58,112 @@ ignored evidence, not committed application changes.
 No EF package upgrades, serializer replacements, EDMX rewriting or business
 logic changes are hidden inside project conversion. Real runtime/SQL/WPF
 workflow acceptance remains the subsequent compatibility workstream.
+
+## Dependency and desktop-reference hardening
+
+Independent review identified two generic omissions in the initial tool.
+The follow-up tests reproduce and cover both:
+
+- Framework-conditioned `Reference`/`PackageReference` items, and conditional
+  custom metadata on otherwise retained dependencies, now fail output validation
+  instead of disappearing silently. Four negative fixture variants confirm
+  exit 2 and no published workspace.
+- Explicit PresentationFramework/System.Windows.Forms projects without SDK
+  desktop flags now gain the matching `UseWPF`/`UseWindowsForms` setting.
+  Both emitted projects compile actual desktop types under net10.0-windows;
+  second invocations are no-ops, and conflicting false flags fail closed.
+
+The complete real normalization and SDK stages were repeated with the stricter
+dependency checks (`artifacts\dependency-net472` and `artifacts\dependency-sdk`).
+Both passed input/output evaluation for all 11 projects, with the same 8/3
+changed-project counts. The earlier manifest hashes above remain evidence for
+the initial run; the expanded dependency inventories intentionally change
+manifest content in this follow-up.
+
+## Already-restored input integration
+
+The restored-state regression uses actual MSTest.TestAdapter 2.2.10,
+MSTest.TestFramework 2.2.10 and Microsoft.NET.Test.Sdk 17.2.0 packages, plus a
+nested VB project and explicit NuGet-root-based assembly HintPath. It builds the
+source first and verifies:
+
+- Imported adapter `None` assets retain NuGet import provenance in the manifest.
+- Migration does not change the source's `obj\project.assets.json`.
+- Emitted source contains no copied DLLs or package cache tree.
+- Normal output restore/build deploys the adapter successfully.
+- A second invocation on built output is a no-op.
+- Explicit application links to cache files remain rejected.
+- Conditioning the actual adapter PackageReference on the old framework still
+  produces an output-dependency mismatch, rather than silently dropping it.
+
+A separate complete repository copy was **built/restored before normalization**
+at `artifacts\restored-source`, without changing application project/source
+files. This exposed and now covers the real graph's additional restored-state
+differences: NuGet-root HintPath expansion, imported VB reference-pack assemblies,
+and SDK default `None` globs including nested TestDoubles `bin`/`obj` files.
+
+Normalization of that built graph succeeded with 11 projects / 8 changed files;
+the emitted `artifacts\restored-net472` solution built successfully. SDK
+conversion then consumed that **built/restored normalized graph**, succeeded
+with 11 projects / 3 changed files, and `artifacts\restored-sdk` also built with
+zero warnings/errors. No source `obj` deletion, adapter removal, package-cache
+copying, or database operations were used.
+
+## Independent preparation review
+
+Five counterexamples were added before changing production logic. All five
+returned exit 0 and published output under the previous tool, so the new
+regressions failed as intended (`artifacts\prepare-safety-before.log`):
+
+- EF reference aliases added by `Reference Update` in Debug.
+- The same alias override active only in Release.
+- EDMX `MetadataArtifactProcessing=EmbedInOutputAssembly` with `res://` metadata.
+- A copy target relocating metadata into `ConfiguredSchemaFolder`.
+- A copy source pointing at an unrelated producer's bin directory.
+
+Preparation now rejects all five with actionable diagnostics and no output.
+It checks evaluated reference metadata across the configuration matrix, reads
+the actual EDMX before selecting filesystem deployment, and proves copy source
+and destination paths against evaluated producer/consumer output layouts.
+Explicit filesystem metadata remains supported, including root-level projects.
+
+Focused reproduction:
+
+```powershell
+dotnet run --project .\tests\TaskOTime.ProjectMigration.Tests.csproj --verbosity quiet -- --preparation-safety
+```
+
+The candidate was not edited. Replaying the same accepted S2a-plus-reviewed-API
+input through the fixed tool still produces all candidate project/target files
+byte-for-byte with version 1.1.1 (`artifacts\prepare-review-v111-prepared.json`,
+`artifacts\prepare-review-v111-final.json`). All 15 regression scenarios pass
+(`artifacts\prepare-review-full-tests.log`). No S3 tag or ideal merge is performed.
+
+## Content-propagation graph follow-up
+
+An additional review found that matching a metadata producer's output path did
+not prove that its output would reach the consumer. New failing-before cases
+(`artifacts\propagation-safety-before.log`) showed successful, unsafe publication
+with a real unreferenced producer, `Private=false`, a Release-only private
+reference, a reference configuration override, disabled child copying, and
+disabled transitive copying.
+
+Version 1.1.2 separately identifies the old source file and proves delivery
+through the consumer's evaluated reference graph. Full project-reference
+metadata and SDK content-copy controls are inventoried. Unsupported overrides
+cannot serve as propagation edges. A different consumer-local EDMX with the
+same filename is also rejected: local generation is equivalent only for the
+same physical source EDMX and logical destination.
+
+Positive coverage builds/publishes across a two-edge reference chain with
+`ReferenceOutputAssembly=false`. A separate fixture builds a consumer with
+its own identical linked EDMX and no producer reference, and verifies all
+metadata is delivered without ever building the unrelated producer project.
+This last case preserves the accepted candidate's integration-test layout.
+
+All 16 scenarios pass (`artifacts\propagation-full-tests.log`). The final
+candidate replay again returns preparation/retarget exit 0 with 8/11 changed
+files and reproduces all 12 candidate project/target files byte-for-byte
+(`artifacts\propagation-review-prepared.json`,
+`artifacts\propagation-review-final.json`). The parent's documentation-only
+candidate update is untouched; no application files or S3 refs are changed.
