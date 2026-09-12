@@ -37,16 +37,19 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
     private readonly Func<INamedTypeSymbol, bool> selection;
     private readonly Func<string, bool> sourceSelection;
     private readonly bool contracts;
+    private readonly IReadOnlyList<AssessmentProject> toolFixtures;
     internal SortedDictionary<string, CriterionMetric> Metrics { get; } = new(StringComparer.Ordinal);
 
     public OutcomeAnalyzer() : this(null, _ => false, _ => false, true) { }
     internal OutcomeAnalyzer(IReadOnlyList<AssessmentProject>? corpus, Func<INamedTypeSymbol, bool>? selection = null,
-        Func<string, bool>? sourceSelection = null, bool contracts = false)
+        Func<string, bool>? sourceSelection = null, bool contracts = false,
+        IReadOnlyList<AssessmentProject>? toolFixtures = null)
     {
         this.corpus = corpus;
         this.selection = selection ?? (_ => false);
         this.sourceSelection = sourceSelection ?? (_ => false);
         this.contracts = contracts;
+        this.toolFixtures = toolFixtures ?? corpus?.Where(p => p.Test).ToArray() ?? [];
     }
     private static DiagnosticDescriptor Rule(string id, string title, string message) =>
         new(id, title, message, "Modernization", DiagnosticSeverity.Warning, true);
@@ -98,7 +101,7 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
             new LocalizationAnalysis(production, xml, recorder).Run();
             new ThemeAnalysis(production, xml.Where(x => Path.GetExtension(x.File.Path) == ".xaml").ToArray(),
                 selection, sourceSelection, recorder, contracts).Run();
-            MigrationToolAnalysis.Run(projects.Where(p => p.Tooling && !p.Test).ToArray(), files, recorder);
+            MigrationToolAnalysis.Run(projects.Where(p => p.Tooling && !p.Test).ToArray(), files, recorder, toolFixtures);
             AnalyzeEF(production, xml, recorder);
         });
     }
