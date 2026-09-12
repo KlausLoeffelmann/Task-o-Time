@@ -3,21 +3,31 @@
   <Grid.ColumnDefinitions><ColumnDefinition Width="270" /><ColumnDefinition Width="8" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
   <Grid.RowDefinitions><RowDefinition Height="38" /><RowDefinition Height="*" /></Grid.RowDefinitions>
   <TextBlock x:Name="HeadingLabel" x:FieldModifier="public" Grid.ColumnSpan="3" Text="Mandanten und Benutzer" FontFamily="Georgia" FontSize="19" Foreground="DarkBlue" />
-  <ListView x:Name="TenantListView" x:FieldModifier="public" Grid.Row="1" Width="260" HorizontalAlignment="Left" DisplayMemberPath="TenantName" Background="Ivory" />
+  <ListView x:Name="TenantListView" ItemsSource="{Binding Tenants}" SelectedItem="{Binding SelectedTenant, Mode=TwoWay}" x:FieldModifier="public" Grid.Row="1" Width="260" HorizontalAlignment="Left" DisplayMemberPath="TenantName" Background="Ivory" />
   <Grid Grid.Row="1" Grid.Column="2" Margin="6,0,0,0">
    <Grid.RowDefinitions><RowDefinition Height="Auto" /><RowDefinition Height="*" /><RowDefinition Height="Auto" /></Grid.RowDefinitions>
    <StackPanel Orientation="Horizontal">
     <TextBlock Text="Mandant:" FontWeight="Bold" Margin="0,5,7,0" />
-    <TextBox x:Name="TenantNameTextBox" x:FieldModifier="public" Width="260" Height="27" />
-    <CheckBox x:Name="TenantActiveCheckBox" x:FieldModifier="public" Content="aktiv" Margin="17,5" />
+    <TextBox x:Name="TenantNameTextBox" Text="{Binding TenantName, UpdateSourceTrigger=PropertyChanged}" x:FieldModifier="public" Width="260" Height="27" />
+    <CheckBox x:Name="TenantActiveCheckBox" IsChecked="{Binding TenantActive}" x:FieldModifier="public" Content="aktiv" Margin="17,5" />
    </StackPanel>
-   <ListView x:Name="UserListView" x:FieldModifier="public" Grid.Row="1" Margin="0,12,0,9">
+   <ListView x:Name="UserListView" ItemsSource="{Binding Users}" SelectedItem="{Binding SelectedUser, Mode=TwoWay}" x:FieldModifier="public" Grid.Row="1" Margin="0,12,0,9">
     <ListView.View><GridView><GridViewColumn Header="Benutzer" DisplayMemberBinding="{Binding UserIdent}" Width="190" /><GridViewColumn Header="E-Mail" DisplayMemberBinding="{Binding EMail}" Width="250" /><GridViewColumn Header="aktiv" DisplayMemberBinding="{Binding IsActive}" Width="65" /></GridView></ListView.View>
    </ListView>
-   <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-    <Button x:Name="AddUserButton" x:FieldModifier="public" Content="Benutzer +" Width="112" Margin="3" Background="LightGoldenrodYellow" />
-    <Button x:Name="SaveTenantButton" x:FieldModifier="public" Content="Mandant speichern" Width="137" Margin="3" Foreground="DarkGreen" />
-    <Button x:Name="DeleteUserButton" x:FieldModifier="public" Content="Benutzer löschen" Width="126" Margin="3" />
+   <StackPanel Grid.Row="2">
+    <WrapPanel>
+     <StackPanel><TextBlock Text="User name" /><TextBox Width="150" Text="{Binding UserIdent, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+     <StackPanel><TextBlock Text="First name" /><TextBox Width="120" Text="{Binding FirstName, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+     <StackPanel><TextBlock Text="Last name" /><TextBox Width="120" Text="{Binding LastName, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+     <StackPanel><TextBlock Text="Email" /><TextBox Width="180" Text="{Binding Email, UpdateSourceTrigger=PropertyChanged}" /></StackPanel>
+     <StackPanel><TextBlock Text="Temporary password" /><PasswordBox x:Name="TemporaryPasswordBox" Width="160" PasswordChanged="OnTemporaryPasswordChanged" /></StackPanel>
+    </WrapPanel>
+    <TextBlock Text="Tenant changes apply only to the current workspace." />
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+    <Button x:Name="AddUserButton" Command="{Binding AddUserCommand}" x:FieldModifier="public" Content="Benutzer +" Width="112" Margin="3" Background="LightGoldenrodYellow" />
+    <Button x:Name="SaveTenantButton" Command="{Binding SaveTenantCommand}" x:FieldModifier="public" Content="Mandant speichern" Width="137" Margin="3" Foreground="DarkGreen" />
+    <Button x:Name="DeleteUserButton" Command="{Binding DeleteUserCommand}" x:FieldModifier="public" Content="Benutzer löschen" Width="126" Margin="3" />
+   </StackPanel>
    </StackPanel>
   </Grid>
  </Grid>

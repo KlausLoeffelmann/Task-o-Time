@@ -2,7 +2,7 @@ using System;
 
 namespace TaskOTime.AppServer.Models
 {
-    public sealed class MasterDataQueryRequest
+    public sealed class MainDataQueryRequest
     {
         public Guid IdTenant { get; set; }
 
@@ -25,7 +25,7 @@ namespace TaskOTime.AppServer.Models
         public bool IncludeSystemItems { get; set; }
     }
 
-    public sealed class MasterDataItemRequest
+    public sealed class MainDataItemRequest
     {
         public Guid IdTenant { get; set; }
 
@@ -34,7 +34,7 @@ namespace TaskOTime.AppServer.Models
         public Guid IdItem { get; set; }
     }
 
-    public sealed class DeleteMasterDataRequest
+    public sealed class DeleteMainDataRequest
     {
         public Guid IdTenant { get; set; }
 
@@ -45,7 +45,7 @@ namespace TaskOTime.AppServer.Models
         public bool HardDelete { get; set; }
     }
 
-    public abstract class SaveMasterDataRequest<TDto>
+    public abstract class SaveMainDataRequest<TDto>
     {
         public Guid IdTenant { get; set; }
 
@@ -54,39 +54,39 @@ namespace TaskOTime.AppServer.Models
         public TDto Item { get; set; }
     }
 
-    public sealed class SaveProjectRequest : SaveMasterDataRequest<ProjectMainDataDto>
+    public sealed class SaveProjectRequest : SaveMainDataRequest<ProjectMainDataDto>
     {
     }
 
-    public sealed class SaveCategoryRequest : SaveMasterDataRequest<CategoryMasterDataDto>
+    public sealed class SaveCategoryRequest : SaveMainDataRequest<CategoryMainDataDto>
     {
     }
 
-    public sealed class SaveCategorySymbolRequest : SaveMasterDataRequest<CategorySymbolMasterDataDto>
+    public sealed class SaveCategorySymbolRequest : SaveMainDataRequest<CategorySymbolMainDataDto>
     {
     }
 
-    public sealed class SaveTaskListRequest : SaveMasterDataRequest<TaskListMasterDataDto>
+    public sealed class SaveTaskListRequest : SaveMainDataRequest<TaskListMainDataDto>
     {
     }
 
-    public sealed class SaveTaskItemRequest : SaveMasterDataRequest<TaskItemMasterDataDto>
+    public sealed class SaveTaskItemRequest : SaveMainDataRequest<TaskItemMainDataDto>
     {
     }
 
-    public sealed class SaveTagRequest : SaveMasterDataRequest<TagMasterDataDto>
+    public sealed class SaveTagRequest : SaveMainDataRequest<TagMainDataDto>
     {
     }
 
-    public sealed class SaveNoteRequest : SaveMasterDataRequest<NoteMasterDataDto>
+    public sealed class SaveNoteRequest : SaveMainDataRequest<NoteMainDataDto>
     {
     }
 
-    public sealed class SaveWebLinkRequest : SaveMasterDataRequest<WebLinkMasterDataDto>
+    public sealed class SaveWebLinkRequest : SaveMainDataRequest<WebLinkMainDataDto>
     {
     }
 
-    public sealed class MasterDataDeleteResult
+    public sealed class MainDataDeleteResult
     {
         public Guid IdTenant { get; set; }
 

@@ -544,7 +544,7 @@
                 <MenuItem Header="Afmelden" Click="OnLogoutClick" />
                 <MenuItem Header="{StaticResource QuitMenuHeader}" Click="OnQuitMenuItemClick" />
             </MenuItem>
-            <MenuItem Header="{StaticResource MasterDataMenuHeader}">
+            <MenuItem Header="{StaticResource MainDataMenuHeader}">
                 <MenuItem Header="{StaticResource ManageProjectsMenuHeader}"
                           Command="{Binding ManageProjectsCommand}" />
                 <MenuItem Header="{StaticResource NewTaskListButtonText}"

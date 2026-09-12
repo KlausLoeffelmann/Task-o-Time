@@ -26,13 +26,13 @@ namespace TaskOTime.ViewModel.ViewModels
         private readonly Guid _categoryId;
         private readonly Func<DateTime> _clock;
         private ProjectMainDataDto _selectedProject;
-        private CategoryMasterDataDto _selectedCategory;
+        private CategoryMainDataDto _selectedCategory;
 
         public TimeCollectionViewModel() : this(DateTime.Today)
         {
         }
 
-        public TimeCollectionViewModel(DateTime bookingDate, ITimeBookingService service = null, TimeBookingAccessContextDto access = null, IEnumerable<ProjectMainDataDto> projects = null, Guid categoryId = default, Func<DateTime> clock = null, IEnumerable<CategoryMasterDataDto> categories = null)
+        public TimeCollectionViewModel(DateTime bookingDate, ITimeBookingService service = null, TimeBookingAccessContextDto access = null, IEnumerable<ProjectMainDataDto> projects = null, Guid categoryId = default, Func<DateTime> clock = null, IEnumerable<CategoryMainDataDto> categories = null)
         {
             _service = service;
             _access = access;
@@ -40,7 +40,7 @@ namespace TaskOTime.ViewModel.ViewModels
             _clock = clock ?? (() => DateTime.Now);
             Projects = new ObservableCollection<ProjectMainDataDto>(projects ?? Enumerable.Empty<ProjectMainDataDto>());
             SelectedProject = Projects.FirstOrDefault();
-            Categories = new ObservableCollection<CategoryMasterDataDto>();
+            Categories = new ObservableCollection<CategoryMainDataDto>();
             RefreshCategories(categories);
             _entriesByDate = new Dictionary<DateTime, List<TimeEntrySeed>>();
             TimeItems = new TimeItemsViewModel();
@@ -65,7 +65,7 @@ namespace TaskOTime.ViewModel.ViewModels
 
         public ObservableCollection<ProjectMainDataDto> Projects { get; private set; }
 
-        public ObservableCollection<CategoryMasterDataDto> Categories { get; private set; }
+        public ObservableCollection<CategoryMainDataDto> Categories { get; private set; }
 
         public ProjectMainDataDto SelectedProject
         {
@@ -79,7 +79,7 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
-        public CategoryMasterDataDto SelectedCategory
+        public CategoryMainDataDto SelectedCategory
         {
             get
             {
@@ -259,7 +259,7 @@ namespace TaskOTime.ViewModel.ViewModels
             RebuildBookedDates();
         }
 
-        public void RefreshCategories(IEnumerable<CategoryMasterDataDto> categories)
+        public void RefreshCategories(IEnumerable<CategoryMainDataDto> categories)
         {
             var selectedId = SelectedCategory is null ? _categoryId : SelectedCategory.IdCategory;
             Categories.Clear();

@@ -2,17 +2,17 @@
  <Grid Margin="12">
   <Grid.RowDefinitions><RowDefinition Height="46" /><RowDefinition Height="*" /><RowDefinition Height="40" /></Grid.RowDefinitions>
   <TextBlock x:Name="HeadingLabel" x:FieldModifier="public" Text="Kategorien, Tags, Notizen, Weblinks und Aktivität" FontFamily="Tahoma" FontSize="17" FontWeight="Bold" Foreground="SaddleBrown" />
-  <TabControl Grid.Row="1" x:Name="DetailTabs" x:FieldModifier="public">
-   <TabItem Header="Kategorien"><ListView x:Name="CategoryListView" x:FieldModifier="public"><ListView.View><GridView><GridViewColumn Header="Kategorie" DisplayMemberBinding="{Binding CategoryName}" Width="210" /><GridViewColumn Header="Beschreibung" DisplayMemberBinding="{Binding CategoryDescription}" Width="440" /></GridView></ListView.View></ListView></TabItem>
-   <TabItem Header="Tags"><ListBox x:Name="TagListBox" x:FieldModifier="public" DisplayMemberPath="Tag" Background="MintCream" /></TabItem>
-   <TabItem Header="Notizen"><ListView x:Name="NoteListView" x:FieldModifier="public" DisplayMemberPath="NoteText" Background="LightYellow" /></TabItem>
-   <TabItem Header="Weblinks"><ListView x:Name="WebLinkListView" x:FieldModifier="public" DisplayMemberPath="Title" Background="Lavender" /></TabItem>
-   <TabItem Header="Aktivität"><ListView x:Name="LogListView" x:FieldModifier="public"><ListView.View><GridView><GridViewColumn Header="Zeit" DisplayMemberBinding="{Binding LocalLogTime}" Width="180" /><GridViewColumn Header="Meldung" DisplayMemberBinding="{Binding Message}" Width="620" /></GridView></ListView.View></ListView></TabItem>
+  <TabControl Grid.Row="1" x:Name="DetailTabs" SelectedIndex="{Binding SelectedTab, Mode=TwoWay}" x:FieldModifier="public">
+   <TabItem Header="Kategorien"><ListView x:Name="CategoryListView" ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory, Mode=TwoWay}" x:FieldModifier="public"><ListView.View><GridView><GridViewColumn Header="Kategorie" DisplayMemberBinding="{Binding CategoryName}" Width="210" /><GridViewColumn Header="Beschreibung" DisplayMemberBinding="{Binding CategoryDescription}" Width="440" /></GridView></ListView.View></ListView></TabItem>
+   <TabItem Header="Tags"><ListBox x:Name="TagListBox" ItemsSource="{Binding Tags}" SelectedItem="{Binding SelectedTag, Mode=TwoWay}" x:FieldModifier="public" DisplayMemberPath="Tag" Background="MintCream" /></TabItem>
+   <TabItem Header="Notizen"><ListView x:Name="NoteListView" ItemsSource="{Binding Notes}" SelectedItem="{Binding SelectedNote, Mode=TwoWay}" x:FieldModifier="public" DisplayMemberPath="NoteText" Background="LightYellow" /></TabItem>
+   <TabItem Header="Weblinks"><ListView x:Name="WebLinkListView" ItemsSource="{Binding WebLinks}" SelectedItem="{Binding SelectedWebLink, Mode=TwoWay}" x:FieldModifier="public" DisplayMemberPath="Title" Background="Lavender" /></TabItem>
+   <TabItem Header="Aktivität"><ListView x:Name="LogListView" ItemsSource="{Binding Logs}" SelectedItem="{Binding SelectedLog, Mode=TwoWay}" x:FieldModifier="public"></ListView></TabItem>
   </TabControl>
   <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-   <TextBox x:Name="QuickValueTextBox" x:FieldModifier="public" Width="280" Margin="3" />
-   <Button x:Name="AddButton" x:FieldModifier="public" Content="Hinzufügen" Width="95" Margin="3" Background="Bisque" />
-   <Button x:Name="DeleteButton" x:FieldModifier="public" Content="Entfernen" Width="95" Margin="3" />
+   <TextBox x:Name="QuickValueTextBox" Text="{Binding QuickValue, UpdateSourceTrigger=PropertyChanged}" x:FieldModifier="public" Width="280" Margin="3" />
+   <Button x:Name="AddButton" Command="{Binding AddCommand}" x:FieldModifier="public" Content="Hinzufügen" Width="95" Margin="3" Background="Bisque" />
+   <Button x:Name="DeleteButton" Command="{Binding DeleteCommand}" x:FieldModifier="public" Content="Entfernen" Width="95" Margin="3" />
   </StackPanel>
  </Grid>
 </UserControl>

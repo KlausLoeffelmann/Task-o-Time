@@ -3,9 +3,9 @@ using System.Windows.Controls;
 
 namespace TaskOTime.ViewModel.Views
 {
-    public partial class ProjectView : UserControl
+    public partial class MainDataWindow : Window
     {
-        public ProjectView()
+        public MainDataWindow()
         {
             InitializeComponent();
         }

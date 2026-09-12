@@ -1,7 +1,7 @@
 # Task-o-Time desktop
 
 The Windows desktop application provides time bookings, task recording, and
-master-data maintenance through the **Stammdaten** menu.
+main-data maintenance through the **Stammdaten** menu.
 
 ## Local demo
 
@@ -22,7 +22,7 @@ and `DaanNL`. Use the configured preliminary password. Generated accounts must
 replace it on first login before the main window opens. Incorrect credentials
 are rejected, and five failed attempts lock an account for 15 minutes.
 
-Bookings, tasks, master-data edits, and password changes use the SQL services
+Bookings, tasks, project/collaboration edits, user operations, and password changes use the SQL services
 and remain in the database after the application closes. Startup and service
 errors are reported; there is no in-memory fallback.
 
@@ -53,14 +53,14 @@ connection credentials. Failed production connections or authentication do not
 fall back to the local database.
 
 Use an active administrator account and a tenant with projects and categories;
-the current master-data API requires administrative authorization. Database
+the current main-data API requires administrative authorization. Database
 provisioning and system-marker categories must already be configured. The
 desktop does not create the database or seed production users.
 
 ## Recording time
 
 Choose a date to view bookings. The booking editor accepts a time, description,
-project, and a category selected from SQL master data. The toolbar provides
+project, and a category selected from SQL main data. The toolbar provides
 pause, downtime, errand, stop, and checkout actions. Tasks can be started and
 completed; manual completion uses the start and duration fields. Creating a new
 activity or interruption ends the current task interval at that booking's
@@ -70,8 +70,35 @@ Downtime is represented by `EventInfo=DownTime` with the non-working stop
 category. It survives timeline normalization and is excluded from booked work.
 Errands use `EventInfo=Errand` and the same non-working category while remaining
 continuous timeline markers rather than stop marks. Edits select their existing
-category, and refreshed master data updates the category list. Service-returned
+category, and refreshed main data updates the category list. Service-returned
 booking days are authoritative.
+
+## Main Data maintenance
+
+Maintenance screens bind observable properties, selections, and `DelegateCommand`
+instances. `MainDataViewModel` composes the child view models using a shared
+`ServiceWorkspace`; it never creates or retains controls. The desktop supplies
+`IMaintenanceInteraction` for notifications and confirmations. Views own visual
+behavior, including transfer and clearing of the create-user password box.
+
+Project and task editors keep drafts separate from service objects. Successful
+saves replace the collection item with the authoritative service result; failed
+operations retain the draft and selection. Archiving a project uses soft deletion.
+Task lists use the explicitly selected project. Category, tag, note, web-link,
+and task deletion retain their existing hard-delete behavior. Activity log edits
+remain local to the workspace.
+
+Maintenance mutation commands require an active, non-deleted administrator.
+Server-side Main Data authorization remains authoritative. Create-user fields
+include a temporary password, which is cleared after successful creation; the
+existing service still enforces initial-password replacement on login.
+
+**Tenant name/active edits are workspace-only:** the current user-administration
+contract has no tenant-update operation. The screen and success notification make
+this limitation explicit rather than claiming database persistence.
+
+Application API types use `MainData` (for example `IAdminMainDataService`).
+SQL table names, EF mappings, and persisted identifiers are unchanged.
 
 ## Development checks
 
@@ -86,4 +113,6 @@ The desktop smoke uses the generated local SQL credentials, rolls back its
 authentication and booking probes, loads service-backed categories, constructs
 the windows and resources, and verifies the time list's collection source.
 The STA desktop test also inventories menu, command-strip, time-panel, and
-direct master-data handlers at runtime.
+bound Main Data commands at runtime. `MaintenanceViewModelTests` also exercise
+create/save/archive/delete, selection, service failures, request scope,
+administrator gating, and temporary-password handling without creating views.

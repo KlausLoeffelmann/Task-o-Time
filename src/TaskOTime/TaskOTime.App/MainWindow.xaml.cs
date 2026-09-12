@@ -32,7 +32,7 @@ public partial class MainWindow : Window
         _viewModel.OptionsRequested += OnOptionsRequested;
         _viewModel.TaskListEditRequested += OnTaskListEditRequested;
         _viewModel.TimeEntryEditRequested += OnTimeEntryEditRequested;
-        _viewModel.MasterDataRequested += OnMasterDataRequested;
+        _viewModel.MainDataRequested += OnMainDataRequested;
         Closed += (_, _) => _recordingTimer.Stop();
         Loaded += (_, _) =>
         {
@@ -55,11 +55,11 @@ public partial class MainWindow : Window
         Close();
     }
 
-    private void OnMasterDataRequested(object sender, int tab)
+    private void OnMainDataRequested(object sender, int tab)
     {
-        var window = new MasterDataWindow { Owner = this };
-        var masterData = new MasterDataViewModel(window, _services.TenantFor(_session), _session.IdUser,
-            _services.Admin, _services.Users, _services.Bookings, tab);
+        var window = new MainDataWindow { Owner = this };
+        window.DataContext = new MainDataViewModel(_services.TenantFor(_session), _session.IdUser,
+            _services.Admin, _services.Users, _services.Bookings, tab, new MaintenanceInteraction(window));
         window.ShowDialog();
         var selectedProjectId = _viewModel.TimeCollection.SelectedProject?.IdProject;
         _viewModel.TimeCollection.Projects.Clear();

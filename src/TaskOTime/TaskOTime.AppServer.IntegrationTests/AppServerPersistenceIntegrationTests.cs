@@ -44,12 +44,12 @@ namespace TaskOTime.AppServer.IntegrationTests
         public void CleanupOwnedDatabase() => database?.Dispose();
 
         [TestMethod]
-        public void MasterDataTimeBookingAndAnalysis_RoundTripThroughEf6LocalDb()
+        public void MainDataTimeBookingAndAnalysis_RoundTripThroughEf6LocalDb()
         {
             var passwordHasher = new Pbkdf2PasswordHasher();
-            var masterData = new AdminMasterDataService(database.CreateContext, passwordHasher);
+            var mainData = new AdminMainDataService(database.CreateContext, passwordHasher);
 
-            var project = AssertSucceeded(masterData.CreateProject(new SaveProjectRequest
+            var project = AssertSucceeded(mainData.CreateProject(new SaveProjectRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
@@ -64,11 +64,11 @@ namespace TaskOTime.AppServer.IntegrationTests
             Assert.AreEqual("Persistence Portal", project.ProjectName);
             Assert.AreEqual("PERSIST", project.ProjectIdentifier);
 
-            var category = AssertSucceeded(masterData.CreateCategory(new SaveCategoryRequest
+            var category = AssertSucceeded(mainData.CreateCategory(new SaveCategoryRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new CategoryMasterDataDto
+                Item = new CategoryMainDataDto
                 {
                     IdCategory = CategoryId,
                     IdUser = AdminUserId,
@@ -79,11 +79,11 @@ namespace TaskOTime.AppServer.IntegrationTests
             }));
             Assert.AreEqual(CategoryId, category.IdCategory);
 
-            var taskList = AssertSucceeded(masterData.CreateTaskList(new SaveTaskListRequest
+            var taskList = AssertSucceeded(mainData.CreateTaskList(new SaveTaskListRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new TaskListMasterDataDto
+                Item = new TaskListMainDataDto
                 {
                     IdTaskList = TaskListId,
                     IdProject = ProjectId,
@@ -95,11 +95,11 @@ namespace TaskOTime.AppServer.IntegrationTests
             }));
             Assert.AreEqual(TaskListId, taskList.IdTaskList);
 
-            var taskItem = AssertSucceeded(masterData.CreateTaskItem(new SaveTaskItemRequest
+            var taskItem = AssertSucceeded(mainData.CreateTaskItem(new SaveTaskItemRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new TaskItemMasterDataDto
+                Item = new TaskItemMainDataDto
                 {
                     IdTaskItem = TaskItemId,
                     IdProject = ProjectId,
@@ -112,9 +112,9 @@ namespace TaskOTime.AppServer.IntegrationTests
             }));
             Assert.AreEqual(TaskItemId, taskItem.IdTaskItem);
 
-            CollectionAssert.AreEqual(new[] { ProjectId }, AssertSucceeded(masterData.GetProjects(Query())).Select(item => item.IdProject).ToArray());
-            CollectionAssert.AreEqual(new[] { TaskListId }, AssertSucceeded(masterData.GetTaskLists(Query())).Select(item => item.IdTaskList).ToArray());
-            CollectionAssert.AreEqual(new[] { TaskItemId }, AssertSucceeded(masterData.GetTaskItems(Query())).Select(item => item.IdTaskItem).ToArray());
+            CollectionAssert.AreEqual(new[] { ProjectId }, AssertSucceeded(mainData.GetProjects(Query())).Select(item => item.IdProject).ToArray());
+            CollectionAssert.AreEqual(new[] { TaskListId }, AssertSucceeded(mainData.GetTaskLists(Query())).Select(item => item.IdTaskList).ToArray());
+            CollectionAssert.AreEqual(new[] { TaskItemId }, AssertSucceeded(mainData.GetTaskItems(Query())).Select(item => item.IdTaskItem).ToArray());
 
             using (var context = database.CreateContext())
             {
@@ -259,9 +259,9 @@ namespace TaskOTime.AppServer.IntegrationTests
             }
         }
 
-        private static MasterDataQueryRequest Query()
+        private static MainDataQueryRequest Query()
         {
-            return new MasterDataQueryRequest
+            return new MainDataQueryRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId
@@ -270,9 +270,9 @@ namespace TaskOTime.AppServer.IntegrationTests
 
         private void SeedProjectCategoryTaskForBookings(Pbkdf2PasswordHasher passwordHasher)
         {
-            var masterData = new AdminMasterDataService(database.CreateContext, passwordHasher);
+            var mainData = new AdminMainDataService(database.CreateContext, passwordHasher);
 
-            AssertSucceeded(masterData.CreateProject(new SaveProjectRequest
+            AssertSucceeded(mainData.CreateProject(new SaveProjectRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
@@ -285,11 +285,11 @@ namespace TaskOTime.AppServer.IntegrationTests
                 }
             }));
 
-            AssertSucceeded(masterData.CreateCategory(new SaveCategoryRequest
+            AssertSucceeded(mainData.CreateCategory(new SaveCategoryRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new CategoryMasterDataDto
+                Item = new CategoryMainDataDto
                 {
                     IdCategory = CategoryId,
                     IdUser = AdminUserId,
@@ -298,11 +298,11 @@ namespace TaskOTime.AppServer.IntegrationTests
                 }
             }));
 
-            AssertSucceeded(masterData.CreateTaskList(new SaveTaskListRequest
+            AssertSucceeded(mainData.CreateTaskList(new SaveTaskListRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new TaskListMasterDataDto
+                Item = new TaskListMainDataDto
                 {
                     IdTaskList = TaskListId,
                     IdProject = ProjectId,
@@ -312,11 +312,11 @@ namespace TaskOTime.AppServer.IntegrationTests
                 }
             }));
 
-            AssertSucceeded(masterData.CreateTaskItem(new SaveTaskItemRequest
+            AssertSucceeded(mainData.CreateTaskItem(new SaveTaskItemRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new TaskItemMasterDataDto
+                Item = new TaskItemMainDataDto
                 {
                     IdTaskItem = TaskItemId,
                     IdProject = ProjectId,
