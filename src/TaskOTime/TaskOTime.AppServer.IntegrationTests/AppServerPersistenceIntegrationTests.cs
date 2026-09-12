@@ -4,6 +4,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using TaskOTime.AppServer.Models;
 using TaskOTime.AppServer.Security;
 using TaskOTime.AppServer.Services;
+using TaskOTime.AppServer.TimeBooking;
 using TaskOTime.DataLayer;
 using TaskOTime.DTOs;
 
@@ -42,6 +43,72 @@ namespace TaskOTime.AppServer.IntegrationTests
 
         [TestCleanup]
         public void CleanupOwnedDatabase() => database?.Dispose();
+
+        [DataTestMethod]
+        [DataRow(90.0125)]
+        [DataRow(1440.0)]
+        [DataRow(1530.5125)]
+        public void SelectedProjectAndCrossDayInterval_ReloadExactlyAndRejectInvalidMutation(double minutes)
+        {
+            var hasher = new Pbkdf2PasswordHasher();
+            SeedProjectCategoryTaskForBookings(hasher);
+            using (var context = database.CreateContext())
+            {
+                SystemTimeMarkerSeed.EnsureCategories(context, AdminUserId);
+                context.SaveChanges();
+            }
+            var secondProjectId = GuidFromSuffix(501);
+            var admin = new AdminMasterDataService(database.CreateContext, hasher);
+            AssertSucceeded(admin.CreateProject(new SaveProjectRequest
+            {
+                IdTenant = TenantId, IdActingUser = AdminUserId,
+                Item = new ProjectMainDataDto
+                {
+                    IdProject = secondProjectId, ProjectName = "Second project", IsActive = true
+                }
+            }));
+            var service = new TimeBookingService(database.CreateContext, hasher);
+            var duration = TimeSpan.FromMinutes(minutes);
+            var firstId = GuidFromSuffix(502);
+            var stopId = GuidFromSuffix(503);
+            var first = CreateBooking(firstId, WorkDayStart, "Selected project interval");
+            first.Item.IdProject = secondProjectId;
+            first.Item.IdTask = null;
+            first.Item.BookingDate = WorkDayStart.Date;
+            AssertSucceeded(service.AddTimeBooking(first));
+            var stop = CreateBooking(stopId, WorkDayStart.Add(duration), "Exact completion");
+            stop.Item.IdProject = secondProjectId;
+            stop.Item.IdTask = null;
+            stop.Item.BookingDate = WorkDayStart.Date;
+            stop.Item.MarkerKind = SystemTimeMarkerKind.StopMark;
+            stop.Item.IdCategory = SystemTimeMarkerIds.StopMarkCategoryId;
+            var mutation = AssertSucceeded(service.AddTimeBooking(stop));
+            Assert.AreEqual(duration, mutation.BookingDay.TotalBookedTime);
+            Assert.AreEqual(duration, mutation.AffectedItem.DurationToPrevious);
+
+            var dayRequest = new GetBookingDayRequest { AccessContext = CreateAccessContext(), BookingDate = WorkDayStart.Date };
+            var reloaded = AssertSucceeded(service.GetBookingDay(dayRequest));
+            Assert.AreEqual(duration, reloaded.TotalBookedTime);
+            Assert.AreEqual(WorkDayStart.Add(duration), reloaded.LastBookingAt);
+            Assert.IsTrue(reloaded.Items.All(item => item.IdProject == secondProjectId && item.BookingDate == WorkDayStart.Date));
+            AssertPersistedTimeline(new[] { firstId, stopId }, new long?[] { duration.Ticks, null });
+            var analysis = AssertSucceeded(new AnalysisService(database.CreateContext, hasher)
+                .GetCurrentUserDayProjectHours(new UserAnalysisRequest
+                {
+                    IdTenant = TenantId, IdActingUser = AdminUserId, IdUser = AdminUserId, ReferenceDate = WorkDayStart
+                }));
+            Assert.AreEqual(duration, analysis.TotalBookedTime);
+            Assert.AreEqual(secondProjectId, analysis.Lines.Single().IdProject);
+
+            var duplicate = CreateBooking(GuidFromSuffix(504), stop.Item.EventTime.Value, "Rejected duplicate");
+            duplicate.Item.IdProject = secondProjectId;
+            duplicate.Item.IdTask = null;
+            duplicate.Item.BookingDate = WorkDayStart.Date;
+            Assert.IsFalse(service.AddTimeBooking(duplicate).Success);
+            Assert.AreEqual(2, AssertSucceeded(service.GetBookingDay(dayRequest)).Items.Count);
+            Assert.AreEqual(duration, AssertSucceeded(service.GetBookingDay(dayRequest)).TotalBookedTime);
+            AssertPersistedTimeline(new[] { firstId, stopId }, new long?[] { duration.Ticks, null });
+        }
 
         [TestMethod]
         public void MasterDataTimeBookingAndAnalysis_RoundTripThroughEf6LocalDb()
@@ -376,7 +443,8 @@ namespace TaskOTime.AppServer.IntegrationTests
 
                     if (expectedTicksToNext[index].HasValue)
                     {
-                        Assert.AreEqual(TimeSpan.FromTicks(expectedTicksToNext[index].Value), timeItems[index].DurationToNext);
+                        var duration = TimeSpan.FromTicks(expectedTicksToNext[index].Value);
+                        Assert.AreEqual(duration < TimeSpan.FromDays(1) ? duration : (TimeSpan?)null, timeItems[index].DurationToNext);
                     }
                     else
                     {
