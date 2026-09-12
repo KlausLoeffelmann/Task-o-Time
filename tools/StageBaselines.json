@@ -1,0 +1,46 @@
+{
+  "schemaVersion": 1,
+  "original": {
+    "applicationCommit": "280795ea0e532e66070a22e579e65cadd7f66dfc",
+    "applicationRef": "modernization-original",
+    "evaluatorCommit": "1f1b5522bf61daae2b39c1e020f8caca4c5b8ebd",
+    "evaluatorRef": "assessment-baseline",
+    "sdk": "10.0.401",
+    "build": {
+      "command": "dotnet build src\\TaskOTime\\TaskOTime.slnx --nologo --verbosity quiet",
+      "errors": 0,
+      "warnings": 0
+    },
+    "testRuns": [
+      {
+        "project": "src\\TaskOTime\\TaskOTime.TimeTrackingServices.Tests\\TaskOTime.TimeTrackingServices.Tests.vbproj",
+        "passed": 33,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "src\\TaskOTime\\TaskOTime.AppServer.Tests\\TaskOTime.AppServer.Tests.csproj",
+        "passed": 30,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "assessment\\Modernization.Analyzers.Tests\\Modernization.Analyzers.Tests.csproj",
+        "filter": "Category=AnalyzerUnit|Category=RepositoryScan",
+        "passed": 234,
+        "failed": 0,
+        "skipped": 0
+      },
+      {
+        "project": "assessment\\Modernization.Analyzers.Tests\\Modernization.Analyzers.Tests.csproj",
+        "filter": "Category=Modernization",
+        "passed": 0,
+        "failed": 1,
+        "skipped": 0,
+        "expectedFailure": true
+      }
+    ],
+    "sqlIntegrationRun": false,
+    "desktopVisualRun": false
+  }
+}
