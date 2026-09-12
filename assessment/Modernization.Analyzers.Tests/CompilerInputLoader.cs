@@ -13,7 +13,31 @@ namespace Modernization.Analyzers.Tests;
 
 internal sealed record LoadedProject(string Path, string Name, string OutputPath, Compilation Compilation,
     bool IsTest, bool IsTooling, string[] GeneratedPaths, AdditionalText[] AdditionalFiles, string? TargetRefPath = null,
-    ProjectState? State = null);
+    ProjectState? State = null, string[]? SourceDataPaths = null);
+internal sealed record FixtureDataRole(string Owner, string Root)
+{
+    internal static bool Contains(string root, string path) => Path.GetFullPath(path).StartsWith(
+        Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar) + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+
+    internal static FixtureDataRole[] Read(XDocument policy, string sourceRoot) =>
+        (policy.Root?.Element("Discovery")?.Elements("FixtureData") ?? []).Select(element =>
+        {
+            string PathAttribute(string name) => !string.IsNullOrWhiteSpace(element.Attribute(name)?.Value)
+                ? Path.GetFullPath(element.Attribute(name)!.Value, sourceRoot)
+                : throw new InvalidDataException("Trusted fixture-data role is missing " + name + ".");
+            return new FixtureDataRole(PathAttribute("Owner"), PathAttribute("Root"));
+        }).ToArray();
+
+    internal void Validate(LoadedProject owner)
+    {
+        if (!string.Equals(Owner, owner.Path, StringComparison.OrdinalIgnoreCase) || !owner.IsTest && !owner.IsTooling ||
+            !Contains(Path.GetDirectoryName(Owner)!, Root) || Contains(Root, Owner))
+            throw new InvalidDataException("Fixture data must be a proper subtree of its evaluated test/tool owner: " + Root);
+        if (!(owner.SourceDataPaths ?? []).Any(path => Contains(Root, path)) ||
+            owner.Compilation.SyntaxTrees.Any(tree => Contains(Root, tree.FilePath)))
+            throw new InvalidDataException("Fixture-data role lacks evaluated source data or overlaps its owner's compiled source: " + Root);
+    }
+}
 internal sealed record EvaluatedAssemblyReference(string[] AssemblyPaths, string[] SourceProjects);
 internal sealed class SourceCompilationException(string project, IEnumerable<Diagnostic> diagnostics)
     : Exception("Source compilation failed for " + project)
@@ -191,7 +215,11 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             compilation, test, tooling, generated, additional.DistinctBy(f => f.Path).ToArray(),
             properties.TryGetProperty("TargetRefPath", out var targetRef) && !string.IsNullOrWhiteSpace(targetRef.GetString())
                 ? Path.GetFullPath(targetRef.GetString()!, directory) : null,
-            ReadState(projectPath, compilation.Language, test, tooling, properties));
+            ReadState(projectPath, compilation.Language, test, tooling, properties),
+            new[] { "None", "Content" }.SelectMany(itemName => items.GetProperty(itemName).EnumerateArray())
+                .Select(item => item.GetProperty("FullPath").GetString()!)
+                .Where(path => Path.GetExtension(path).ToLowerInvariant() is ".cs" or ".vb" or ".xaml")
+                .Distinct(StringComparer.OrdinalIgnoreCase).ToArray());
         Projects.Add(loaded);
         loading.Remove(projectPath);
         return loaded;
