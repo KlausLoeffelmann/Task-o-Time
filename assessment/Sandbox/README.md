@@ -396,10 +396,25 @@ compilation and rerun the relevant language cases. Importing old observations in
 a formal request still needs explicit integrity/contract checks; no observation
 is silently renamed as a fresh challenged execution.
 
-The portable-storage feasibility spike remains actionable and read-only. The
-operational task stays **in progress**, without relaxing token restrictions or
-claiming the current MMF incompatibility proves that every safe adaptation is
-impossible. The verifier's shared requirement checklist is now wired independently
+The read-only portable-storage spike found no stock public Roslyn 4.14 override
+for the internal stream-storage service. A bounded owned API probe subsequently
+confirmed that **unnamed** mappings work under the unchanged restricted token:
+`Artifacts\owned-mmf-capability\capability.json` and
+`Artifacts\sandbox-probe-afcce5422f5248dca93a07e4bd883248`.
+On .NET 10.0.12, `MemoryMappedFile.CreateNew(name, 4096)` failed with
+`UnauthorizedAccessException` / HRESULT `0x80070005`; `CreateNew(null, 4096)`
+succeeded. Same-process views preserved bytes after writer disposal and a held
+read view remained usable after mapping-handle disposal. The VM stopped.
+Probe source and host observation remain in `Artifacts\owned-mmf-capability`;
+no private assessor imports were compiled into the probe.
+
+This establishes an API capability only, **not** Roslyn adaptation equivalence,
+cancellation correctness, OOP support, memory budgeting or language replay.
+No dependency/converter binary or token was changed. An explicit, source-pinned
+unnamed-storage policy still needs parent approval and implementation/testing.
+The alternative managed backend must account for the pinned trivial service's
+current-position copy versus the MMF writer's rewind-to-zero semantics.
+The operational task stays **in progress**. The verifier's shared requirement checklist is wired independently
 of that capability work; incomplete output/behavior/checkpoint evidence cannot pass.
 
 ## Emitted-output compilation and observable behavior
