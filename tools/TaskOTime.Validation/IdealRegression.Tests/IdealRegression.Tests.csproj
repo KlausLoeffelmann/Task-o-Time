@@ -9,6 +9,7 @@
     <ViewModelProject Condition="Exists('$(ApplicationRoot)\TaskOTime.ViewModel\TaskOTime.ViewModel.csproj')">$(ApplicationRoot)\TaskOTime.ViewModel\TaskOTime.ViewModel.csproj</ViewModelProject>
     <ViewModelProject Condition="'$(ViewModelProject)' == ''">$(ApplicationRoot)\TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj</ViewModelProject>
   </PropertyGroup>
+  <Import Project="..\FixtureRunner\ValidationDataApi.props" />
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.8.3" />

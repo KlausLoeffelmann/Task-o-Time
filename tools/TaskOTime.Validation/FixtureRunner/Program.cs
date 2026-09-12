@@ -38,20 +38,29 @@ namespace TaskOTime.Validation
                         Console.WriteLine("Fixture-check passed: real SQL setup/authentication, child failures/timeout, and owned cleanup. Desktop NOT RUN.");
                         return 0;
                     case "desktop":
+                    case "startup":
                         ValidateDesktop(options);
                         var seconds = options.ContainsKey("--timeout-seconds") ? int.Parse(options["--timeout-seconds"]) : 120;
                         WithFixture(fixture =>
                         {
-                            var arguments = new[]
+                            var arguments = new List<string>
                             {
                                 Path.GetFullPath(options["--host"]), "--app", Path.GetFullPath(options["--app"]),
                                 "--connection", fixture.Database.ProviderConnectionString,
                                 "--owner", fixture.Database.OwnerToken, "--user", fixture.UserName
                             };
+                            if (args[0] == "startup")
+                                arguments.AddRange(new[]
+                                {
+                                    "--mode", "startup", "--required-features", options["--required-features"],
+                                    "--timeout-seconds", Math.Max(1, seconds - 10).ToString()
+                                });
                             var code = ChildProcess.Run("dotnet", arguments, fixture.Password, seconds);
                             if (code != 0) throw new InvalidOperationException("Desktop smoke child failed with exit code " + code + ".");
                         });
-                        Console.WriteLine("Desktop smoke passed and the owned SQL fixture was removed.");
+                        Console.WriteLine(args[0] == "startup"
+                            ? "Genuine App startup (" + options["--required-features"] + ") passed and the owned SQL fixture was removed."
+                            : "Construction smoke passed and the owned SQL fixture was removed; genuine App startup NOT RUN.");
                         return 0;
                     default:
                         throw new ArgumentException("Unknown mode.");
@@ -67,7 +76,7 @@ namespace TaskOTime.Validation
         private static Dictionary<string, string> Parse(string[] args)
         {
             if (args.Length == 0)
-                throw new ArgumentException("Specify self-test, fixture-check, or desktop --app <net10 app.dll> --host <StaSmoke.dll>.");
+                throw new ArgumentException("Specify self-test, fixture-check, desktop, or startup --required-features core|ideal --app <net10 app.dll> --host <StaSmoke.dll>.");
             var result = new Dictionary<string, string>(StringComparer.Ordinal);
             string[] names;
             switch (args[0])
@@ -79,6 +88,9 @@ namespace TaskOTime.Validation
                     break;
                 case "desktop":
                     names = new[] { "--app", "--host", "--timeout-seconds" };
+                    break;
+                case "startup":
+                    names = new[] { "--app", "--host", "--timeout-seconds", "--required-features" };
                     break;
                 case "probe":
                     names = new[] { "--connection", "--owner", "--user" };
@@ -93,8 +105,11 @@ namespace TaskOTime.Validation
                     throw new ArgumentException("Unknown, missing or duplicate validation argument.");
                 result.Add(args[index], args[index + 1]);
             }
-            if (args[0] == "desktop" && (!result.ContainsKey("--app") || !result.ContainsKey("--host")))
+            if ((args[0] == "desktop" || args[0] == "startup") && (!result.ContainsKey("--app") || !result.ContainsKey("--host")))
                 throw new ArgumentException("Desktop requires explicit --app and --host paths.");
+            if (args[0] == "startup" && (!result.TryGetValue("--required-features", out var features) ||
+                (features != "core" && features != "ideal")))
+                throw new ArgumentException("Startup requires explicit --required-features core|ideal.");
             if (args[0] == "probe" && result.Count != 3)
                 throw new ArgumentException("Probe requires the complete isolated connection contract.");
             if (result.TryGetValue("--timeout-seconds", out var timeout) &&
@@ -144,7 +159,7 @@ namespace TaskOTime.Validation
             {
                 fixture.Create();
                 initialized = true;
-                Console.WriteLine("Created and seeded owned database " + fixture.Database.DatabaseName + ".");
+                Console.WriteLine("Created and seeded owned database " + fixture.Database.DatabaseName + " using " + SeededFixture.ServiceApi + ".");
                 action(fixture);
             }
             finally
@@ -288,14 +303,18 @@ namespace TaskOTime.Validation
                 new[] { "desktop", "--app", "missing.dll" },
                 new[] { "desktop", "--app", "a.dll", "--host", "h.dll", "--timeout-seconds", "0" },
                 new[] { "desktop", "--app", "a.dll", "--host", "h.dll", "--app", "b.dll" },
-                new[] { "fixture-check", "--connection", "shared" }
+                new[] { "fixture-check", "--connection", "shared" },
+                new[] { "startup", "--app", "a.dll", "--host", "h.dll" },
+                new[] { "startup", "--app", "a.dll", "--host", "h.dll", "--required-features", "optional" },
+                new[] { "desktop", "--app", "a.dll", "--host", "h.dll", "--required-features", "core" }
             })
             {
                 try { Parse(args); }
                 catch (ArgumentException) { rejected++; }
             }
-            if (rejected != 7)
+            if (rejected != 10)
                 throw new InvalidOperationException("CLI argument rejection guardrails failed.");
+            Parse(new[] { "startup", "--app", "a.dll", "--host", "h.dll", "--required-features", "core" });
             rejected = 0;
 #if NETFRAMEWORK
             try { RequireNet10Output(typeof(Program).Assembly.Location); }
@@ -335,7 +354,7 @@ namespace TaskOTime.Validation
             catch (ArgumentException) { unsafeConnectionsRejected++; }
             if (unsafeConnectionsRejected != 8)
                 throw new InvalidOperationException("Isolated connection guardrails failed.");
-            Console.WriteLine("Fixture runner self-test passed: CLI/runtime/quoting guardrails; SQL and desktop NOT RUN.");
+            Console.WriteLine("Fixture runner self-test passed (" + SeededFixture.ServiceApi + "): CLI/runtime/quoting guardrails; SQL and desktop NOT RUN.");
         }
     }
 }

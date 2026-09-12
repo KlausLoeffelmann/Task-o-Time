@@ -1,0 +1,19 @@
+<Project>
+  <PropertyGroup>
+    <ValidationDataApi Condition="'$(ValidationDataApi)' == '' and Exists('$(ApplicationRoot)\TaskOTime.AppServer\Services\AdminMasterDataService.cs') and !Exists('$(ApplicationRoot)\TaskOTime.AppServer\Services\AdminMainDataService.cs')">MasterData</ValidationDataApi>
+    <ValidationDataApi Condition="'$(ValidationDataApi)' == '' and Exists('$(ApplicationRoot)\TaskOTime.AppServer\Services\AdminMainDataService.cs') and !Exists('$(ApplicationRoot)\TaskOTime.AppServer\Services\AdminMasterDataService.cs')">MainData</ValidationDataApi>
+    <DefineConstants Condition="'$(ValidationDataApi)' == 'MasterData'">$(DefineConstants);VALIDATION_MASTER_DATA_API</DefineConstants>
+    <DefineConstants Condition="'$(ValidationDataApi)' == 'MainData'">$(DefineConstants);VALIDATION_MAIN_DATA_API</DefineConstants>
+  </PropertyGroup>
+  <Target Name="ValidateValidationDataApi" BeforeTargets="CollectPackageReferences;PrepareForBuild">
+    <Error Condition="!Exists('$(ApplicationRoot)\TaskOTime.AppServer\TaskOTime.AppServer.csproj')"
+           Text="Validation requires the ApplicationRoot AppServer project." />
+    <Error Condition="'$(ValidationDataApi)' != 'MasterData' and '$(ValidationDataApi)' != 'MainData'"
+           Text="ValidationDataApi must be MasterData or MainData. Missing or ambiguous service filenames require an explicit supported selection." />
+    <Error Condition="'$(ValidationDataApi)' == 'MasterData' and !Exists('$(ApplicationRoot)\TaskOTime.AppServer\Services\AdminMasterDataService.cs')"
+           Text="ValidationDataApi=MasterData requires AdminMasterDataService.cs under ApplicationRoot." />
+    <Error Condition="'$(ValidationDataApi)' == 'MainData' and !Exists('$(ApplicationRoot)\TaskOTime.AppServer\Services\AdminMainDataService.cs')"
+           Text="ValidationDataApi=MainData requires AdminMainDataService.cs under ApplicationRoot." />
+    <Message Importance="high" Text="$(MSBuildProjectName) service API: $(ValidationDataApi)" />
+  </Target>
+</Project>

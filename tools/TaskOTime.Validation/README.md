@@ -15,7 +15,10 @@ The coordinator owns the repository-wide SDK choice.
 
 Default execution runs all 30 existing AppServer and all 33 TimeTrackingServices
 tests, non-SQL isolation/fixture-runner guardrails, and the independent STA host
-self-test. There is no workflow filter excluding the WPF binding test. SQL requires
+self-test, a synthetic startup-driver run, and four synthetic negative startup
+cases. Negative cases require both exit code 1 **and their specific diagnostic**;
+an unrelated missing runtime/build failure cannot satisfy them. There is no
+workflow filter excluding the WPF binding test. SQL requires
 the explicit switch and Windows LocalDB `MSSQLLocalDB`. Missing SQL is a failed
 prerequisite, never silently a pass/skip. It also runs the real-service fixture
 setup/child-process checks described below. `IncludeIdeal` runs correctness
@@ -90,7 +93,7 @@ dotnet run --project FixtureRunner -- fixture-check
 ```
 
 The fixture calls production `UserAdministrationService.CreateTenantAdmin`,
-`AdminMasterDataService.CreateProject` (twice), and `CreateCategory` using its
+the selected admin service's `CreateProject` (twice), and `CreateCategory` using its
 explicit EF context factory. The administrator has a random per-run identifier
 and password, a one-hour temporary-password expiration, and required initial
 password change. Seeding and authentication are checked through real EF6 queries.
@@ -109,13 +112,78 @@ terminate a timed-out child, and prove cleanup while propagating child failure.
 It confirms the parent environment was unchanged and the owned database was
 removed. Only successful fixture creation authorizes the linked helper's cleanup.
 
+### Legacy and renamed service APIs
+
+`FixtureRunner` selects typed aliases from the source layout under
+`ApplicationRoot\TaskOTime.AppServer\Services`:
+
+| `ValidationDataApi` | Required service file/type | Category DTO | Query request |
+| --- | --- | --- | --- |
+| `MasterData` | `AdminMasterDataService.cs` / `AdminMasterDataService` | `CategoryMasterDataDto` | `MasterDataQueryRequest` |
+| `MainData` | `AdminMainDataService.cs` / `AdminMainDataService` | `CategoryMainDataDto` | `MainDataQueryRequest` |
+
+Automatic selection requires exactly one known service filename. Missing,
+ambiguous or unsupported layouts fail during restore/build instead of silently
+choosing an API. `-p:ValidationDataApi=MasterData` or `MainData` explicitly selects
+one layout (including deliberate disambiguation); its service file must exist.
+The C# compiler must still resolve the actual production types. No duplicated
+service implementation, runtime type substitution or reflection fallback is used.
+Build output and fixture logs identify the selected API.
+`IdealRegression.Tests` imports the same `FixtureRunner\ValidationDataApi.props`
+selection and aliases its query type; its five correctness assertions are
+unchanged. Preserve that sibling import when making a private tooling copy.
+
+Run the seven source-layout selection checks without SQL:
+
+```powershell
+.\Test-FixtureApiSelection.ps1
+```
+
+Keep a fresh private runner copy/output per application root to avoid stale
+assemblies/intermediates when switching between APIs. For an already-built,
+read-only integration root, copy only the runner's top-level source/project/config/props
+files to a fresh ignored artifact directory, then restore only that runner and
+consume existing production project outputs:
+
+```powershell
+$copy = 'artifacts\fixture-main' # Use a new directory, not a previous stage's output.
+New-Item -ItemType Directory $copy -ErrorAction Stop
+Get-ChildItem FixtureRunner -File | Copy-Item -Destination $copy
+$properties = @(
+  '-p:ApplicationRoot=<absolute built integration src\TaskOTime>',
+  '-p:ValidationFramework=net472',
+  '-p:BuildProjectReferences=false'
+)
+dotnet restore "$copy\FixtureRunner.csproj" --no-dependencies @properties
+dotnet build "$copy\FixtureRunner.csproj" --no-restore @properties
+& "$copy\bin\Debug\net472\FixtureRunner.exe" self-test
+& "$copy\bin\Debug\net472\FixtureRunner.exe" fixture-check
+```
+
+Both the original `MasterData` root and integrated `MainData` root have passed
+real `net472` fixture checks using their actual production assemblies: owned
+seeding/marker round trips, forced-password authentication, negative child cases,
+timeouts and verified cleanup. This does **not** establish .NET 10 acceptance.
+After the runtime stage, use its matching `ValidationFramework` and preserve
+production project references rather than source-linking duplicate service types.
+
+The private correctness project also compiles against both APIs. Its five tests
+passed against the integrated Framework root after an **artifact-only test-host**
+binding redirect: the copied output contains `System.Threading.Tasks.Extensions`
+assembly 4.2.4.0, while MSTest requests 4.2.0.1. The copied
+`IdealRegression.Tests.dll.config` redirected versions 0.0.0.0–4.2.4.0 to 4.2.4.0.
+No production configuration/dependencies were changed. Initial zero-test discovery
+was rejected, not counted as a pass. This Framework test-host compatibility step
+must be retained for equivalent Framework reruns; do not assume the .NET 10 host
+needs the same redirect. Always verify actual discovery/execution counts.
+
 ## .NET 10 Windows STA smoke
 
 ```powershell
 dotnet run --project StaSmoke -- --self-test
 dotnet build StaSmoke
 
-# Preferred orchestration once real .NET 10 application output exists.
+# Construction-only compatibility smoke (does NOT run real App startup).
 dotnet run --project FixtureRunner -- desktop `
   --app '<fresh net10 output>\TaskOTime.App.dll' `
   --host '<absolute tooling output>\StaSmoke\bin\Debug\net10.0-windows\StaSmoke.dll' `
@@ -128,6 +196,119 @@ dotnet run --project FixtureRunner `
   --app '<fresh net10 output>\TaskOTime.App.dll' `
   --host '<absolute StaSmoke.dll>'
 ```
+
+### Genuine application startup
+
+```powershell
+# S3: preserve its appearance/language and existing business semantics.
+dotnet run --project FixtureRunner -- startup --required-features core `
+  --app '<fresh S3 net10 output>\TaskOTime.App.dll' `
+  --host '<absolute StaSmoke.dll>' --timeout-seconds 120
+
+# Golden, after ideal startup/localization/theme/business integration.
+dotnet run --project FixtureRunner `
+  -p:ApplicationRoot='<absolute Golden src\TaskOTime>' `
+  -p:ValidationFramework=net10.0-windows -- startup --required-features ideal `
+  --app '<fresh Golden net10 output>\TaskOTime.App.dll' `
+  --host '<absolute StaSmoke.dll>' --timeout-seconds 180
+```
+
+The fixture owner and child credential/cleanup contract are identical for
+`desktop` and `startup`. Neither mode defaults to a demo connection. Startup
+requires an explicit `core` or `ideal` gate; missing/unknown gates fail before
+SQL creation. The child receives a dispatcher deadline ten seconds shorter
+than the parent's process deadline (minimum one second). The parent remains the
+hard timeout for blocked native dialogs or synchronous application code.
+
+Startup loads the **real `TaskOTime.App.App`**, validates its startup override,
+calls its `InitializeComponent`, and runs its application dispatcher. It does
+not create replacement services, manually install application resources, or
+construct substitute production windows. It finds only that application's
+windows and uses named WPF controls, bound option controls, default routed
+button clicks and actual viewmodel commands within the process. No SendKeys,
+global input, registry writes or machine preference changes are used.
+
+Before constructing App, the host replaces `Properties.Settings.Default`'s
+providers with a private **in-memory `SettingsProvider`**, clears cached values
+and uses declared defaults. All later placement/options saves remain in that
+provider through product `OnExit`; the real provider is never restored during
+shutdown. No real user app configuration is written. Missing/incompatible
+settings types or provider replacement fail explicitly. Applications introducing
+another settings store require a reviewed isolation adapter before execution.
+
+Both gates verify forced initial-password change through the actual login
+buttons, real startup's `MainWindow`, original ListView/collection identity,
+fixture categories, opening/saving Options through `OptionsCommand`, and a
+booking through `TimeCollection.AddCommand` and the actual booking editor.
+A fresh SQL query must find exactly one booking with the chosen project/category.
+Core selects the first project so S3 is not required to repair the preserved
+non-first-project defect; ideal deliberately selects the last of at least two.
+The app must log out, close its windows and finish dispatcher shutdown.
+
+Ideal additionally opens the real Main Data and booking dialogs through commands
+while Options/Main remain open, and:
+
+- Requires the actual localization singleton and one uniquely identifiable
+  startup-owned `ThemeService` instance. It never calls `ThemeService.Start` to
+  compensate for missing product startup integration.
+- Changes the real localization service through en/de/nl/es while login is open,
+  then while all four later windows remain open. Visible bindings must resolve
+  to the current provider values, each window must visibly change in every
+  language transition, and root `Language` must follow culture.
+  Checking only the singleton's `Culture` is insufficient.
+- After closing the nested booking/Main Data dialogs, selects another culture
+  through Options `SelectedValue`. Selection must update only its pending clone.
+  The default OK button must then commit the culture to the real main viewmodel,
+  localization service, visible main bindings and in-memory persisted settings.
+  This deliberately respects the product's commit-on-OK semantics.
+- Switches the startup instance through Light/Dark/HighContrast/System. It
+  checks effective-theme notifications, the OS high-contrast override,
+  live window backgrounds, required brushes and the main calendar's shared
+  `ThemedCalendarStyle`. It changes only application theme selection, never OS
+  contrast settings.
+- Checks that product `OnExit` disposed that same instance, rather than disposing
+  it itself to manufacture lifecycle evidence.
+
+Reflection contracts fail closed. Localized target bindings must use the real
+singleton as Source and `[Key]`/`Item[Key]` paths. The confirmed localization
+contract (`9d8470b`) identifies the unnamed Options language selector by
+`SelectedValue` bound to `CultureName`, `ItemsSource` bound to `AvailableCultures`,
+`SelectedValuePath=Name`, and `DisplayMemberPath=NativeName`. Culture is committed
+only on OK; changing the clone is not itself a live-language operation.
+The theme contract requires `ThemeChanged` as `EventHandler`, enum selection,
+and the confirmed private `bool disposed` (`3777b21`, startup wiring `c452cb1`).
+App's private `themes` field is discovered by its exact service type; the host
+checks its disposal flag after real application/dispatcher shutdown. It does not
+call `SetTheme` after shutdown: dispatcher cancellation could mask whether the
+service's disposal guard was reached. These ideal integration
+contracts still require verification against the parent's final built output;
+unsupported signatures are failures, not skipped feature checks.
+
+The low-level host adds `--mode startup --required-features core|ideal
+--timeout-seconds <1-1800>` to its explicit connection contract below.
+Omitting `--mode` retains **construction-only** compatibility, never startup
+acceptance.
+
+Synthetic checks deliberately load no product assemblies and open no SQL:
+
+```powershell
+dotnet run --project StaSmoke -- --startup-self-test core
+# Each following command MUST fail with its specific diagnostic (exit 1).
+dotnet run --project StaSmoke -- --startup-self-test invalid-login
+dotnet run --project StaSmoke -- --startup-self-test early-exit
+dotnet run --project StaSmoke -- --startup-self-test missing-ideal
+dotnet run --project StaSmoke -- --startup-self-test timeout
+```
+
+The standard host self-test also checks the exact Options selector with all four
+`CultureInfo` items and rejects missing languages/incompatible value paths.
+The synthetic theme lifetime check accepts only a true private boolean disposal
+flag and rejects false, missing and incorrectly typed state.
+The synthetic core check exercises InitializeComponent/OnStartup/OnExit, the
+nested modal dispatcher sequence, UI credential entry, option bindings,
+in-memory settings save/reload and the booking callback. It is labelled
+**SYNTHETIC / NOT desktop acceptance**. Negative cases reject bypassed password
+change, premature application exit, missing ideal services and elapsed timeout.
 
 The fixture runner validates both explicit DLL/runtimeconfig paths and the
 installed .NET 10 WindowsDesktop runtime **before creating SQL**. Missing modes,
@@ -160,7 +341,16 @@ connections and missing/mismatched ownership before loading application code.
 It accepts an explicit provider connection, constructs absolute EF metadata paths,
 sets only the child process's production-mode connection, resolves application
 dependencies, authenticates (including required temporary-password change), and
-checks the original ListView identity, categories and dialog construction.
+checks the original ListView identity, categories and dialog construction in
+construction mode. The genuine-startup path is described above.
+Both managed and native dependencies resolve through the application's
+`AssemblyDependencyResolver`; this includes the deployed SQL client's `sni.dll`.
+Loading only managed dependencies is insufficient when the application runs
+inside a separate host. Resolver callbacks are removed during host teardown.
+Product-stack first-chance exceptions include their underlying cause in the
+child log to diagnose product-caught startup errors/native error dialogs.
+These diagnostics alone are not pass/fail verdicts; the UI assertions, finite
+deadline and child exit still determine the result.
 Its own config registers the existing EF6 SQL provider but contains no default
 connection or database initializer; EF assemblies resolve from the application
 output rather than an unrelated host EF6 dependency.
@@ -185,21 +375,31 @@ password state; it does not promise rollback. `FixtureRunner` owns creation,
 seeding and disposal; the host itself cannot create/adopt/drop a database.
 Never reuse demo credentials/data.
 
+### Actual S3 core startup evidence
+
+The genuine **core** startup run passed against candidate `d157288` Debug
+`net10.0-windows` output, using a private modern FixtureRunner with EF6 6.5.2 and
+the candidate's unchanged legacy API. It exercised actual App startup,
+forced-password UI, Main/Options, a real SQL booking, settings isolation,
+logout/dispatcher shutdown and verified deletion of the owned database.
+The first attempt exposed the private host's missing native SQL dependency
+resolution, not an application assertion failure; the fixed host passed.
+All failed attempts also verified owned database cleanup after child termination.
+Logs and the candidate binary hash are in ignored `artifacts\s3-startup-summary.json`
+and its referenced log. This is core startup evidence, not a stage tag/promotion
+or ideal-feature/complete visual acceptance.
+
 ### Remaining migration/integration work
 
-- Run real desktop smoke against freshly built .NET 10 product output. S0
-  Framework output is explicitly rejected; a passing host self-test is not a
-  migrated-application smoke pass.
-- Run the implemented fixture-owner/host orchestration against S3, including the
-  real forced-password-change UI flow. Framework `fixture-check` proves the
-  SQL/service/process lifecycle, not migrated desktop behavior.
-- Exercise localization/theme through real application startup once their
-  integration interfaces are stable. Generic-Application construction smoke
-  does not prove provider startup, live language/theme changes or OS contrast
-  behavior. This tooling does not change registry or machine-wide contrast state.
+- S0 Framework output remains explicitly rejected by the startup host; synthetic
+  self-tests are never substituted for migrated-application startup.
+- Run `startup --required-features ideal` after confirming the integrated
+  reflection contracts. The ideal .NET 10 startup gate has not been executed.
+  Framework `fixture-check` proves SQL/service/process
+  lifecycle, not migrated desktop behavior.
 - Port additional booking/command-strip SQL probes and theme/localization visual
-  checks as those application interfaces stabilize. The host currently covers
-  login, collection identity, categories and construction, not full UI acceptance.
+  checks as those application interfaces stabilize. The implemented startup
+  probes are not exhaustive visual/keyboard/accessibility acceptance.
 - Retarget integration/test-double projects and EF6 dependencies at the approved
   framework stage. Keep GUID ownership and the marker contract unchanged.
 - The existing product `VerifyDesktop.ps1` remains untouched by this test-only
