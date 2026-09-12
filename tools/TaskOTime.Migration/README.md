@@ -1,0 +1,209 @@
+# Local compiler-aware VB → C# migration
+
+Independent .NET 10 CLI; no dependency on assessment or application projects.
+Run commands **from this directory**, which pins SDK 10.0.401. Windows and the
+.NET Framework 4.7.2 runtime are needed for the executable WPF canaries.
+
+```powershell
+dotnet restore --locked-mode
+dotnet build --no-restore
+dotnet run --project Tests\TaskOTime.Migration.Tests.csproj
+
+dotnet bin\Debug\net10.0\TaskOTime.Migration.dll convert-language `
+  --input ..\..\src\TaskOTime --output artifacts\converted `
+  --project TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj `
+  --project TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj --dry-run
+
+# Repeat without --dry-run, with --restore, to execute in a fresh output directory.
+```
+
+`--input` is the directory containing the **whole dependency graph**, not just
+the selected VB project. Repeat `--project` to select production projects while
+retaining independent VB tests. Omit it to select every VB project.
+`--from vb --to cs` are accepted explicitly. `--configuration Debug|Release`
+selects one evaluated configuration. Build both configurations separately when
+accepting an application with conditional compilation.
+
+Only **trusted MSBuild inputs** should be processed: builds execute project
+targets, as ordinary `dotnet build` does. This is not an MSBuild sandbox.
+The wrapper never writes to the input directory. It copies inputs (excluding
+Git, IDE state, artifacts, bin and obj), builds the copied graph, captures actual
+compiler arguments, converts, and rebuilds the C# projects. Input/output trees
+must be disjoint; existing outputs, linked files and paths outside the copied
+graph are rejected. `--restore` permits dependency restore during input builds.
+The output rebuild restores its freshly regenerated intermediate assets.
+
+## Engine and project context
+
+The engine is **ICSharpCode.CodeConverter 10.0.1.923**, pinned with a NuGet lock
+file. This is a local library, not the hosted service or an installed global
+converter. See `THIRD-PARTY-NOTICES.txt` for the MIT notice.
+
+Official APIs were inspected before integration:
+
+- [Official README/library integration](https://github.com/icsharpcode/CodeConverter/tree/v10.0.1)
+- [ProjectConversion.ConvertDocumentsAsync](https://github.com/icsharpcode/CodeConverter/blob/v10.0.1/CodeConverter/Common/ProjectConversion.cs)
+- [VBToCSConversion](https://github.com/icsharpcode/CodeConverter/blob/v10.0.1/CodeConverter/CSharp/VBToCSConversion.cs)
+
+The upstream standalone CLI dropped Framework support; the library did not.
+An MSBuildWorkspace spike failed in its separate Framework build host
+(`Microsoft.Build.Shared.XMakeElements` initialization). The adapter instead
+uses `dotnet msbuild -t:Rebuild -p:ProvideCommandLineArgs=true
+-p:BuildProjectReferences=false -getItem:VbcCommandLineArgs` and Roslyn's
+`VisualBasicCommandLineParser`. Thus root namespaces, global imports, references,
+VB options, conditional symbols, explicit/linked compile items and generated WPF
+members come from the **real compiler invocation**, not source-text heuristics.
+The dependency graph is built first; referenced assemblies retain full symbols.
+No bin/obj source is emitted: WPF and assembly-info sources are regenerated.
+Before publication, the wrapper captures the actual **C# compiler invocation**
+as well and verifies that every emitted source is present in that project's
+compiled source set (`CompiledOutputs` in the manifest). A successful build of
+an accidentally empty or incomplete assembly cannot satisfy this check.
+
+Three narrow adapters address reproduced upstream gaps:
+
+1. Resolve explicit interface `get_Item`/`set_Item` methods against Roslyn
+   interface indexer symbols; reassemble the original bodies into an indexer.
+2. Preserve the VB compiler's implicit `InitializeComponent()` for
+   `DesignerGenerated` types with no source constructor.
+3. Map `Handles NamedControl.Event` on generated, non-reassigned WPF controls to
+   XAML event wiring. `Handles Me.Event` and ordinary WithEvents remain engine
+   responsibilities. XAML `x:Class` is root-namespace-qualified.
+
+Project/solution-reference and linked-source edits use `XDocument`, not regex.
+All source/project destinations are checked for existing files, directories and
+duplicate targets before any converted project/source/XAML is written.
+Removed VB-only XML properties are removed with their preceding indentation,
+preserving comments and avoiding whitespace-only lines in emitted projects.
+Namespaces, field modifiers, comments, business behavior and MVVM defects are
+not "cleaned up." No product-specific type names occur in adapter logic.
+
+## Results, repeatability and failures
+
+Exit 0 means either a **dry-run inventory plan**, or successful conversion with
+both input and emitted project builds passing. Exit 1 always means failure.
+A dry run prints JSON and creates nothing; it does not claim compiler validation.
+Mutation runs build under `<output>.incomplete`. After validation, source bytes
+are hash-checked into `<output>.publishing`, then atomically renamed to
+`<output>`. The published tree contains no bin/obj outputs. This avoids Windows
+build-host directory locks without weakening publication checks. The private
+build workspace is retained with status `validated-build-workspace`, not
+`succeeded`; it can be deleted after the run. Failed build trees retain a
+`failed` manifest and actionable diagnostic, never a success-shaped output.
+Use a new output path to retry.
+
+`migration-manifest.json` records tool/engine version and binary SHA-256,
+evaluated pinned SDK, configuration, compiler arguments and reference hashes, source/output SHA-256,
+renames and all changed files, repair rules, generated-document counts,
+input/output build evidence and diagnostics. Logs contain elapsed times;
+**compare `OutputFiles` hashes**, not log bytes, for determinism. Generated
+bin/obj files are deliberately excluded. An already-converted input reports
+`NO_VB`, not a fabricated successful conversion.
+
+The independent executable test project copies its fixtures under ignored
+`artifacts`, builds and executes the **original VB** and emitted **C#** on STA,
+compares behavior, examines actual emitted code and compares repeat output
+hashes. Canaries cover custom collection identity/sorting/notifications, typed
+and untyped overloaded indexers, Implements, ByRef, optional parameters,
+banker's rounding, integer division, root namespaces, generated named controls,
+implicit XAML initialization, `Handles Me.Loaded`, named-button events and
+idempotent initialization. Negative tests cover collisions, unsupported imports,
+dry-run side effects, already-converted input and rejected generated-control
+reassignment (including failed-manifest state).
+Review regressions additionally exercise **two explicit interface indexers in
+one class** (`IList` and `IReadOnlyList<string>`), rejection of wildcard,
+property-expanded and semicolon Compile items with default compilation
+disabled, existing C# project/source destination collisions, and a deliberately
+excluded emitted C# source whose otherwise-successful build must not publish.
+
+## Application execution evidence
+
+The complete current application graph was copied and processed by this CLI:
+**11 TimeTrackingServices sources and 29 ViewModel sources**, including all
+five WPF code-behind files, with 10 generated context documents. Both emitted
+projects built successfully; a fresh build of the published `TaskOTime.App`
+consumer also passed with zero warnings/errors. No original `src` files were
+modified. Full repeated application conversion produced **177 identical
+source/output file hashes**. Private manifests live under
+`artifacts\bulk-verified` and `artifacts\bulk-repeat`.
+
+The project-migration owner's `verified-net472` graph (tool commit `ec69c7d`)
+was subsequently copied read-only into `artifacts\normalized-input`, excluding
+bin/obj, and converted into `artifacts\normalized-csharp`. This **normalized
+net472 replay** also converted all 40 production sources, left zero production
+VB sources, built the **entire solution** with zero warnings/errors, and passed
+the original 33 collection plus 30 AppServer tests. A second run,
+`artifacts\normalized-repeat`, produced the same 177 output hashes. This graph
+is evidence for language conversion, not a substitute for the coordinator's
+latest safe-SQL-fixture checkpoint.
+
+### Accepted S1 checkpoint replay
+
+After the coordinator accepted **`6ca206f` / `modernization-S1-net472`**, its
+complete `src\TaskOTime` was copied without bin/obj into
+`artifacts\s1-6ca206f-input`. The following exact invocation produced the
+integration handoff:
+
+```powershell
+dotnet bin\Debug\net10.0\TaskOTime.Migration.dll convert-language --input artifacts\s1-6ca206f-input --output artifacts\s2-6ca206f-csharp --project TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj --project TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj --restore
+dotnet build artifacts\s2-6ca206f-csharp\TaskOTime.slnx --verbosity quiet -p:NuGetAudit=false -nr:false
+```
+
+All 40 production sources converted. Full solution build: **zero warnings and
+errors**. Original suites: **33/33 collection, 30/30 AppServer, 15/15 isolated
+SQL integration**, all without skips. For the Framework path-length workaround,
+the unchanged built test directories were copied to `artifacts\s2t`, `s2s`,
+and `s2i` and executed with `dotnet vstest` plus matching `--TestAdapterPath`.
+The SQL fixture was inspected before execution: it uses GUID-named databases,
+ownership markers and validated schema batches. No old fixed-name reset helper
+was run. The canonical candidate tree was not modified.
+
+Version 1.0.1 was replayed on the same accepted S1 input after the independent
+review fixes. All **178 application output hashes remained identical** to the
+handoff above; no generated application changes are required. The new manifest
+additionally confirms that all 11 service and 29 ViewModel emitted sources were
+present in their respective actual C# compiler invocations.
+The subsequent XML-trivia fix changes only the two generated `.csproj` files:
+their parsed XML is identical, and the orphaned whitespace-only lines are gone.
+This reproduces the coordinator's format-only cleanup without source changes.
+
+The original tests pass against the converted graph: **33/33
+TimeTrackingServices.Tests and 30/30 AppServer.Tests**. At deeply nested paths,
+the Framework MSTest runner reported that
+`MSTestAdapter.PlatformServices.Interface, Version=14.0.0.0` could not be loaded
+even though the assembly was present. Copying the identical built output to a
+shorter owned artifact directory resolved the path-length limitation without
+source, dependency or test changes:
+
+```powershell
+dotnet build artifacts\bulk-verified\TaskOTime.TimeTrackingServices.Tests\TaskOTime.TimeTrackingServices.Tests.vbproj
+Copy-Item artifacts\bulk-verified\TaskOTime.TimeTrackingServices.Tests\bin\Debug\net472 artifacts\t -Recurse
+dotnet vstest artifacts\t\TaskOTime.TimeTrackingServices.Tests.dll --TestAdapterPath:artifacts\t
+
+dotnet build artifacts\bulk-verified\TaskOTime.AppServer.Tests\TaskOTime.AppServer.Tests.csproj
+Copy-Item artifacts\bulk-verified\TaskOTime.AppServer.Tests\bin\Debug\net461 artifacts\s -Recurse
+dotnet vstest artifacts\s\TaskOTime.AppServer.Tests.dll --TestAdapterPath:artifacts\s
+```
+
+Use fresh `t`/`s` destinations. On normalized inputs, AppServer's output target
+is `net472` instead. Database integration and full application visual acceptance
+remain separate parent-stage gates, not claimed by this CLI. Never execute the
+old fixed-name SQL reset helper copied from the original graph.
+
+## Explicit limitations / reviewed exceptions
+
+- Only one Debug/Release configuration per run; multitargeting, custom targets,
+  unknown imports and valued conditional constants are rejected.
+- Explicit Compile Include/Update/Remove/Exclude expressions containing
+  wildcards, MSBuild property/item/metadata expansion, or semicolon lists are
+  rejected in selected VB project files. Expand these to explicit paths first.
+  SDK implicit compile items remain supported; evaluated C# compiler coverage
+  also catches exclusions inherited through imported properties/targets.
+- `.resx` designer/resource identity transformations and legacy `.sln` reference
+  rewriting are rejected rather than guessed; use `.slnx`.
+- Reassigned generated WPF WithEvents controls and multiple handlers combined
+  with an existing XAML event require a reviewed lifetime adapter and fail
+  explicitly. Normal source-defined WithEvents is handled by the engine.
+- Compiling output is not proof of all runtime semantics. Run the application's
+  independent tests and desktop smoke before promoting a candidate.
+- Keep tooling, canaries and evidence out of candidate exports.

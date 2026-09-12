@@ -1,0 +1,50 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <RootNamespace></RootNamespace>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>On</OptionInfer>
+    <OptionStrict>On</OptionStrict>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.6.4" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.6.4" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TaskOTime.Theme.TestHost\TaskOTime.Theme.TestHost.vbproj" ReferenceOutputAssembly="false" />
+    <ProjectReference Include="..\TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj" ReferenceOutputAssembly="false" />
+  </ItemGroup>
+  <Target Name="CopyThemeTestHost" AfterTargets="Build">
+    <MSBuild Projects="..\TaskOTime.Theme.TestHost\TaskOTime.Theme.TestHost.vbproj"
+             Targets="GetTargetPath" Properties="Configuration=$(Configuration)" RemoveProperties="TargetFramework">
+      <Output TaskParameter="TargetOutputs" ItemName="ThemeHostTarget" />
+    </MSBuild>
+    <PropertyGroup>
+      <ThemeHostDirectory>@(ThemeHostTarget->'%(RootDir)%(Directory)')</ThemeHostDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <ThemeHostFiles Include="$(ThemeHostDirectory)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ThemeHostFiles)"
+          DestinationFiles="@(ThemeHostFiles->'$(OutDir)ThemeHost\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+  <Target Name="CopyThemeCaptureHost" AfterTargets="Build">
+    <MSBuild Projects="..\TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj"
+             Targets="GetTargetPath" Properties="Configuration=$(Configuration)" RemoveProperties="TargetFramework">
+      <Output TaskParameter="TargetOutputs" ItemName="ThemeCaptureTarget" />
+    </MSBuild>
+    <PropertyGroup>
+      <ThemeCaptureDirectory>@(ThemeCaptureTarget->'%(RootDir)%(Directory)')</ThemeCaptureDirectory>
+    </PropertyGroup>
+    <ItemGroup>
+      <ThemeCaptureFiles Include="$(ThemeCaptureDirectory)**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(ThemeCaptureFiles)"
+          DestinationFiles="@(ThemeCaptureFiles->'$(OutDir)CaptureHost\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+</Project>

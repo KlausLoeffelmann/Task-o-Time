@@ -7,7 +7,7 @@
         MinWidth="460"
         SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource WindowBackgroundBrush}">
+        Background="{DynamicResource WindowBackgroundBrush}">
     <Border Style="{StaticResource PanelBorderStyle}" Margin="12">
         <StackPanel>
             <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="{loc:Loc Booking_Title}" />
@@ -18,33 +18,33 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="{loc:Loc Booking_Project}" />
+                    <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Project}" />
                     <ComboBox x:Name="ProjectSelection" Margin="0,2,0,0" DisplayMemberPath="ProjectName"
                               ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject, Mode=TwoWay}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="{loc:Loc Booking_Category}" />
+                    <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Category}" />
                     <ComboBox x:Name="CategorySelection" Margin="0,2,0,0" DisplayMemberPath="CategoryName"
                               IsEditable="False"
                               ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"/>
                 </StackPanel>
             </Grid>
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="{loc:Loc Booking_Start}" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Start}" />
             <TextBox x:Name="StartTimeTextBox" Margin="0,2,0,8" Text="{Binding EntryTime, StringFormat={}{0:HH:mm}, Mode=OneWay}" />
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="{loc:Loc Booking_Name}" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Name}" />
             <TextBox Margin="0,2,0,8" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="{loc:Loc Booking_Description}" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Description}" />
             <TextBox Margin="0,2,0,8" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
             <CheckBox Margin="0,0,0,16"
-                      Foreground="{StaticResource MutedForegroundBrush}"
+                      Foreground="{DynamicResource MutedForegroundBrush}"
                       Content="{loc:Loc CompleteRecordingTaskCheckBoxText}"
                       IsChecked="{Binding CompleteRunningTask}" />
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                 <Button MinWidth="42" ToolTip="{loc:Loc Common_OK}" IsDefault="True" Click="OnOkClick">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button MinWidth="42" ToolTip="{loc:Loc Common_Cancel}" IsCancel="True">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
             </StackPanel>
         </StackPanel>

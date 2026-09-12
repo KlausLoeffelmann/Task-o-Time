@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <RootNamespace>Canary</RootNamespace>
+    <UseWPF>true</UseWPF>
+    <OptionStrict>On</OptionStrict>
+    <!-- Preserve this project comment while removing VB-specific properties. -->
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>On</OptionInfer>
+    <DefineDebug>false</DefineDebug>
+    <DefineTrace>false</DefineTrace>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

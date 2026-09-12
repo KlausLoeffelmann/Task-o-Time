@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework Condition="'$(ValidationFramework)' == ''">net10.0-windows</TargetFramework>
+    <TargetFramework Condition="'$(ValidationFramework)' != ''">$(ValidationFramework)</TargetFramework>
+    <LangVersion>10</LangVersion>
+    <ApplicationRoot Condition="'$(ApplicationRoot)' == ''">$(MSBuildThisFileDirectory)..\..\..\src\TaskOTime</ApplicationRoot>
+    <ValidationEfVersion Condition="'$(ValidationEfVersion)' == '' and '$(TargetFramework)' == 'net472'">6.5.1</ValidationEfVersion>
+    <ValidationEfVersion Condition="'$(ValidationEfVersion)' == ''">6.5.2</ValidationEfVersion>
+  </PropertyGroup>
+  <Import Project="ValidationDataApi.props" />
+  <ItemGroup>
+    <PackageReference Include="EntityFramework" Version="$(ValidationEfVersion)" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" Condition="'$(TargetFramework)' == 'net472'" />
+    <Reference Include="System.Runtime.Serialization" Condition="'$(TargetFramework)' == 'net472'" />
+    <ProjectReference Include="$(ApplicationRoot)\TaskOTime.AppServer\TaskOTime.AppServer.csproj" />
+    <Compile Include="$(ApplicationRoot)\TaskOTime.AppServer.IntegrationTests\LocalDbPersistenceTestDatabase.cs" Link="LocalDbPersistenceTestDatabase.cs" />
+    <None Include="$(ApplicationRoot)\TaskOTime.DataLayer\DbGenerationScript.sql" Link="DbGenerationScript.sql" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="$(ApplicationRoot)\TaskOTime.DataLayer\Model\TaskOTime.edmx" Link="TaskOTime.edmx" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>
