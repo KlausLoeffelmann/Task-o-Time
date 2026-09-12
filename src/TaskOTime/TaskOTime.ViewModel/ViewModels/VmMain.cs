@@ -25,6 +25,7 @@ namespace TaskOTime.ViewModel.ViewModels
             TimeCollection.TimeEntryEditRequested += OnTimeEntryEditRequested;
 
             TaskManagement = suppliedTaskManagement ?? new TaskManagementViewModel();
+            TimeCollection.RecordingTask = () => TaskManagement.CurrentRecordingTask;
             TaskManagement.PropertyChanged += OnTaskManagementPropertyChanged;
             TaskManagement.TaskListEditRequested += OnTaskListEditRequested;
             TaskManagement.TaskCompletionRequested += OnTaskCompletionRequested;
@@ -358,7 +359,7 @@ namespace TaskOTime.ViewModel.ViewModels
                 }
                 startTime = SelectedDate.Add(start);
             }
-            var endTime = startTime.AddMinutes(duration.Minutes);
+            var endTime = startTime.Add(duration);
             TimeCollection.RecordTask(e.Task, startTime, endTime);
             SelectedDate = startTime.Date;
         }

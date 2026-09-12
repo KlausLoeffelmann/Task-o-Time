@@ -27,6 +27,7 @@ namespace TaskOTime.ViewModel.ViewModels
         private readonly Func<DateTime> _clock;
         private ProjectMainDataDto _selectedProject;
         private CategoryMasterDataDto _selectedCategory;
+        internal Func<TaskItemViewModel> RecordingTask { get; set; }
 
         public TimeCollectionViewModel() : this(DateTime.Today)
         {
@@ -292,23 +293,22 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void AddEntryFromDialog(DateTime entryTime, string title, string description, TimeEntryMarkerKind markerKind, bool completeRunningTask)
         {
+            var startedAt = PrepareRecordingBoundary();
+            if (startedAt.HasValue && entryTime <= startedAt.Value)
+                throw new InvalidOperationException("Die Abschlusszeit muss nach dem Aufgabenstart liegen.");
             var idTimeItem = Guid.NewGuid();
 
             var seed = new TimeEntrySeed()
             {
                 IdTimeItem = idTimeItem,
-                EntryTime = BookingDate.Add(entryTime.TimeOfDay),
+                EntryTime = entryTime,
                 Title = string.IsNullOrWhiteSpace(title) ? "Neue Zeitbuchung" : title.Trim(),
                 Description = string.IsNullOrWhiteSpace(description) ? "Beschreibung ergänzen" : description.Trim(),
                 MarkerKind = markerKind,
                 IdCategory = CategoryFor(markerKind),
                 IdProject = SelectedProject is null ? Guid.Empty : SelectedProject.IdProject
             };
-            SaveSeed(seed, false);
-
-            RebuildBookedDates();
-            RefreshEntries(idTimeItem);
-            TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(seed.EntryTime, completeRunningTask));
+            SaveBoundary(seed, false, completeRunningTask);
         }
 
         private void RequestEditEntry()
@@ -332,7 +332,7 @@ namespace TaskOTime.ViewModel.ViewModels
             TimeEntryEditRequested?.Invoke(this, new TimeEntryEditRequestEventArgs(seed.EntryTime, seed.Title, seed.Description, false, (savedTime, savedTitle, savedDescription, completeRunningTask) =>
 {
 var edited = seed.Copy();
-edited.EntryTime = BookingDate.Add(savedTime.TimeOfDay);
+edited.EntryTime = savedTime;
 edited.Title = string.IsNullOrWhiteSpace(savedTitle) ? seed.Title : savedTitle.Trim();
 edited.Description = string.IsNullOrWhiteSpace(savedDescription) ? seed.Description : savedDescription.Trim();
 edited.IdProject = SelectedProject is null ? seed.IdProject : SelectedProject.IdProject;
@@ -355,29 +355,67 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
 
         private void InsertSystemMarker(TimeEntryMarkerKind markerKind)
         {
-            var markerTime = SelectedEntry is null ? GetNextEntryTime() : SelectedEntry.EntryTime.AddMinutes(5d);
-            markerTime = MoveToFreeMinute(markerTime);
+            var recording = PrepareRecordingBoundary().HasValue;
+            var markerTime = recording ? _clock() : SelectedEntry is null ? GetNextEntryTime() : SelectedEntry.EntryTime.AddMinutes(5d);
+            if (!recording)
+                markerTime = MoveToFreeMinute(markerTime);
 
             AddEntryFromDialog(markerTime, markerKind == TimeEntryMarkerKind.WorkBreak ? "Pause" : "Stopp", markerKind == TimeEntryMarkerKind.WorkBreak ? "Arbeitsunterbrechung eingefügt." : "Stoppmarke eingefügt.", markerKind, false);
         }
 
         private void UpsertLatestSystemMarker(TimeEntryMarkerKind markerKind)
         {
-            var nowTime = BookingDate.Add(RoundUpToQuarterHour(_clock()).TimeOfDay);
+            var recording = PrepareRecordingBoundary().HasValue;
+            var nowTime = recording ? _clock() : BookingDate.Add(RoundUpToQuarterHour(_clock()).TimeOfDay);
             var seeds = GetOrCreateSeeds(BookingDate);
-            var latest = seeds.Where(seed => seed.MarkerKind == markerKind).OrderByDescending(seed => seed.EntryTime).FirstOrDefault();
+            var latest = recording ? null : seeds.Where(seed => seed.MarkerKind == markerKind).OrderByDescending(seed => seed.EntryTime).FirstOrDefault();
 
             if (latest is null)
             {
-                AddEntryFromDialog(MoveToFreeMinute(nowTime), markerKind == TimeEntryMarkerKind.DownTime ? "Ausfallzeit" : markerKind == TimeEntryMarkerKind.Errand ? "Besorgung" : markerKind == TimeEntryMarkerKind.WorkBreak ? "Pause" : "Ausbuchen", markerKind == TimeEntryMarkerKind.DownTime ? "Ausfallzeit nachgetragen." : markerKind == TimeEntryMarkerKind.Errand ? "Besorgung nachgetragen." : markerKind == TimeEntryMarkerKind.WorkBreak ? "Pause aktualisiert." : "Tagesende aktualisiert.", markerKind, false);
+                AddEntryFromDialog(recording ? nowTime : MoveToFreeMinute(nowTime), markerKind == TimeEntryMarkerKind.DownTime ? "Ausfallzeit" : markerKind == TimeEntryMarkerKind.Errand ? "Besorgung" : markerKind == TimeEntryMarkerKind.WorkBreak ? "Pause" : "Ausbuchen", markerKind == TimeEntryMarkerKind.DownTime ? "Ausfallzeit nachgetragen." : markerKind == TimeEntryMarkerKind.Errand ? "Besorgung nachgetragen." : markerKind == TimeEntryMarkerKind.WorkBreak ? "Pause aktualisiert." : "Tagesende aktualisiert.", markerKind, false);
                 return;
             }
 
             var updated = latest.Copy();
             updated.EntryTime = MoveToFreeMinute(nowTime);
-            SaveSeed(updated, true);
-            RefreshEntries(latest.IdTimeItem);
-            TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(updated.EntryTime, false));
+            SaveBoundary(updated, true, false);
+        }
+
+        private DateTime? PrepareRecordingBoundary()
+        {
+            var startedAt = RecordingTask?.Invoke()?.StartedAt;
+            // Browsing another calendar day must not reassign a running interval.
+            if (startedAt.HasValue)
+                BookingDate = startedAt.Value.Date;
+            return startedAt;
+        }
+
+        private void SaveBoundary(TimeEntrySeed seed, bool edit, bool completeRunningTask)
+        {
+            var original = GetOrCreateSeeds(BookingDate).Select(item => item.Copy()).ToArray();
+            var selectedId = SelectedEntry?.IDTimeItem;
+            TimeEntrySeed startSeed = null;
+            try
+            {
+                var task = RecordingTask?.Invoke();
+                if (task?.StartedAt is DateTime startedAt)
+                {
+                    // Persist the resumed work before its ending marker so service
+                    // normalization cannot mistake two pauses for adjacent pauses.
+                    startSeed = CreateTaskStartSeed(task, startedAt);
+                    SaveSeed(startSeed, original.Any(item => item.IdTimeItem == startSeed.IdTimeItem));
+                }
+                SaveSeed(seed, edit);
+                RebuildBookedDates();
+                RefreshEntries(seed.IdTimeItem);
+                TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(seed.EntryTime, completeRunningTask));
+            }
+            catch
+            {
+                RestoreSeeds(original, seed.IdTimeItem, startSeed?.IdTimeItem ?? Guid.Empty);
+                RefreshEntries(selectedId);
+                throw;
+            }
         }
 
         private void DeleteEntry()
@@ -660,24 +698,14 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             }
         }
 
-        public void RecordTask(TaskItemViewModel task, DateTime startTime, DateTime endTime, bool useExistingBoundary = false)
+        private TimeEntrySeed CreateTaskStartSeed(TaskItemViewModel task, DateTime startTime)
         {
-            BookingDate = startTime.Date;
-            var existingBoundary = GetOrCreateSeeds(BookingDate).FirstOrDefault(seed => seed.EntryTime == endTime);
-            if (useExistingBoundary && existingBoundary is null)
-            {
-                throw new InvalidOperationException("Die Abschlussbuchung ist nicht mehr vorhanden.");
-            }
-            if (useExistingBoundary && endTime <= startTime)
-            {
-                throw new InvalidOperationException("Die Abschlusszeit muss nach dem Aufgabenstart liegen.");
-            }
             var existingStart = GetOrCreateSeeds(BookingDate).FirstOrDefault(seed => seed.EntryTime == startTime);
             if (existingStart is not null && existingStart.MarkerKind != TimeEntryMarkerKind.Normal)
             {
                 throw new InvalidOperationException("Die Aufgabenstartzeit ist bereits durch eine Systembuchung belegt.");
             }
-            var startSeed = new TimeEntrySeed()
+            return new TimeEntrySeed()
             {
                 IdTimeItem = existingStart is null ? Guid.NewGuid() : existingStart.IdTimeItem,
                 EntryTime = startTime,
@@ -688,10 +716,25 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
                 MarkerKind = TimeEntryMarkerKind.Normal,
                 IdCategory = existingStart is null ? CategoryFor(TimeEntryMarkerKind.Normal) : existingStart.IdCategory
             };
+        }
+
+        /// <summary>
+        /// Records exact endpoints on the start date's booking timeline, including cross-day intervals.
+        /// </summary>
+        public void RecordTask(TaskItemViewModel task, DateTime startTime, DateTime endTime, bool useExistingBoundary = false)
+        {
+            if (endTime <= startTime)
+                throw new InvalidOperationException("Die Abschlusszeit muss nach dem Aufgabenstart liegen.");
+            BookingDate = startTime.Date;
+            var existingBoundary = GetOrCreateSeeds(BookingDate).FirstOrDefault(seed => seed.EntryTime == endTime);
+            if (useExistingBoundary && existingBoundary is null)
+                throw new InvalidOperationException("Die Abschlussbuchung ist nicht mehr vorhanden.");
+            var existingStart = GetOrCreateSeeds(BookingDate).FirstOrDefault(seed => seed.EntryTime == startTime);
+            var startSeed = CreateTaskStartSeed(task, startTime);
             var endSeed = new TimeEntrySeed()
             {
                 IdTimeItem = Guid.NewGuid(),
-                EntryTime = MoveToFreeMinute(endTime),
+                EntryTime = endTime,
                 Title = "Stopp",
                 Description = task.Title,
                 IdProject = startSeed.IdProject,
@@ -699,8 +742,7 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
                 MarkerKind = TimeEntryMarkerKind.StopMark,
                 IdCategory = CategoryFor(TimeEntryMarkerKind.StopMark)
             };
-            if (endSeed.EntryTime <= startSeed.EntryTime)
-                endSeed.EntryTime = startSeed.EntryTime.AddMinutes(1d);
+            var original = GetOrCreateSeeds(BookingDate).Select(item => item.Copy()).ToArray();
             SaveSeed(startSeed, existingStart is not null);
             try
             {
@@ -709,22 +751,43 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             }
             catch
             {
-                if (existingStart is not null)
-                {
-                    SaveSeed(existingStart, true);
-                }
-                else if (_service is not null)
-                {
-                    ApplyMutation(Require(_service.DeleteTimeBooking(new DeleteTimeBookingRequest() { AccessContext = _access, IdTimeItem = startSeed.IdTimeItem, BookingDate = BookingDate })));
-                }
-                else
-                {
-                    GetOrCreateSeeds(BookingDate).Remove(startSeed);
-                }
+                RestoreSeeds(original, startSeed.IdTimeItem, endSeed.IdTimeItem);
+                RefreshEntries(existingStart?.IdTimeItem);
                 throw;
             }
             RebuildBookedDates();
             RefreshEntries(startSeed.IdTimeItem);
+        }
+
+        private void RestoreSeeds(TimeEntrySeed[] original, params Guid[] changedIds)
+        {
+            if (_service is null)
+            {
+                var seeds = GetOrCreateSeeds(BookingDate);
+                seeds.Clear();
+                seeds.AddRange(original.Select(item => item.Copy()));
+            }
+            else
+            {
+                LoadBookingDate();
+                foreach (var id in changedIds.Where(id => original.All(item => item.IdTimeItem != id)))
+                {
+                    if (GetOrCreateSeeds(BookingDate).Any(item => item.IdTimeItem == id))
+                        ApplyMutation(Require(_service.DeleteTimeBooking(new DeleteTimeBookingRequest
+                        {
+                            AccessContext = _access, IdTimeItem = id, BookingDate = BookingDate
+                        })));
+                }
+                // Normalization can remove an earlier stop or pause as part of a
+                // successful first write. Restore those rows if a later write fails.
+                foreach (var seed in original.OrderBy(item => item.EntryTime))
+                {
+                    var exists = GetOrCreateSeeds(BookingDate).Any(item => item.IdTimeItem == seed.IdTimeItem);
+                    if (!exists || changedIds.Contains(seed.IdTimeItem))
+                        SaveSeed(seed.Copy(), exists);
+                }
+            }
+            RebuildBookedDates();
         }
 
         private void SaveSeed(TimeEntrySeed seed, bool edit)
@@ -757,7 +820,7 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
                     IdTimeItem = seed.IdTimeItem,
                     IdTenant = _access.IdTenant,
                     IdUser = _access.IdBookingUser,
-                    IdProject = Projects.First().IdProject,
+                    IdProject = seed.IdProject,
                     IdTask = seed.IdTask,
                     IdCategory = seed.IdCategory,
                     ShortTitle = seed.Title,
