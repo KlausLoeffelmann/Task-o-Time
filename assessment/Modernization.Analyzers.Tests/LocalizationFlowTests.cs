@@ -263,6 +263,27 @@ public sealed class LocalizationFlowTests
         Assert.DoesNotContain(await Analyze(source, Files()), d => d.Id == "LOC001");
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Bound_command_execute_reaches_direct_callees_and_assignments_without_delegates(bool assignment)
+    {
+        var execute = assignment ? "CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo(model.CultureName);" : "model.Commit();";
+        var source = Source.Replace("public System.Windows.Input.ICommand ApplyCommand => new ActionCommand(Commit);",
+            "public System.Windows.Input.ICommand ApplyCommand => new CultureCommand(this);") + $$"""
+              namespace Example {
+                public sealed class CultureCommand : System.Windows.Input.ICommand {
+                  private readonly PreferencesModel model;
+                  public CultureCommand(PreferencesModel model) { this.model = model; }
+                  public event EventHandler CanExecuteChanged;
+                  public bool CanExecute(object parameter) => true;
+                  public void Execute(object parameter) { {{execute}} }
+                }
+              }
+              """;
+        Assert.DoesNotContain(await Analyze(source, Files()), d => d.Id == "LOC001");
+    }
+
     [Fact]
     public async Task Required_bound_facade_retains_literal_mixed_with_lookup_and_ignores_dead_caller_keys()
     {

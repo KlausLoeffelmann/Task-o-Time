@@ -314,10 +314,8 @@ internal sealed class LocalizationFlow
         var reachable = UiReachable(selectedProperties, boundCommands, uiHandlers, presentationTypes);
         return selectedProperties.Select(id => symbols.GetValueOrDefault(id)).OfType<IPropertySymbol>()
             .Any(p => p.SetMethod != null && Check(p.SetMethod, [], [], 0)) ||
-            operations.OfType<IInvocationOperation>().Where(c =>
-                operationMembers.TryGetValue(c, out var owner) && reachable.Contains(owner) &&
-                c.Arguments.Any(a => Selected(a.Value, [])))
-                .Any(c => Check(c.TargetMethod, Arguments(c.Arguments, []), [], 0));
+            reachable.Select(id => symbols.GetValueOrDefault(id)).OfType<IMethodSymbol>()
+                .Any(method => Check(method, [], [], 0));
     }
 
     private HashSet<string> UiReachable(HashSet<string> selectedProperties, HashSet<string> boundCommands,
@@ -393,7 +391,10 @@ internal sealed class LocalizationFlow
                     foreach (var execute in type.GetMembers().OfType<IMethodSymbol>().Where(m =>
                         m.Name == "Execute" || m.ExplicitInterfaceImplementations.Any(i => i.Name == "Execute" &&
                             i.ContainingType.ToDisplayString() == "System.Windows.Input.ICommand")))
+                    {
+                        if (members.ContainsKey(Id(execute))) callbacks.Add(Id(execute));
                         CommandExecution(execute, ConstructionEnvironment(creation), [], callbacks, 0);
+                    }
                 alternatives.Add(callbacks);
             }
             if (alternatives.Any(callbacks => callbacks.Count == 0 || !callbacks.SetEquals(alternatives[0]))) continue;

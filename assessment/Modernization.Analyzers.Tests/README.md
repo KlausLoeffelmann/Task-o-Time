@@ -274,8 +274,9 @@ example historical Markdown) is not a language verdict input.
 The repository policy requires applied keys on Login Experience, Main
 time-collection UI, add/edit booking dialog, and Project Main Data dialog. The
 Options surface must contain a language-selection control whose state reaches
-current/default culture behavior through its bound setter, an executing bound
-`ICommand` callback, a resolved XAML UI event, or the reachable handlers installed
+current/default culture behavior through its bound setter, the bound `ICommand`
+`Execute` implementation and its direct callees or invoked callbacks, a resolved
+XAML UI event, or the reachable handlers installed
 by presentation constructors. Constructor-forwarded command delegates retain
 call-site arguments. Unbound/inert commands and private dead culture calls do
 not establish this connection. Merely
