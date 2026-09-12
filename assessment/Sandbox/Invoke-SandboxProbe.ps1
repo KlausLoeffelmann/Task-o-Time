@@ -16,12 +16,17 @@ param(
     [string] $EvidenceSuccessValue = 'succeeded',
     [switch] $PrepareOnly,
     [switch] $SignProducerProof,
+    [ValidateRange(0,300)][int] $OwnedControllerDelaySeconds = 0,
     [ValidateRange(60,900)][int] $TimeoutSeconds = 240
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'OutputEvidence.ps1')
+. (Join-Path $PSScriptRoot 'SandboxLifecycle.ps1')
 if ($SignProducerProof) {
     throw 'Unsupported producer provenance: submitted MSBuild controls both compiler /out and TargetPath. Signing is disabled until compiler outputs are captured outside submitted build control.'
+}
+if($OwnedControllerDelaySeconds -and ($SourceRoot -or $BinaryRoot -or $CompilerJobRoot)) {
+    throw 'The owned lifecycle delay cannot be combined with submitted work.'
 }
 if (-not $PrepareOnly) {
     $feature = Get-CimInstance Win32_OptionalFeature -Filter "Name='Containers-DisposableClientVM'"
@@ -54,6 +59,10 @@ New-Item -ItemType Directory -Path $payload,$output | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'GuestProbe.ps1') $payload
 Copy-Item (Join-Path $PSScriptRoot 'RestrictedProcess.cs') $payload
 Copy-Item (Join-Path $assessment 'global.json') $payload
+if($OwnedControllerDelaySeconds) {
+    @{ Seconds=$OwnedControllerDelaySeconds } | ConvertTo-Json |
+        Set-Content -LiteralPath (Join-Path $payload 'owned-lifecycle-delay.json') -Encoding UTF8
+}
 function Copy-SourceTree([string]$from,[string]$to,[bool]$excludeBuild=$true) {
     if ((Get-Item -LiteralPath $from -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Input reparse points are not accepted.' }
     New-Item -ItemType Directory -Path $to -Force | Out-Null
@@ -176,12 +185,14 @@ if ($PrepareOnly) {
     [pscustomobject]@{ Artifacts=$run; Configuration=$config; Executed=$false; FormalVerified=$false }
     return
 }
+$process=$null
+$remoteSessions=@()
+$servers=@()
+$bootstrapObserved=$false
+$sandboxStopped=$false
+$runFailure=$null
+try {
 $process=Start-Process (Join-Path $env:WINDIR 'System32\WindowsSandbox.exe') -ArgumentList ('"' + $config + '"') -PassThru
-function Find-OwnedRemoteSession {
-    @(Get-CimInstance Win32_Process -Filter "Name='WindowsSandboxRemoteSession.exe'" |
-        Where-Object { $_.CommandLine -and $_.CommandLine.EndsWith(' "'+$config+'"',[StringComparison]::OrdinalIgnoreCase) } |
-        ForEach-Object { [Diagnostics.Process]::GetProcessById($_.ProcessId) })
-}
 $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
 $bootstrap=Join-Path $output 'bootstrap.json'
 while (-not (Test-Path $bootstrap) -and [DateTime]::UtcNow -lt $deadline) {
@@ -191,11 +202,10 @@ while (-not (Test-Path $bootstrap) -and [DateTime]::UtcNow -lt $deadline) {
     Start-Sleep -Milliseconds 250
 }
 if (-not (Test-Path $bootstrap)) {
-    if (-not $process.HasExited) { Stop-Process -Id $process.Id }
-    foreach($owned in Find-OwnedRemoteSession) { if(-not $owned.HasExited) { Stop-Process -Id $owned.Id } }
     throw "Protected controller did not bootstrap; no receipt produced. Artifacts: $run"
 }
-$remoteSessions=@(Find-OwnedRemoteSession)
+$bootstrapObserved=$true
+$remoteSessions=@(Get-OwnedSandboxRemoteSession $config)
 $servers=@(Get-Process WindowsSandboxServer -ErrorAction SilentlyContinue)
 if($remoteSessions.Count -ne 1 -or $servers.Count -ne 1) { throw 'Cannot establish a unique owned Sandbox lifecycle.' }
 $lifecycle=@($process)+$remoteSessions+$servers
@@ -203,11 +213,11 @@ $handshake=Get-Content $bootstrap -Raw | ConvertFrom-Json
 if ([Convert]::FromBase64String($handshake.TransportNonce).Length -ne 32) { throw 'Invalid protected-controller handshake.' }
 Remove-Item $bootstrap
 [IO.File]::WriteAllText((Join-Path $payload 'continue.flag'),'host-acknowledged')
+$deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
 $resultPath=Join-Path $output 'probe.json'
 $result=$null
 while (-not $result -and [DateTime]::UtcNow -lt $deadline) {
     if ((Get-Item -LiteralPath $output -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) {
-        if (-not $process.HasExited) { Stop-Process -Id $process.Id }
         throw 'Guest modified the export root into a reparse point.'
     }
     if (Test-Path -LiteralPath $resultPath -PathType Leaf) {
@@ -223,14 +233,18 @@ while (-not $result -and [DateTime]::UtcNow -lt $deadline) {
     if (-not $result) { Start-Sleep -Milliseconds 250 }
 }
 if (-not $result) {
-    if (-not $process.HasExited) { Stop-Process -Id $process.Id }
     throw "Owned Sandbox preflight timed out; no receipt or acceptance produced. Config/artifacts: $run"
 }
+$shutdownDeadline=[DateTime]::UtcNow.AddSeconds(60)
 foreach($owned in $lifecycle) {
-    if (-not $owned.HasExited -and -not $owned.WaitForExit(60000)) {
-        throw "Observed Sandbox process $($owned.Id) did not terminate after its authenticated result; no acceptance is possible."
+    if (-not $owned.HasExited) {
+        $remaining=[int][Math]::Max(0,($shutdownDeadline-[DateTime]::UtcNow).TotalMilliseconds)
+        if($remaining -eq 0 -or -not $owned.WaitForExit($remaining)) {
+            throw "Observed Sandbox process $($owned.Id) did not terminate after its authenticated result; no acceptance is possible."
+        }
     }
 }
+$sandboxStopped=$true
 if ((Get-Item -LiteralPath $output -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Untrusted export root after shutdown.' }
 if (Test-Path (Join-Path $payload 'forbidden-write.txt')) { throw 'Readonly mapping failed; no Sandbox acceptance is possible.' }
 if (-not $result.Success) { throw ('Owned Sandbox preflight failed: ' + ($result | ConvertTo-Json -Depth 8)) }
@@ -365,4 +379,14 @@ if ($BinaryRoot) {
     SandboxProcessIds=@($lifecycle | ForEach-Object Id)
     FormalVerified=$false
     Note='Diagnostic execution only. Producer compiler provenance and full replay acceptance are unverified; producer signing is disabled.'
+}
+}
+catch { $runFailure=$_.Exception.Message; throw }
+finally {
+    if($process -and -not $sandboxStopped) {
+        if($servers.Count -eq 0) { $servers=@(Get-Process WindowsSandboxServer -ErrorAction SilentlyContinue) }
+        Close-OwnedSandboxSession -Configuration $config -Launcher $process -RemoteSessions $remoteSessions `
+            -Servers $servers -EvidencePath (Join-Path $run 'lifecycle-cleanup.json') -OriginalFailure $runFailure `
+            -RequireServerObservation $bootstrapObserved
+    }
 }
