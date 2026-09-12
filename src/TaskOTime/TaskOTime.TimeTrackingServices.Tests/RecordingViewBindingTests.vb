@@ -41,6 +41,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
         Private Shared Sub VerifyRuntimeBinding()
             Dim application As Application = Nothing
             Dim window As MainWindow = Nothing
+            Dim master As MainDataWindow = Nothing
             Dim login As LoginViewModel = Nothing
             Dim settings As Object = Nothing
             Dim placementProperty As Reflection.PropertyInfo = Nothing
@@ -97,7 +98,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 AssertMainCommandInventory(window, vm)
                 ExerciseForwardedRecordingActions(window, vm, testServices, login.Session)
 
-                Dim master = New MainDataWindow()
+                master = New MainDataWindow()
                 Dim masterViewModel = New MainDataViewModel(
                     testServices.Tenant, testServices.ActingUserId,
                     testServices, testServices, testServices, 1, New TestMaintenanceInteraction())
@@ -109,10 +110,18 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 GC.KeepAlive(masterViewModel)
                 master.Close()
             Finally
+                If master IsNot Nothing Then master.Close()
                 If window IsNot Nothing Then window.Close()
                 If login IsNot Nothing Then login.Logout()
                 If placementProperty IsNot Nothing AndAlso settings IsNot Nothing Then placementProperty.SetValue(settings, restorePlacement)
                 If application IsNot Nothing Then application.Shutdown()
+                Dim ownerDispatcher = Dispatcher.CurrentDispatcher
+                If Not ownerDispatcher.HasShutdownStarted Then
+                    ' Drain Application.Shutdown and release thread-affine WPF resources before the STA exits.
+                    ownerDispatcher.BeginInvokeShutdown(DispatcherPriority.ApplicationIdle)
+                    Dispatcher.Run()
+                End If
+                Assert.IsTrue(ownerDispatcher.HasShutdownFinished, "WPF dispatcher cleanup must finish on its owning STA.")
             End Try
         End Sub
 
