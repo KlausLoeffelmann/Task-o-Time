@@ -11,11 +11,22 @@ namespace Modernization.Analyzers.Tests;
 public sealed record ScanDiagnostic(string Id, string Severity, string Project, string Path, int Line, int Column, string Message);
 public sealed record ScanReport(bool CompilationValid, string[] Projects, ScanDiagnostic[] Diagnostics)
 {
-    public string RubricVersion { get; init; } = "2026-09-v2";
+    public string RubricVersion { get; init; } = "2026-09-stage-v3";
     public bool EvaluationValid { get; init; }
     public bool HardGatePassed { get; init; }
+    public bool FullModernizationPassed { get; init; }
     public int UnverifiedCount { get; init; }
     public double OverallScore { get; init; }
+    public double? RemainingWorkScore { get; init; }
+    public double ApplicableWeight { get; init; }
+    public string StartingStage { get; init; } = "";
+    public string Mode { get; init; } = "";
+    public bool StageIntegrityPassed { get; init; }
+    public string[] StageIntegrityFailures { get; init; } = [];
+    public ProjectState[] EvaluatedProjects { get; init; } = [];
+    public CriterionResult[] Criteria { get; init; } = [];
+    public ScanDiagnostic[] AcceptanceDiagnostics { get; init; } = [];
+    public ReplayResult? Replay { get; init; }
     public string[] ArchitectureTypes { get; init; } = [];
     public string[] SourcePaths { get; init; } = [];
     public string[] AdditionalPaths { get; init; } = [];
@@ -32,10 +43,19 @@ public sealed class RepositoryTests
     {
         var report = await Scan.Value;
         Assert.True(report.CompilationValid, Evidence(report.Diagnostics.Where(d => d.Severity == "Error")));
-        Assert.Single(report.Diagnostics, d => d.Id == "BUS001");
-        Assert.Single(report.Diagnostics, d => d.Id == "BUS002");
+        Assert.True(report.EvaluationValid, Evidence(report.Diagnostics));
         Assert.InRange(report.OverallScore, 0, 1);
-        Assert.True(File.Exists(Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports", "repository-assessment.csv")));
+        Assert.True(File.Exists(Path.Combine(ReportRoot, "repository-assessment.csv")));
+    }
+
+    [Fact]
+    [Trait("Category", "StagePreservation")]
+    public async Task Starting_point_preserves_stage_contract_and_intentional_defects()
+    {
+        Assert.Equal(EvaluationMode.StartingPointIntegrity, StagePolicy.Current.Mode);
+        var report = await Scan.Value;
+        Assert.True(report.EvaluationValid, Evidence(report.Diagnostics));
+        Assert.True(report.StageIntegrityPassed, string.Join(Environment.NewLine, report.StageIntegrityFailures));
     }
 
     [Fact]
@@ -43,8 +63,10 @@ public sealed class RepositoryTests
     public async Task Production_meets_all_modernization_and_business_criteria()
     {
         var report = await Scan.Value;
-        Assert.True(report.CompilationValid, Evidence(report.Diagnostics.Where(d => d.Severity == "Error")));
-        Assert.True(report.Diagnostics.Length == 0, Evidence(report.Diagnostics));
+        Assert.Equal(EvaluationMode.FinalDelivery, StagePolicy.Current.Mode);
+        Assert.True(report.EvaluationValid, Evidence(report.Diagnostics.Where(d => d.Severity == "Error")));
+        Assert.True(report.AcceptanceDiagnostics.Length == 0, Evidence(report.AcceptanceDiagnostics));
+        Assert.True(report.HardGatePassed);
     }
 
     private static string Evidence(IEnumerable<ScanDiagnostic> diagnostics) => string.Join(Environment.NewLine,
@@ -72,14 +94,13 @@ public sealed class RepositoryTests
         var sourcePaths = new List<string>();
         var additionalPaths = new List<string>();
         var metrics = new SortedDictionary<string, CriterionMetric>(StringComparer.Ordinal);
+        var evaluated = new List<ProjectState>();
         var valid = false;
         try
         {
-            var referenceRoot = (await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,
-                "framework-reference-root.txt"))).Trim();
-            if (!Directory.Exists(Path.Combine(referenceRoot, "v4.6.1")))
-                throw new InvalidOperationException("Restored .NET Framework 4.6.1 reference assemblies are missing: " + referenceRoot);
-            var loader = new CompilerInputLoader(Path.Combine(EvaluatorConfiguration.ArtifactRoot, "compiler-inputs"));
+            var policy = StagePolicy.Current;
+            var loader = new CompilerInputLoader(Path.Combine(EvaluatorConfiguration.ArtifactRoot, "compiler-inputs"),
+                EvaluatorConfiguration.BuildConfiguration, policy.Identity);
             foreach (var directory in new[] { "TaskOTime.App" })
             {
                 var projectPath = Directory.EnumerateFiles(Path.Combine(root, directory), "*.*proj")
@@ -89,7 +110,11 @@ public sealed class RepositoryTests
             foreach (var project in EvaluatorConfiguration.DiscoveryRoots.SelectMany(DiscoverProjects)
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal))
                 await loader.Load(project);
-            var corpus = loader.Projects.Where(p => !p.IsTest).ToArray();
+            var loaded = CompilerInputLoader.ClassifyTestSupport(loader.Projects, root);
+            evaluated.AddRange(loaded.Select(p => p.State!).Where(p => p != null));
+            diagnostics.AddRange(loaded.Where(p => p.IsTest).SelectMany(p =>
+                p.Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => Convert(root, p.Name, d))));
+            var corpus = loaded.Where(p => !p.IsTest).ToArray();
             foreach (var project in corpus)
             {
                 projects.Add(Relative(root, project.Path));
@@ -115,7 +140,7 @@ public sealed class RepositoryTests
                     p.IsTooling, p.IsTest, p.GeneratedPaths)).ToArray(), EvaluatorConfiguration.Selection.Includes,
                     EvaluatorConfiguration.Selection.IncludesSource, contracts: true);
                 var scenario = new InputFile(Path.Combine(EvaluatorConfiguration.AssessmentRoot, "ScenarioScope.xml.assessment"),
-                    await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml")));
+                    ScenarioText(await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml")), policy));
                 var options = new AnalyzerOptions(corpus.SelectMany(p => p.AdditionalFiles).Append(scenario).DistinctBy(f => f.Path).ToImmutableArray());
                 additionalPaths.Add(Relative(root, scenario.Path));
                 var outcomeDiagnostics = await corpus.Last().Compilation.WithAnalyzers([analyzer], options).GetAnalyzerDiagnosticsAsync();
@@ -144,6 +169,7 @@ public sealed class RepositoryTests
             ArchitectureTypes = architectureTypes.Distinct().Order(StringComparer.Ordinal).ToArray(),
             SourcePaths = sourcePaths.Distinct().Order(StringComparer.Ordinal).ToArray(),
             AdditionalPaths = additionalPaths.Distinct().Order(StringComparer.Ordinal).ToArray(),
+            EvaluatedProjects = evaluated.OrderBy(p => p.Path, StringComparer.Ordinal).ToArray(),
             Metrics = metrics
         };
         return await WriteReport(root, report);
@@ -151,40 +177,92 @@ public sealed class RepositoryTests
 
     private static async Task<ScanReport> WriteReport(string root, ScanReport report)
     {
-        var output = Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports");
+        var output = ReportRoot;
         Directory.CreateDirectory(output);
-        var rows = Rubric(report.Diagnostics);
+        var policy = StagePolicy.Current;
+        var replay = report.CompilationValid ? await ToolReplay.Run(policy, EvaluatorConfiguration.ArtifactRoot) :
+            new ReplayResult(false, [], "Input invalid; replay not executed.");
+        var allDiagnostics = report.Diagnostics.ToList();
+        if (policy.ProjectReplay && !replay.Verified)
+            allDiagnostics.Add(new("TOOL002", "Warning", "replay", "", 0, 0,
+                replay.Message + " " + string.Join("; ", replay.Cases.Where(c => !c.Passed).Select(c => c.Name + ": " + c.Message))));
+        report = report with { Diagnostics = allDiagnostics.ToArray(), Replay = replay };
+        // TOOL001 remains visible as bounded static evidence. Actual replay, not a
+        // converter's source shape, determines tool acceptance (including genuine wrappers).
+        var acceptance = report.Diagnostics.Where(d => d.Id != "TOOL001").ToArray();
+        if (policy.Mode == EvaluationMode.FinalDelivery)
+        {
+            var stateFailures = new StagePolicy(StartingStage.S4, policy.Mode).CheckIntegrity(report.EvaluatedProjects, []);
+            acceptance = acceptance.Concat(stateFailures.Select(message =>
+                new ScanDiagnostic("STG001", "Warning", "profile", "", 0, 0, message))).ToArray();
+            report = report with { Diagnostics = report.Diagnostics.Concat(acceptance.Where(d => d.Id == "STG001")).ToArray() };
+        }
+        var valid = IsValid(report);
+        var rows = Rubric(report.Diagnostics, valid, replay.Verified);
+        var criteria = CriteriaFor(report.Diagnostics, policy, valid, replay.Verified);
+        var applicableWeight = criteria.Where(c => c.Applicability == "applicable").Sum(c => c.Weight);
+        var integrity = policy.CheckIntegrity(report.EvaluatedProjects, acceptance);
         report = report with
         {
-            EvaluationValid = report.CompilationValid && !report.Diagnostics.Any(d => d.Id is "ASM001" or "AD0001" or "LOAD001"),
-            HardGatePassed = report.CompilationValid && report.Diagnostics.Length == 0,
+            EvaluationValid = valid,
+            HardGatePassed = valid && policy.Mode == EvaluationMode.FinalDelivery && acceptance.Length == 0,
+            FullModernizationPassed = valid && acceptance.Length == 0 && rows.All(r => r.Score == 1),
+            AcceptanceDiagnostics = acceptance,
+            StartingStage = policy.Stage.ToString(), Mode = policy.Mode.ToString(),
+            StageIntegrityPassed = valid && integrity.Length == 0, StageIntegrityFailures = integrity,
+            Criteria = criteria, ApplicableWeight = applicableWeight,
+            RemainingWorkScore = valid && applicableWeight > 0 ?
+                criteria.Where(c => c.Applicability == "applicable").Sum(c => c.Weight * c.Score!.Value) / applicableWeight : null,
             UnverifiedCount = Math.Max(report.Diagnostics.Count(d => d.Id == "THM002"),
                 report.Metrics.Values.Sum(m => m.Unverified)),
-            OverallScore = rows.Sum(r => r.Weight * r.Score) / 100d
+            OverallScore = FullScore(report.Diagnostics, valid, replay.Verified)
         };
         await File.WriteAllTextAsync(Path.Combine(output, "roslyn-diagnostics.json"),
             JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }) + Environment.NewLine);
-        var csv = new StringBuilder("rubric_version,criterion_id,criterion_name,weight,score,weighted_contribution,status,evidence\r\n");
+        var csv = new StringBuilder("rubric_version,criterion_id,criterion_name,weight,full_outcome_score,full_weighted_contribution,status,evidence,applicability,starting_state\r\n");
         foreach (var row in rows)
             csv.AppendLine(string.Join(",", new[] { report.RubricVersion, row.Id, row.Name,
                 row.Weight.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture),
                 row.Score.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture),
                 (row.Weight * row.Score / 100d).ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
-                row.Score == 1 ? "PASS" : row.Score == 0 ? "FAIL" : "PARTIAL", row.Evidence }.Select(Csv)));
+                criteria.Single(c => c.Id == row.Id).Status, row.Evidence,
+                policy.Applicability(row.Id), policy.StartingState(row.Id) }.Select(Csv)));
         csv.AppendLine(string.Join(",", new[] { report.RubricVersion, "OVERALL", "Normalized overall score", "100.0",
             report.OverallScore.ToString("0.000", System.Globalization.CultureInfo.InvariantCulture),
             report.OverallScore.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture),
-            report.HardGatePassed ? "PASS" : "FAIL",
-            $"evaluation-valid={report.EvaluationValid}; hard-gate={report.HardGatePassed}; unverified={report.UnverifiedCount}" }.Select(Csv)));
+            !report.EvaluationValid ? "INVALID" : report.HardGatePassed ? "PASS" : "FAIL",
+            $"evaluation-valid={report.EvaluationValid}; hard-gate={report.HardGatePassed}; unverified={report.UnverifiedCount}; stage={policy.Stage}; mode={policy.Mode}; applicable-weight={applicableWeight}; remaining-score={report.RemainingWorkScore}",
+            "full-outcome", policy.Stage.ToString() }.Select(Csv)));
         await File.WriteAllTextAsync(Path.Combine(output, "repository-assessment.csv"), csv.ToString());
         return report;
     }
 
     private sealed record RubricRow(string Id, string Name, double Weight, double Score, string Evidence);
-    private static RubricRow[] Rubric(ScanDiagnostic[] diagnostics)
+    internal static bool IsValid(ScanReport report) => report.CompilationValid && report.Projects.Length > 0 &&
+        !report.Diagnostics.Any(d => d.Id is "ASM001" or "AD0001" or "LOAD001" or "SCP001");
+    internal static double FullScore(ScanDiagnostic[] diagnostics, bool valid, bool replayVerified) =>
+        Rubric(diagnostics, valid, replayVerified).Sum(r => r.Weight * r.Score) / 100d;
+    internal static CriterionResult[] CriteriaFor(ScanDiagnostic[] diagnostics, StagePolicy policy, bool valid, bool replayVerified) =>
+        Rubric(diagnostics, valid, replayVerified).Select(r =>
+        {
+            var applicability = policy.Applicability(r.Id);
+            return new CriterionResult(r.Id, r.Weight, valid ? r.Score : null, applicability,
+                !valid ? "INVALID" : applicability == "deferred" ? "DEFERRED" :
+                applicability == "not-applicable" ? "NOT_APPLICABLE" :
+                applicability == "pre-satisfied" ? r.Score == 1 ? "PRE_SATISFIED" : "PRE_SATISFIED_REGRESSION" :
+                r.Score == 1 ? "PASS" : r.Score == 0 ? "FAIL" : "PARTIAL", policy.StartingState(r.Id));
+        }).ToArray();
+    internal static string ScenarioText(string text, StagePolicy policy)
+    {
+        var document = System.Xml.Linq.XDocument.Parse(text);
+        if (policy.Mode == EvaluationMode.FinalDelivery || policy.Stage >= StartingStage.S3)
+            document.Root!.Element("EF6")!.SetAttributeValue("PackageVersion", "6.5.2");
+        return document.ToString();
+    }
+    private static RubricRow[] Rubric(ScanDiagnostic[] diagnostics, bool valid, bool replayVerified)
     {
         int Count(params string[] ids) => diagnostics.Count(d => ids.Contains(d.Id, StringComparer.Ordinal));
-        double Clear(params string[] ids) => Count(ids) == 0 ? 1d : 0d;
+        double Clear(params string[] ids) => valid && Count(ids) == 0 ? 1d : 0d;
         string EvidenceFor(params string[] ids)
         {
             var counts = ids.Select(id => id + "=" + diagnostics.Count(d => d.Id == id));
@@ -201,7 +279,7 @@ public sealed class RepositoryTests
             new("ENG", "English comments and documentation", 5,
                 Clear("ENG001") * .7 + Clear("ENG002") * .3, EvidenceFor("ENG001", "ENG002")),
             new("NAM", "Main Data naming", 5, Clear("NAM001"), EvidenceFor("NAM001")),
-            new("TOOL", "Reusable migration tool", 5, Clear("TOOL001"), EvidenceFor("TOOL001")),
+            new("TOOL", "Independently replayed reusable migration tool", 5, valid && replayVerified ? 1 : 0, EvidenceFor("TOOL001", "TOOL002")),
             new("SDK", "SDK-style projects", 3.5, Clear("PRJ001"), EvidenceFor("PRJ001")),
             new("NET10", ".NET 10 target", 3.5, Clear("PRJ002"), EvidenceFor("PRJ002"))
         ];
@@ -221,19 +299,18 @@ public sealed class RepositoryTests
     private static string Relative(string root, string path) =>
         string.IsNullOrEmpty(path) ? "" : Path.GetRelativePath(root, path).Replace('/', '\\');
     private static string FindRoot() => EvaluatorConfiguration.SourceRoot;
+    private static string ReportRoot => Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports", StagePolicy.Current.Identity);
     private static IEnumerable<string> DiscoverProjects(string root)
     {
         if (Path.GetFullPath(root).TrimEnd('\\').Equals(EvaluatorConfiguration.AssessmentRoot.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
             yield break;
         foreach (var file in Directory.EnumerateFiles(root, "*.*proj").Order(StringComparer.Ordinal))
-            if (Path.GetExtension(file) is ".csproj" or ".vbproj" &&
-                !Path.GetFileNameWithoutExtension(file).Split('.').Any(s => s.EndsWith("Tests", StringComparison.OrdinalIgnoreCase)))
+            if (Path.GetExtension(file) is ".csproj" or ".vbproj")
                 yield return file;
         foreach (var directory in Directory.EnumerateDirectories(root).Order(StringComparer.Ordinal))
         {
             var name = Path.GetFileName(directory);
-            if (name.StartsWith('.') || name is "bin" or "obj" or "Artifacts" or "packages" ||
-                name.EndsWith("Tests", StringComparison.OrdinalIgnoreCase)) continue;
+            if (name.StartsWith('.') || name is "bin" or "obj" or "Artifacts" or "packages") continue;
             foreach (var project in DiscoverProjects(directory)) yield return project;
         }
     }

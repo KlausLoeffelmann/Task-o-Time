@@ -9,9 +9,13 @@ guide, evaluator sources, scope manifest, or diagnostic reports.
 - `junior-dev-mvvm-imp` is the candidate application and its handover history.
   It retains ordinary code and the two character-comment commits, but no
   reachable evaluator introduction/removal commits.
-- `TheGoldenBranch` preserves the same unmodernized application plus a
-  self-contained `assessment` directory. "Golden" means evaluator custody,
-  not a corrected reference application.
+- S0 is the original mixed-Framework production-VB snapshot; S1 normalizes
+  all application/test projects to net472. S2 removes production VB while
+  preserving nonmigration defects. S2a is the SDK-style net472 checkpoint.
+  S3 is SDK-style C# .NET 10, still intentionally nonmigration-defective.
+- S4 / `TheGoldenBranch` is reserved for the fully corrected reference. The
+  historical evaluator-custody Golden at `1f1b552` is not evidence of correctness.
+  Preserve that revision privately before promoting the new reference.
 - `main` and its history are not rewritten.
 - The actual Git author remains the configured contributor. The
   `Klaus obo ...` titles describe fictional documentation voices; no fabricated
@@ -37,7 +41,7 @@ from a branch, not objects from other branches, remote caches, or local reflogs.
 | Localization surfaces | Applied localized keys on exactly Login Experience, Main time-collection UI, add/edit booking dialog, and Project Main Data dialog; runtime Options language selection changes culture/localization behavior. |
 | Theme | Calendar state coverage and Main Data foreground/background coherence through reusable theme-aware resources. |
 | Naming | Main Data in application/presentation naming; persisted schema compatibility remains stable. |
-| Reuse | A runnable compiler-aware conversion utility with representative conversion fixtures and explicit unsupported-input reporting. |
+| Reuse | Independent actual CLI replay of applicable remaining migration operations: language/project for S0/S1, project/framework for S2/S2a, none for S3; Golden supplies the complete reference pipeline. |
 | Persistence | Keep EF6 and SQL Server. EF Core remains explicitly out of scope and is prohibited for this exercise. |
 
 The original source boundary protects the recording core from the intentionally
@@ -48,12 +52,13 @@ as the core; project names alone cannot define assessment scope.
 
 ## Evidence and limitations
 
-All new xUnit assessment verdicts are emitted by Roslyn `DiagnosticAnalyzer`
-implementations. Source syntax, trivia, symbols, operations, compiler inputs,
-and additional-file diagnostics form the evidence. Structural XAML and `.resx`
-inspection belongs inside those analyzers as `AdditionalFiles`, not a separate
-subjective scoring service. Neither AI nor application execution decides these
-verdicts.
+Static quality diagnostics are emitted by Roslyn `DiagnosticAnalyzer`
+implementations. Structural XAML and `.resx` inspection uses AdditionalFiles.
+Stage contracts and trusted actual CLI replay run outside analyzer callbacks.
+Replay compiles and executes independently supplied behavioral canaries in a
+child process; it does not execute the application or access SQL.
+Runtime, SQL and visual acceptance remain separately required evidence, not
+claims inferred from the static oracle.
 
 Static evidence has deliberate limits:
 
@@ -76,7 +81,7 @@ Static evidence has deliberate limits:
   produce a perfect score.
 
 The existing MSTest fitness project remains supplementary. It has runtime and
-structural checks and is not presented as the Roslyn-only xUnit oracle.
+structural checks and is not presented as a replacement for the private oracle.
 Analyzer self-tests should pass on the baseline; modernization gates should
 fail with explicit diagnostics until the candidate delivers the changes.
 
@@ -86,7 +91,7 @@ The candidate application tip before adding the oracle is
 `137c2c35692f8a8ee87c6dba3770aad47c64e5d8`. The two character-comment commits
 are `e670362` (Dutch) and `137c2c3` (junior). Their changes are comment-only.
 
-The portable assessment passed **233 analyzer fixture cases and one complete
+Historical, pre-stage-profile evidence: the portable assessment passed **233 analyzer fixture cases and one complete
 repository scan**. Its separate modernization gate failed as expected on valid
 compilations, and repeated scans produced identical JSON.
 
@@ -104,23 +109,100 @@ compilations, and repeated scans produced identical JSON.
 Architecture diagnostics remain in the `MOD` family. Input validity, source
 scope, preserved core, and EF6 compatibility checks have no baseline failures.
 Counts are diagnostic occurrences, not independent business defects. The CSV
-assessment uses bounded criterion scores and rubric version `2026-09-v2`:
+assessment used bounded criterion scores and rubric version `2026-09-v2`:
 business 28, MVVM 18, localization 14, VB-to-C# 9, theme 9, comments 5,
 Main Data naming 5, migration tool 5, SDK-style 3.5, and .NET 10 target 3.5.
 The weights total 100 and the OVERALL score is normalized to 0..1. Evaluation
 validity, hard-gate status, and unverified evidence remain separate from score.
 The CSV must be produced even when the baseline modernization gate fails.
 
-From the golden repository root:
+## Trusted stage selection and acceptance
+
+Run from the **private assessment directory** so `global.json` selects the
+supported .NET 10 SDK; Roslyn 5.0 handles its C#/VB compiler inputs. Extraction
+uses that exact SDK even when the candidate has a different `global.json`.
+Build/restore candidate projects before scanning. Both Debug and Release are
+applicable configurations: run them separately; the report records evaluated
+configuration, available configurations, framework identifier/version/platform,
+language and SDK style, including test projects. Test language is unrestricted.
 
 ```powershell
-dotnet build .\src\TaskOTime\TaskOTime.slnx
-$project = '.\assessment\Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj'
-dotnet test $project --filter 'Category=AnalyzerUnit|Category=RepositoryScan'
+Set-Location .\assessment
+$project = '.\Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj'
+$env:ASSESSMENT_STAGE = 'S0' # S0, S1, S2, S2a, S3, or S4
+$env:ASSESSMENT_CONFIGURATION = 'Debug' # repeat for Release
+$env:ASSESSMENT_MODE = 'starting-point-integrity'
+dotnet test $project --filter 'Category=AnalyzerUnit|Category=ReplayUnit|Category=RepositoryScan|Category=StagePreservation'
+$env:ASSESSMENT_MODE = 'final-delivery'
 dotnet test $project --filter 'Category=Modernization'
 ```
 
-The last command intentionally returns a failing exit code on the baseline.
+The final command intentionally fails on a baseline. **Never include
+StagePreservation in Golden/final acceptance**: exactly-one BUS001/BUS002
+assertions live only in stage-integrity policy, not generic RepositoryScan.
+The generic scan permits zero business findings. All nonmigration quality
+rules, protected source/core contracts, renaming detection and no-EF-Core rules
+remain active. EF6 6.5.1 is preserved through S2a; S3/final requires 6.5.2.
+
+Selectors are assessor process configuration, not candidate-controlled rubric
+files. Run in an isolated assessor checkout with the candidate source root
+read-only where practical. Neither a stage selector nor an integrity pass
+waives final-delivery quality rules. StageIntegrityPassed describes the selected
+starting snapshot; it will normally be false on its subsequently corrected
+final submission. HardGatePassed is final-delivery only.
+
+Reports live under `Artifacts\Reports\<stage>-<mode>-<configuration>`.
+Compiler intermediates additionally hash full project path/configuration/profile.
+CSV/JSON rubric `2026-09-stage-v3` preserves the 100-point full-outcome score,
+reports applicability and an applicable-only normalized remaining-work score.
+Deferred work is not a pass; pre-satisfied work is not newly earned. A
+pre-satisfied regression still fails final acceptance. S3's tool criterion is
+not applicable and contributes no earned reuse credit (its universal full-outcome
+score can be 0.95 while all applicable work passes). S4 has no exemptions.
+Do not compare remaining-work scores as equal task difficulty across stages.
+Invalid compilation/empty scope scores zero with INVALID rows and no remaining
+score; no applicable denominator yields null, not 1.0.
+
+All diagnostics remain in JSON. TOOL001 describes **static evidence only** and
+cannot establish conversion correctness. TOOL002 reports missing/failed trusted
+replay for applicable work. AcceptanceDiagnostics retains all mandatory quality,
+stage-target and replay failures; only TOOL001 is separated from acceptance
+because a genuine wrapper need not match a custom emitter's source shape.
+Final acceptance requires valid inputs and **zero AcceptanceDiagnostics**;
+S4 additionally needs full score 1.0 and separate runtime/SQL/visual evidence.
+A rich companion fixture beside a converter that emits an empty class is not
+conversion acceptance; the replay negative regression exercises that exact case.
+
+See the analyzer README's replay contract for private plans and fixtures.
+Preparation tooling, expected outputs, logs and evaluator files are never
+candidate handover material. Export only application allowlisted files and the
+stage-appropriate candidate brief, without Git history or private support refs.
+
+### Stage-profile implementation verification
+
+Verified against the original application in the private assessor worktree:
+
+- Pinned .NET SDK 10.0.401: solution builds in Debug and Release, zero warnings
+  and errors. No application, desktop or SQL execution was needed.
+- The combined `AnalyzerUnit|ReplayUnit|RepositoryScan|StagePreservation` filter
+  passed **272 tests**, zero skipped, with S0 integrity in both Debug and Release.
+  This includes all retained analyzer fixtures and actual converter-shaped
+  empty-class CLI rejection.
+- S0 final-delivery `RepositoryScan|Modernization`: generic scan passed; final
+  gate failed as expected (one pass, one failure). Business diagnostics remain
+  exactly BUS001=1 and BUS002=1; no quality rule was relaxed to green the baseline.
+- A deliberately missing source root failed RepositoryScan and still wrote an
+  invalid report: evaluation-valid=false, hard-gate=false, overall=0 and
+  remaining-work score=null.
+
+These are evaluator/baseline checks, **not Golden acceptance**. S1/S2/S2a/S3/S4
+profile contracts have synthetic regression coverage, but their real branch
+scans remain integration work. No submission-specific trusted replay plan or
+baseline/checkpoint fixtures have been supplied yet; TOOL002 deliberately
+remains unsatisfied. Populate reviewed held-out cases, execute the actual
+submitted CLI, reconcile generated/manual changes and historical checkpoint
+identities, then perform the separate runtime/SQL/visual acceptance.
+
 For a candidate-only checkout, run the same project from an external assessor
 directory with `TASKOTIME_SOURCE_ROOT` set to the candidate's `src\TaskOTime`.
 Do not add the oracle to the candidate application solution merely to run it.

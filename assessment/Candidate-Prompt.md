@@ -12,12 +12,22 @@ operation they claim to perform, including after data is saved and reloaded.
 
 ## Required outcome
 
-1. Modernize the project system in this order: first convert every production
-   project to SDK-style project files, then target .NET 10 (`net10.0-windows`
-   where WPF requires it). Only after those steps migrate production Visual
-   Basic code to C#, including the presentation and
-   time-tracking libraries. Preserve public behavior and keep the solution
+Your handover identifies one starting point. Do not redo completed migrations:
+
+| Starting point | Remaining migration work |
+| --- | --- |
+| S0: original mixed Framework targets, production VB | Normalize to net472, convert production VB to C#, then SDK-style and .NET 10 |
+| S1: net472, production VB | Convert production VB to C#, then SDK-style and .NET 10 |
+| S2: net472, production C# | SDK-style and .NET 10; no VB conversion deliverable |
+| S2a: SDK-style net472, production C# | .NET 10; no VB conversion or repeated SDK conversion |
+| S3: SDK-style .NET 10, production C# | Quality/workflow improvements below; no migration utility required |
+
+1. Complete the remaining migration work for your starting point. When SDK
+   conversion remains, establish a buildable SDK-style **net472 checkpoint**
+   before retargeting to .NET 10 (`net10.0-windows` where WPF requires it).
+   Preserve public behavior and keep the solution
    buildable. Existing test code need not change language merely for uniformity.
+   Test projects must target frameworks compatible with the final solution.
    Do not retain a second VB implementation as the application's fallback.
 2. Keep the original main window, calendar, time list, task panel, login,
    settings, and maintenance screens usable. Trace manual booking, editing,
@@ -55,14 +65,14 @@ operation they claim to perform, including after data is saved and reloaded.
 8. Use **Main Data**, not **Master Data**, in English UI text and application
    naming. Keep persisted database identifiers and compatibility boundaries
    stable where renaming them would change the storage contract.
-9. Leave a reproducible migration path, not only a finished translation. This
-   is the first of several similar applications; repeating file-by-file work
-   on every handover would be too expensive. Include a small checked-in
-   transformation utility and representative regression examples for the
-   mechanical work you automate. It should be rerunnable, report unsupported
-   cases clearly, and allow subsequent applications to reuse the investment
-   without repeating the same per-file reasoning. Distinguish mechanical
-   conversion from changes that require architectural judgment.
+9. Similar applications will follow this handover. Consider whether repeatable
+   changes can be made reproducible so later projects need less repeated
+   analysis and effort. Explain the trade-off and leave evidence that the
+   approach works. For remaining migration work, retain the reusable
+   transformations and representative regression examples, including clear
+   unsupported-input reporting. For S3 this is a design consideration for
+   remaining repetitive quality work, not a requirement to build a converter.
+   Distinguish mechanical changes from architectural judgment.
 
 ## Boundaries
 
@@ -81,7 +91,7 @@ operation they claim to perform, including after data is saved and reloaded.
 
 ## Delivery
 
-Provide working code, resource files, the reusable transformation utility,
+Provide working code, resource files, reusable transformations for applicable migration work,
 focused regression coverage, and concise build/run instructions. Demonstrate
 representative workflow and runtime culture/theme checks, including all four
 localization surfaces and a clean build from

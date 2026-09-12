@@ -14,7 +14,7 @@ public sealed class MigrationToolTests
         .Split(Path.PathSeparator).Concat(new[] { typeof(Compilation).Assembly.Location, typeof(CSharpCompilation).Assembly.Location,
             typeof(VisualBasicCompilation).Assembly.Location }).Distinct(StringComparer.OrdinalIgnoreCase)
         .Select(p => MetadataReference.CreateFromFile(p)).ToArray();
-    private const string CSharpTool = """
+    internal const string CSharpTool = """
         using System;
         using System.Linq;
         using Microsoft.CodeAnalysis;
@@ -66,7 +66,7 @@ public sealed class MigrationToolTests
           End Function
         End Class
         """;
-    private const string Input = """
+    internal const string Input = """
         Public Class Representative(Of T)
           Public Property Value As T
           Public Event Changed As System.EventHandler
@@ -77,7 +77,7 @@ public sealed class MigrationToolTests
           End Sub
         End Class
         """;
-    private const string Output = """
+    internal const string Output = """
         public class Representative<T> {
           public T Value { get; set; }
           public event System.EventHandler Changed;
@@ -107,7 +107,7 @@ public sealed class MigrationToolTests
     [Theory]
     [InlineData(LanguageNames.CSharp)]
     [InlineData(LanguageNames.VisualBasic)]
-    public async Task Independent_renamed_tool_requires_connected_semantics_emission_diagnostics_and_fixtures(string language)
+    public async Task Static_shape_is_only_evidence_and_not_actual_conversion_acceptance(string language)
     {
         var tool = Compile(language, language == LanguageNames.CSharp ? CSharpTool : VisualBasicTool);
         Assert.DoesNotContain(await Analyze(tool), d => d.Id == "TOOL001");

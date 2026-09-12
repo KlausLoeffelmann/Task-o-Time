@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScenarioScope>
+  <!-- Starting-stage/mode policy is trusted StagePolicy.cs + assessor process selectors,
+       never candidate project properties. Stage integrity retains 6.5.1 through S2a;
+       S3/S4 and final delivery require the reviewed EF6 6.5.2 compatibility update.
+       RepositoryTests supplies that strict version to the unchanged EF contract check. -->
   <!-- Paths are relative to TaskOTimeSourceRoot. Assessment/Artifacts/bin/obj and tests
        are excluded from production discovery. MIGRATION_TOOL_ROOT adds another root.
        Tooling projects are discovered even without application project references. -->

@@ -21,7 +21,8 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
     internal static readonly DiagnosticDescriptor Theme = Rule("THM001", "Static theme conflict", "{0}");
     internal static readonly DiagnosticDescriptor ThemeCoverage = Rule("THM002", "Theme coverage unverified", "{0}");
     internal static readonly DiagnosticDescriptor Naming = Rule("NAM001", "Obsolete presentation terminology", "Presentation/application terminology still uses Master Data: {0}");
-    internal static readonly DiagnosticDescriptor Tool = Rule("TOOL001", "Reusable migration tool evidence incomplete", "{0}");
+    internal static readonly DiagnosticDescriptor Tool = new("TOOL001", "Static migration tool shape evidence incomplete", "{0}",
+        "StaticToolEvidence", DiagnosticSeverity.Info, true);
     internal static readonly DiagnosticDescriptor SdkProject = Rule("PRJ001", "SDK-style project migration incomplete", "{0}");
     internal static readonly DiagnosticDescriptor Net10 = Rule("PRJ002", ".NET 10 migration incomplete", "{0}");
     internal static readonly DiagnosticDescriptor EF = Rule("EF001", "EF6 compatibility boundary", "{0}");
@@ -113,14 +114,19 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
                 string.Equals(x.Document.Root?.Attribute("Path")?.Value, project.Path, StringComparison.OrdinalIgnoreCase));
             var sdk = entry.Document?.Root?.Attribute("SdkStyle")?.Value.Equals("true", StringComparison.OrdinalIgnoreCase) == true;
             var framework = entry.Document?.Root?.Attribute("TargetFramework")?.Value ?? "";
+            var net10 = framework.Equals("net10.0", StringComparison.OrdinalIgnoreCase) ||
+                framework.StartsWith("net10.0-", StringComparison.OrdinalIgnoreCase);
+            var frameworkDisplay = framework.Length > 0 ? framework :
+                (entry.Document?.Root?.Attribute("TargetFrameworkIdentifier")?.Value ?? "") + " " +
+                (entry.Document?.Root?.Attribute("TargetFrameworkVersion")?.Value ?? "");
             r.Measure("SdkStyle", 1, sdk ? 1 : 0);
-            r.Measure("Net10", 1, framework.StartsWith("net10.0", StringComparison.OrdinalIgnoreCase) ? 1 : 0);
+            r.Measure("Net10", 1, net10 ? 1 : 0);
             if (!sdk)
                 r.Report("SdkStyle", SdkProject, entry.File == null ? Location.None : Evidence.At(entry.File),
                     Path.GetFileName(project.Path) + " is not evaluated as an SDK-style project.");
-            if (!framework.StartsWith("net10.0", StringComparison.OrdinalIgnoreCase))
+            if (!net10)
                 r.Report("Net10", Net10, entry.File == null ? Location.None : Evidence.At(entry.File),
-                    Path.GetFileName(project.Path) + " targets '" + framework + "' instead of .NET 10.");
+                    Path.GetFileName(project.Path) + " targets '" + frameworkDisplay.Trim() + "' instead of .NET 10.");
         }
     }
 

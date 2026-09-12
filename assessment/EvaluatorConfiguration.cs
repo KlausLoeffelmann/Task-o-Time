@@ -14,6 +14,7 @@ internal static class EvaluatorConfiguration
         Environment.GetEnvironmentVariable("TASKOTIME_SOURCE_ROOT") ?? Paths[0]);
     internal static string ArtifactRoot => Path.GetFullPath(Paths[1]);
     internal static string AssessmentRoot => Path.GetFullPath(Paths[2]);
+    internal static string BuildConfiguration => Environment.GetEnvironmentVariable("ASSESSMENT_CONFIGURATION") ?? "Debug";
     internal static IEnumerable<string> DiscoveryRoots =>
         XDocument.Load(Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml")).Root!
             .Element("Discovery")!.Elements("Root")
