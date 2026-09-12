@@ -325,6 +325,7 @@ SelectedTaskList.Subtitle = subtitle;
                 return;
             }
 
+            // Complete the compensating persistence request before changing the live task state.
             var task = SelectedTaskItem;
             RequestCompletion(task, _clock(), false, true);
             task.MarkDone();

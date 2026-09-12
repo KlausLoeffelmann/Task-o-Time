@@ -33,6 +33,13 @@ messages retain resource keys and arguments, not pretranslated strings.
 Clock input accepts the culture's short time and the editor's 24-hour form;
 elapsed durations remain durations, not calendar dates.
 
+Sign-in and temporary-password changes show the translated `TenantInactive`
+reason when the authentication service rejects an inactive, deleted, or
+unavailable tenant. The diagnostic error code is preserved. Both booking
+end-before-start checks share one resource key, and a failed completion with
+failed compensation retains both underlying exceptions alongside its localized
+summary.
+
 All four required surfaces consume these bindings: Login (including forced
 password changes), Main time collection, the booking editor, and Project Main
 Data. Project labels, assignment state, validation, operation names, and

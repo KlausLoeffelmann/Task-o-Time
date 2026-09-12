@@ -377,6 +377,69 @@ namespace TaskOTime.Localization.Tests
         });
 
         [TestMethod]
+        public void BothBookingBoundaryValidationsUseTheSameLocalizedMessage() => OnUi(() =>
+        {
+            var start = DateTime.Today.AddDays(1).AddHours(8);
+            var task = new TaskItemViewModel("Customer task", "", "");
+            var tasks = new TaskManagementViewModel(new[] { new TaskListViewModel("List", "", new[] { task }) }, () => start);
+            var times = new TimeCollectionViewModel(start.Date,
+                categories: new[] { new CategoryMainDataDto { IdCategory = Guid.NewGuid(), CategoryName = "Work" } });
+            var main = new VmMain(times, tasks);
+            tasks.StartTaskCommand.Execute(null);
+            TimeEntryEditRequestEventArgs request = null;
+            times.TimeEntryEditRequested += (_, e) => request = e;
+            times.AddCommand.Execute(null);
+            Assert.IsNotNull(request);
+            foreach (var culture in new[] { "en", "de", "nl", "es" })
+            {
+                Localizer.SetCulture(culture);
+                var direct = Assert.ThrowsException<InvalidOperationException>(() => times.RecordTask(task, start, start));
+                var dialog = Assert.ThrowsException<InvalidOperationException>(() => request.SaveAction(start, "Title", "", true));
+                Assert.AreEqual(Localizer["Booking_EndBeforeStart"], direct.Message);
+                Assert.AreEqual(direct.Message, dialog.Message);
+            }
+            Assert.IsTrue(task.IsStarted);
+            Assert.IsFalse(task.IsDone);
+            GC.KeepAlive(main);
+        });
+
+        [TestMethod]
+        public void CompensationFailureIsLocalizedWithoutLosingEitherException() => OnUi(() =>
+        {
+            foreach (var culture in new[] { "en", "de", "nl", "es" })
+            {
+                Localizer.SetCulture(culture);
+                var failure = new InvalidOperationException("Save diagnostic");
+                var services = new TestApplicationServices();
+                var access = new TimeBookingAccessContextDto
+                {
+                    IdTenant = services.Tenant.IdTenant,
+                    IdActingUser = services.ActingUserId,
+                    IdBookingUser = services.ActingUserId
+                };
+                var query = new MainDataQueryRequest { IdTenant = services.Tenant.IdTenant, IdActingUser = services.ActingUserId };
+                var start = DateTime.Today.AddDays(1).AddHours(8);
+                var times = new TimeCollectionViewModel(start.Date, services, access,
+                    services.GetProjects(query).Value, services.CategoryId, () => start,
+                    services.GetCategories(query).Value);
+                var task = new TaskItemViewModel("Customer task", "", "") { IdProject = services.ProjectId };
+                var tasks = new TaskManagementViewModel(
+                    new[] { new TaskListViewModel("List", "", new[] { task }) }, saveTask: _ =>
+                    {
+                        access.IdBookingUser = Guid.Empty;
+                        throw failure;
+                    });
+                var main = new VmMain(times, tasks) { ManualCompletionStartText = "08:00", ManualCompletionDurationText = "01:00" };
+                var error = Assert.ThrowsException<AggregateException>(() => tasks.CompleteTaskCommand.Execute(null));
+                StringAssert.StartsWith(error.Message, Localizer["Booking_CompletionRollbackFailed"]);
+                Assert.AreSame(failure, error.InnerExceptions[0]);
+                StringAssert.Contains(error.InnerExceptions[1].Message, "InvalidAccess");
+                Assert.IsFalse(task.IsDone);
+                GC.KeepAlive(main);
+            }
+        });
+
+        [TestMethod]
         public void CultureRefreshesFormattedViewModelStateWithoutMutatingBookings() => OnUi(() =>
         {
             var main = new VmMain();
