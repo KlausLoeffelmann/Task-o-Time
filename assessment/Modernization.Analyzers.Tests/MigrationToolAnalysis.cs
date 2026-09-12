@@ -67,11 +67,10 @@ internal static class MigrationToolAnalysis
         var count = 0;
         foreach (var loop in operations.OfType<IForEachLoopOperation>().Where(flow.Reachable))
         {
-            var engine = Evidence.Descendants(loop.Collection).OfType<IInvocationOperation>()
-                .FirstOrDefault(KnownCompilerEngine);
-            if (engine == null) continue;
-            var result = loop.Locals.SingleOrDefault();
-            if (result == null) continue;
+            if (loop.Locals.Length != 1) continue;
+            var result = loop.Locals[0];
+            var stream = flow.CompilerStream(loop.Collection, result.Type);
+            if (!stream.Engine) continue;
             bool ResultCode(IOperation value) => value is IPropertyReferenceOperation { Property.Name: "ConvertedCode" } property &&
                 property.Instance is { } instance && Unwrap(instance) is ILocalReferenceOperation local &&
                 SymbolEqualityComparer.Default.Equals(local.Local, result);
@@ -83,12 +82,7 @@ internal static class MigrationToolAnalysis
                 call.TargetMethod.ContainingType.ToDisplayString() == "System.IO.File" &&
                 call.TargetMethod.Name is "WriteAllText" or "WriteAllTextAsync" &&
                 call.Arguments.Length >= 2 && flow.DependsOn(call.Arguments[1].Value, CheckedCode));
-            var input = engine.Arguments.Any(a => flow.DependsOn(a.Value,
-                value => value is IParameterReferenceOperation parameter &&
-                    parameter.Parameter.ContainingSymbol is IMethodSymbol { MethodKind: not MethodKind.AnonymousFunction } &&
-                    DocumentInput(parameter.Parameter.Type) ||
-                    value is IInvocationOperation read && read.TargetMethod.ContainingType.ToDisplayString() == "System.IO.File" &&
-                    read.TargetMethod.Name is "ReadAllText" or "ReadAllTextAsync" or "OpenRead" or "ReadAllBytes"));
+            var input = stream.Input;
             var valid = input && emitted && code.Length > 0;
             recorder.Measure("MigrationToolExternalAdapterInput", 1, input ? 1 : 0);
             recorder.Measure("MigrationToolExternalAdapterOutput", 1, emitted ? 1 : 0);
@@ -192,6 +186,15 @@ internal static class MigrationToolAnalysis
             values.Add(value);
         }
         private ISymbol? Owner(IOperation value) => Evidence.Model(compilation, value.Syntax.SyntaxTree).GetEnclosingSymbol(value.Syntax.SpanStart);
+        internal bool InCalledBody(IOperation value, IMethodSymbol method) =>
+            Reachable(value) && SymbolEqualityComparer.Default.Equals(Owner(value), method.OriginalDefinition) &&
+            !Ancestors(value).Any(o => o is IConditionalOperation or ILoopOperation);
+
+        private static IEnumerable<IOperation> Ancestors(IOperation value)
+        {
+            for (var current = value.Parent; current != null; current = current.Parent)
+                yield return current;
+        }
         internal bool Reachable(IOperation value)
         {
             if (Owner(value) is not { } owner || !reachable.Contains(owner)) return false;
@@ -213,23 +216,162 @@ internal static class MigrationToolAnalysis
         internal bool DependsOn(IOperation value, Func<IOperation, bool> seed) =>
             Walk(value, seed, new(SymbolEqualityComparer.Default), [], 0);
 
+        internal (bool Engine, bool Input) CompilerStream(IOperation value, ITypeSymbol element) =>
+            CompilerStream(value, element, new(SymbolEqualityComparer.Default), [], 0);
+
+        private (bool Engine, bool Input) CompilerStream(IOperation value, ITypeSymbol element,
+            Dictionary<ISymbol, Bound> environment, HashSet<(SyntaxTree, int, int, OperationKind)> seen, int depth)
+        {
+            if (depth > 30) return default;
+            value = Unwrap(value);
+            if (Symbol(value) is { } parameter && environment.TryGetValue(parameter, out var bound))
+                return CompilerStream(bound.Value, element, bound.Environment, seen, depth + 1);
+            if (!seen.Add((value.Syntax.SyntaxTree, value.Syntax.SpanStart, value.Syntax.Span.Length, value.Kind))) return default;
+            (bool Engine, bool Input) Next(IOperation next) =>
+                CompilerStream(next, element, environment, new(seen), depth + 1);
+            if (Symbol(value) is { } symbol)
+                return definitions.TryGetValue(symbol, out var values) && values.Count == 1 ? Next(values[0]) : default;
+            if (value is IConditionalOperation { WhenFalse: { } alternative } condition)
+            {
+                var left = Next(condition.WhenTrue);
+                var right = Next(alternative);
+                return (left.Engine && right.Engine, left.Input && right.Input);
+            }
+            if (value is not IInvocationOperation call) return default;
+            if (KnownCompilerEngine(call) && call.Type is INamedTypeSymbol { TypeArguments.Length: 1 } stream &&
+                SymbolEqualityComparer.Default.Equals(element, stream.TypeArguments[0]))
+                return (true, call.Arguments.Any(a => Walk(a.Value, operation =>
+                    operation is IParameterReferenceOperation reference &&
+                        reference.Parameter.ContainingSymbol is IMethodSymbol { MethodKind: not MethodKind.AnonymousFunction } &&
+                        DocumentInput(reference.Parameter.Type) ||
+                    operation is IInvocationOperation read && read.TargetMethod.ContainingType.ToDisplayString() == "System.IO.File" &&
+                        read.TargetMethod.Name is "ReadAllText" or "ReadAllTextAsync" or "OpenRead" or "ReadAllBytes",
+                    environment, [], 0)));
+            if (returns.TryGetValue(call.TargetMethod.OriginalDefinition, out var returned))
+            {
+                var nested = Bind(call, environment);
+                var branches = returned.Select(r => CompilerStream(r, element, nested, new(seen), depth + 1)).ToArray();
+                return (branches.Length > 0 && branches.All(r => r.Engine), branches.All(r => r.Input));
+            }
+            if (call.TargetMethod.DeclaringSyntaxReferences.Length == 0 &&
+                SymbolEqualityComparer.Default.Equals(call.TargetMethod.ContainingType,
+                    compilation.GetTypeByMetadataName("System.Threading.Tasks.TaskAsyncEnumerableExtensions")) &&
+                call.TargetMethod.Name is "ConfigureAwait" or "WithCancellation")
+                return call.Instance != null ? Next(call.Instance) : Next(call.Arguments[0].Value);
+            return default;
+        }
+
+        internal string? OutputOrigin(IOperation value)
+        {
+            var origins = new HashSet<string>(StringComparer.Ordinal);
+            var connected = Walk(value, operation => operation is IPropertyReferenceOperation property &&
+                property.Property.ContainingType.ToDisplayString() == "System.Diagnostics.Process" &&
+                property.Property.DeclaringSyntaxReferences.Length == 0 &&
+                property.Property.Name == "StandardOutput", new(SymbolEqualityComparer.Default), [], 0, outputs: origins);
+            return connected && origins.Count == 1 && !origins.Contains("?") ? origins.Single() : null;
+        }
+
+        private string? LaunchValue(IOperation value, Dictionary<ISymbol, Bound> environment,
+            HashSet<(SyntaxTree, int, int, OperationKind)> seen, int depth = 0)
+        {
+            if (depth > 60) return null;
+            value = Unwrap(value);
+            if (Symbol(value) is { } parameter && environment.TryGetValue(parameter, out var bound))
+                return LaunchValue(bound.Value, bound.Environment, seen, depth + 1);
+            if (value.ConstantValue.HasValue)
+                return System.Text.Json.JsonSerializer.Serialize(value.ConstantValue.Value);
+            if (!seen.Add((value.Syntax.SyntaxTree, value.Syntax.SpanStart, value.Syntax.Span.Length, value.Kind))) return null;
+            string? Next(IOperation operation) => LaunchValue(operation, environment, new(seen), depth + 1);
+            string? Join(string kind, IEnumerable<IOperation> parts)
+            {
+                var keys = parts.Select(Next).ToArray();
+                return keys.Any(k => k == null) ? null : kind + System.Text.Json.JsonSerializer.Serialize(keys);
+            }
+            if (Symbol(value) is { } symbol)
+            {
+                if (definitions.TryGetValue(symbol, out var values))
+                {
+                    if (values.Count != 1 || Next(values[0]) is not { } initial) return null;
+                    var arguments = operations.OfType<IInvocationOperation>().Where(Reachable).Where(call =>
+                        call.TargetMethod.Name == "Add" && call.Arguments.Length == 1 &&
+                        call.Instance is IPropertyReferenceOperation { Property.Name: "ArgumentList", Instance: { } start } &&
+                        SymbolEqualityComparer.Default.Equals(Symbol(start), symbol)).Select(c => c.Arguments[0].Value).ToArray();
+                    return arguments.Length == 0 ? initial : Join(initial + ":arguments", arguments);
+                }
+                var loop = operations.OfType<IForEachLoopOperation>()
+                    .SingleOrDefault(l => l.Locals.Contains(symbol, SymbolEqualityComparer.Default));
+                return loop == null ? null : Next(loop.Collection);
+            }
+            if (value is IAwaitOperation awaited) return Next(awaited.Operation);
+            if (value is ICoalesceOperation coalesce && coalesce.WhenNull is IThrowOperation) return Next(coalesce.Value);
+            if (value is IInvocationOperation call)
+            {
+                if (returns.TryGetValue(call.TargetMethod.OriginalDefinition, out var returned))
+                {
+                    var nested = Bind(call, environment);
+                    var keys = returned.Select(r => LaunchValue(r, nested, new(seen), depth + 1)).Distinct().ToArray();
+                    return keys.Length == 1 ? keys[0] : null;
+                }
+                if (call.TargetMethod.DeclaringSyntaxReferences.Length > 0) return null;
+                return Join(call.TargetMethod.OriginalDefinition.ToDisplayString(),
+                    (call.Instance == null ? [] : new[] { call.Instance }).Concat(call.Arguments.Select(a => a.Value)));
+            }
+            if (value is IObjectCreationOperation creation &&
+                SymbolEqualityComparer.Default.Equals(creation.Type, compilation.GetTypeByMetadataName("System.Diagnostics.ProcessStartInfo")))
+                return Join("ProcessStartInfo", creation.Arguments.Select(a => a.Value).Concat(
+                    creation.Initializer?.Initializers.OfType<ISimpleAssignmentOperation>()
+                        .Where(a => a.Target is IPropertyReferenceOperation { Property.Name: "FileName" or "Arguments" })
+                        .Select(a => a.Value) ?? []));
+            if (value is IPropertyReferenceOperation property && property.Property.DeclaringSyntaxReferences.Length == 0)
+                return property.Instance == null ? property.Property.ToDisplayString() :
+                    Join(property.Property.ToDisplayString(), [property.Instance]);
+            if (value is IArrayCreationOperation or IArrayInitializerOperation or ICollectionExpressionOperation or
+                ISpreadOperation or IBinaryOperation)
+                return Join(value.Kind.ToString(), value.ChildOperations);
+            return null;
+        }
+
+        private static Dictionary<ISymbol, Bound> Bind(IInvocationOperation call, Dictionary<ISymbol, Bound> environment)
+        {
+            var nested = new Dictionary<ISymbol, Bound>(environment, SymbolEqualityComparer.Default);
+            foreach (var argument in call.Arguments.Where(a => a.Parameter != null))
+                nested[call.TargetMethod.OriginalDefinition.Parameters[argument.Parameter!.Ordinal]] = new(argument.Value, environment);
+            return nested;
+        }
+
         private bool Walk(IOperation value, Func<IOperation, bool> seed, Dictionary<ISymbol, Bound> environment,
-            HashSet<(SyntaxTree, int, int, OperationKind)> seen, int depth, int? projection = null)
+            HashSet<(SyntaxTree, int, int, OperationKind)> seen, int depth, int? projection = null, HashSet<string>? outputs = null)
         {
             if (depth > 60) return false;
             value = Unwrap(value);
             if (Symbol(value) is { } parameter && environment.TryGetValue(parameter, out var bound))
-                return Walk(bound.Value, seed, bound.Environment, seen, depth + 1, projection);
-            if (seed(value)) return true;
+                return Walk(bound.Value, seed, bound.Environment, seen, depth + 1, projection, outputs);
+            if (seed(value))
+            {
+                if (outputs != null && value is IPropertyReferenceOperation { Instance: { } process })
+                    outputs.Add(LaunchValue(process, environment, []) ?? "?");
+                return true;
+            }
             var identity = (value.Syntax.SyntaxTree, value.Syntax.SpanStart, value.Syntax.Span.Length, value.Kind);
             if (!seen.Add(identity)) return false;
-            bool Next(IOperation operation) => Walk(operation, seed, environment, new(seen), depth + 1, projection);
+            bool Next(IOperation operation) => Walk(operation, seed, environment, new(seen), depth + 1, projection, outputs);
+            bool Any(IEnumerable<IOperation> candidates)
+            {
+                var found = false;
+                foreach (var candidate in candidates)
+                    if (Next(candidate))
+                    {
+                        found = true;
+                        if (outputs == null) return true;
+                    }
+                return found;
+            }
             if (value is ITupleOperation tuple && projection is { } element)
-                return element < tuple.Elements.Length && Walk(tuple.Elements[element], seed, environment, new(seen), depth + 1);
+                return element < tuple.Elements.Length && Walk(tuple.Elements[element], seed, environment, new(seen), depth + 1, outputs: outputs);
             if (value is IFieldReferenceOperation { Instance: { } tupleValue } tupleField && tupleField.Field.ContainingType.IsTupleType)
             {
                 var ordinal = tupleField.Field.ContainingType.TupleElements.IndexOf(tupleField.Field);
-                return ordinal >= 0 && Walk(tupleValue, seed, environment, new(seen), depth + 1, ordinal);
+                return ordinal >= 0 && Walk(tupleValue, seed, environment, new(seen), depth + 1, ordinal, outputs);
             }
             if (value is IAwaitOperation awaited) return Next(awaited.Operation);
             if (value is IConditionalOperation conditional)
@@ -238,10 +380,8 @@ internal static class MigrationToolAnalysis
             {
                 if (returns.TryGetValue(call.TargetMethod.OriginalDefinition, out var returned))
                 {
-                    var nested = new Dictionary<ISymbol, Bound>(environment, SymbolEqualityComparer.Default);
-                    foreach (var argument in call.Arguments.Where(a => a.Parameter != null))
-                        nested[call.TargetMethod.OriginalDefinition.Parameters[argument.Parameter!.Ordinal]] = new(argument.Value, environment);
-                    return returned.Count > 0 && returned.All(r => Walk(r, seed, nested, new(seen), depth + 1, projection));
+                    var nested = Bind(call, environment);
+                    return returned.Count > 0 && returned.All(r => Walk(r, seed, nested, new(seen), depth + 1, projection, outputs));
                 }
                 if (call.TargetMethod.DeclaringSyntaxReferences.Length > 0) return false;
                 var type = call.TargetMethod.ContainingType.ToDisplayString();
@@ -261,14 +401,14 @@ internal static class MigrationToolAnalysis
                     var nested = new Dictionary<ISymbol, Bound>(environment, SymbolEqualityComparer.Default);
                     nested[lambda.Symbol.Parameters[0]] = new(source, environment);
                     return lambda.Body.Operations.OfType<IReturnOperation>().Where(r => r.ReturnedValue != null)
-                        .Any(r => Walk(r.ReturnedValue!, seed, nested, new(seen), depth + 1));
+                        .Any(r => Walk(r.ReturnedValue!, seed, nested, new(seen), depth + 1, outputs: outputs));
                 }
                 if (call.TargetMethod.ContainingType.SpecialType == SpecialType.System_String ||
                     type.StartsWith("Microsoft.CodeAnalysis.", StringComparison.Ordinal) ||
                     type is "System.String" or "System.IO.Path" or "System.Diagnostics.Process" or "System.IO.StreamReader" ||
                     type.StartsWith("System.Threading.Tasks.Task", StringComparison.Ordinal) || DiagnosticSequenceOperator(call.TargetMethod) ||
                     call.TargetMethod.Name == "ConfigureAwait")
-                    return call.Instance != null && Next(call.Instance) || call.Arguments.Any(a => Next(a.Value));
+                    return Any((call.Instance == null ? [] : new[] { call.Instance }).Concat(call.Arguments.Select(a => a.Value)));
                 return false;
             }
             if (Symbol(value) is { } symbol)
@@ -316,9 +456,9 @@ internal static class MigrationToolAnalysis
                 return property.Instance != null && Next(property.Instance);
             }
             if (value is IObjectCreationOperation creation)
-                return creation.Arguments.Any(a => Next(a.Value));
+                return Any(creation.Arguments.Select(a => a.Value));
             return value is not (ILiteralOperation or IAnonymousFunctionOperation or INameOfOperation) &&
-                value.ChildOperations.Any(Next);
+                Any(value.ChildOperations);
         }
 
         private bool Container(IOperation receiver, int position, Dictionary<ISymbol, Bound> environment,
@@ -336,8 +476,27 @@ internal static class MigrationToolAnalysis
             var additions = calls.Where(add =>
                     add.TargetMethod.Name is "Add" or "TryAdd" && add.Arguments.Length == 2 &&
                     add.TargetMethod.ContainingType.AllInterfaces.Any(i => i.OriginalDefinition.ToDisplayString() == "System.Collections.Generic.IDictionary<TKey, TValue>")).ToArray();
-            return additions.Length > 0 && additions.All(add =>
-                Walk(add.Arguments[position].Value, seed, environment, new(seen), depth + 1));
+            bool Intrinsic(IInvocationOperation call) =>
+                call.TargetMethod.DeclaringSyntaxReferences.Length == 0 &&
+                SymbolEqualityComparer.Default.Equals(call.TargetMethod.ContainingType.OriginalDefinition,
+                    compilation.GetTypeByMetadataName("System.Collections.Generic.Dictionary`2")) &&
+                call.TargetMethod.Name is "Add" or "TryAdd";
+            bool Stores(IInvocationOperation add)
+            {
+                if (Intrinsic(add)) return Walk(add.Arguments[position].Value, seed, environment, new(seen), depth + 1);
+                if (add.TargetMethod.DeclaringSyntaxReferences.Length == 0) return false;
+                if (operations.OfType<IInvocationOperation>().Any(call =>
+                    SymbolEqualityComparer.Default.Equals(Owner(call), add.TargetMethod.OriginalDefinition) &&
+                    call.Instance is IInstanceReferenceOperation && !Intrinsic(call))) return false;
+                var nested = new Dictionary<ISymbol, Bound>(environment, SymbolEqualityComparer.Default);
+                foreach (var argument in add.Arguments.Where(a => a.Parameter != null))
+                    nested[add.TargetMethod.OriginalDefinition.Parameters[argument.Parameter!.Ordinal]] = new(argument.Value, environment);
+                return operations.OfType<IInvocationOperation>().Any(write =>
+                    Intrinsic(write) && InCalledBody(write, add.TargetMethod) &&
+                    write.Instance is IInstanceReferenceOperation &&
+                    Walk(write.Arguments[position].Value, seed, nested, new(seen), depth + 1));
+            }
+            return additions.Length > 0 && additions.All(Stores);
         }
     }
     private static void CheckFixtures(AssessmentProject[] tooling, ImmutableArray<AdditionalText> files, Recorder r, int pipelines,
@@ -402,13 +561,11 @@ internal static class MigrationToolAnalysis
             var operations = ToolOperations(fixture);
             var flow = new AdapterFlow(fixture.Compilation, operations);
             var assertions = operations.OfType<IInvocationOperation>().Where(flow.Reachable).Where(i =>
-                Assertion(i, operations)).Select(i => i.Arguments[0].Value).ToArray();
+                Assertion(i, operations, flow)).Select(i => i.Arguments[0].Value).ToArray();
             bool ToolName(IOperation value) => value.ConstantValue is { HasValue: true, Value: string text } &&
                 owners.Any(t => text == t.Compilation.AssemblyName + ".dll" || text == t.Compilation.AssemblyName + ".exe");
             bool Exit(IOperation value) => value is IPropertyReferenceOperation property &&
                 property.Property.ContainingType.ToDisplayString() == "System.Diagnostics.Process" && property.Property.Name == "ExitCode";
-            bool Output(IOperation value) => value is IPropertyReferenceOperation property &&
-                property.Property.ContainingType.ToDisplayString() == "System.Diagnostics.Process" && property.Property.Name == "StandardOutput";
             bool ToolCall(IOperation value) => value is IInvocationOperation call &&
                 (owners.Any(t => call.TargetMethod.ContainingAssembly.Name == t.Compilation.AssemblyName) ||
                     flow.DependsOn(call, ToolName) && flow.DependsOn(call, Exit));
@@ -418,8 +575,8 @@ internal static class MigrationToolAnalysis
                 read.TargetMethod.Name is "ReadAllText" or "ReadAllTextAsync"));
             var comparison = assertions.SelectMany(Evidence.Descendants).OfType<IBinaryOperation>()
                 .Any(b => b.OperatorKind == BinaryOperatorKind.Equals && !SameOperation(b.LeftOperand, b.RightOperand) &&
-                    flow.DependsOn(b.LeftOperand, Output) && flow.DependsOn(b.RightOperand, Output) &&
-                    !Microsoft.CodeAnalysis.CSharp.SyntaxFactory.AreEquivalent(b.LeftOperand.Syntax, b.RightOperand.Syntax));
+                    flow.OutputOrigin(b.LeftOperand) is { } before && flow.OutputOrigin(b.RightOperand) is { } after &&
+                    before != after);
             recorder.Measure("MigrationToolCanaryInvocation", 1, invoked ? 1 : 0);
             recorder.Measure("MigrationToolCanaryOutput", 1, emitted ? 1 : 0);
             recorder.Measure("MigrationToolCanaryComparison", 1, comparison ? 1 : 0);
@@ -428,11 +585,12 @@ internal static class MigrationToolAnalysis
         return count;
     }
 
-    private static bool Assertion(IInvocationOperation call, IOperation[] operations)
+    private static bool Assertion(IInvocationOperation call, IOperation[] operations, AdapterFlow flow)
     {
         if (call.Arguments.Length == 0 || call.Arguments[0].Parameter?.Type.SpecialType != SpecialType.System_Boolean) return false;
         var parameter = call.TargetMethod.Parameters[0];
         return operations.OfType<IConditionalOperation>().Any(guard =>
+            flow.InCalledBody(guard, call.TargetMethod) &&
             Unwrap(guard.Condition) is IUnaryOperation { OperatorKind: UnaryOperatorKind.Not } negation &&
             Unwrap(negation.Operand) is IParameterReferenceOperation reference &&
             SymbolEqualityComparer.Default.Equals(parameter, reference.Parameter) &&
