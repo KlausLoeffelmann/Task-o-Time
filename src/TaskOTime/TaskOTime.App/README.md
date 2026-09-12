@@ -214,3 +214,7 @@ create/save/archive/delete, selection, service failures, request scope,
 administrator gating, and temporary-password handling without creating views.
 The owned-GUID SQL suite also executes the tenant editor against EF6, verifies
 deactivation/reactivation and reload, and rejects unauthorized or invalid updates.
+It references the production service, data-layer, and ViewModel assemblies rather
+than recompiling a partial copy of their sources, so localization and other
+cross-layer dependencies are exercised as deployed. Each SQL fixture creates and
+removes only its own database; it never resets the shared demo database.
