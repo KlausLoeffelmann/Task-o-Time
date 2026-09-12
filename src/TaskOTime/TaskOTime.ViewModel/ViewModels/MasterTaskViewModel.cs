@@ -24,7 +24,9 @@ namespace TaskOTime.ViewModel.ViewModels
             Store.Tasks.CollectionChanged += (_, __) => RefreshTasks();
             Store.Projects.CollectionChanged += (_, __) =>
             {
-                if (!Projects.Contains(SelectedProject)) SelectedProject = Projects.FirstOrDefault();
+                var selectedId = SelectedProject?.IdProject;
+                SelectedProject = Projects.FirstOrDefault(project => project.IdProject == selectedId)
+                    ?? Projects.FirstOrDefault();
                 RefreshCommands();
             };
             SelectedProject = Projects.FirstOrDefault();

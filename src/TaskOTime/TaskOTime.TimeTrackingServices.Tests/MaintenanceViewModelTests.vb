@@ -114,6 +114,29 @@ Namespace TaskOTime.TimeTrackingServices.Tests
         End Sub
 
         <TestMethod>
+        Public Sub SavingSelectedProjectInAnotherTab_PreservesTaskListProjectIdentity()
+            Dim f As New Fixture()
+            Dim tasks = f.Main.Tasks
+            Dim projects = f.Main.Projects
+            Dim projectB = projects.Projects.Last()
+            Assert.AreNotEqual(projects.Projects.First().IdProject, projectB.IdProject)
+            tasks.SelectedProject = projectB
+            projects.SelectedProject = projectB
+            projects.ProjectName = "Project B updated"
+            projects.SaveCommand.Execute(Nothing)
+            Assert.AreNotSame(projectB, projects.SelectedProject)
+            Assert.AreSame(projects.SelectedProject, tasks.SelectedProject)
+            Assert.AreEqual(projectB.IdProject, tasks.SelectedProject.IdProject)
+            tasks.AddListCommand.Execute(Nothing)
+            Assert.AreEqual(projectB.IdProject, tasks.SelectedList.IdProject)
+            Assert.AreEqual(projectB.IdProject, f.Services.GetTaskList(
+                New MainDataItemRequest With {.IdItem = tasks.SelectedList.IdTaskList}).Value.IdProject)
+            projects.ArchiveCommand.Execute(Nothing)
+            Assert.AreSame(projects.Projects.First(), tasks.SelectedProject,
+                           "Fallback is allowed when the selected project ID is removed.")
+        End Sub
+
+        <TestMethod>
         Public Sub Tasks_FilterCreateSaveDeleteAndChooseProjectForNewList()
             Dim f As New Fixture()
             Dim vm = f.Main.Tasks

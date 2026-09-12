@@ -279,16 +279,25 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Next
             Assert.AreSame(vm.Projects.Projects, master.ProjectScreen.ProjectListView.ItemsSource)
             Assert.AreSame(vm.Projects.SelectedProject, master.ProjectScreen.ProjectListView.SelectedItem)
+            Dim projectB = vm.Projects.Projects.Last()
+            master.WorkspaceTabs.SelectedIndex = 2
+            Dim taskProjectSelector = FindLogicalDescendants(Of ComboBox)(master.TaskScreen).Single()
+            taskProjectSelector.SelectedItem = projectB
+            master.WorkspaceTabs.SelectedIndex = 1
+            master.ProjectScreen.ProjectListView.SelectedItem = projectB
             master.ProjectScreen.ProjectNameTextBox.Text = "Updated through binding"
             Assert.AreEqual("Updated through binding", vm.Projects.ProjectName)
             master.ProjectScreen.SaveButton.Command.Execute(Nothing)
             Assert.AreEqual("Updated through binding", vm.Projects.SelectedProject.ProjectName)
             Assert.AreSame(vm.Projects.SelectedProject, master.ProjectScreen.ProjectListView.SelectedItem)
+            Assert.AreSame(vm.Projects.SelectedProject, taskProjectSelector.SelectedItem)
             master.ProjectScreen.NewButton.Command.Execute(Nothing)
             Assert.AreSame(vm.Projects.SelectedProject, master.ProjectScreen.ProjectListView.SelectedItem)
             master.ProjectScreen.DeleteButton.Command.Execute(Nothing)
             Assert.AreSame(vm.Projects.SelectedProject, master.ProjectScreen.ProjectListView.SelectedItem)
             master.WorkspaceTabs.SelectedIndex = 2
+            master.TaskScreen.AddListButton.Command.Execute(Nothing)
+            Assert.AreEqual(projectB.IdProject, vm.Tasks.SelectedList.IdProject)
             master.TaskScreen.AddTaskButton.Command.Execute(Nothing)
             Assert.AreSame(vm.Tasks.SelectedTask, master.TaskScreen.TaskListView.SelectedItem)
             master.TaskScreen.TaskNameTextBox.Text = "Bound task"
