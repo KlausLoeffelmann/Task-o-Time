@@ -135,6 +135,10 @@ public static class Program {
     if ($result.RestrictedBuildExit -ne 0) {
         throw "Restricted SDK build failed: $(Get-Content "$low\build.stdout","$low\build.stderr" -Raw)"
     }
+    if (Test-Path 'C:\ProbePayload\owned-profile.json') {
+        . 'C:\ProbePayload\OwnedProfileDiagnostic.ps1'
+        $result.OwnedProfileDiagnostic=Invoke-OwnedProfileDiagnostic $low $PID
+    }
     if (Test-Path 'C:\ProbePayload\job.json') {
         $job=Get-Content 'C:\ProbePayload\job.json' -Raw | ConvertFrom-Json
         if ($job.Kind -notin @('producer','execute','compile')) { throw 'Unsupported controlled job kind.' }

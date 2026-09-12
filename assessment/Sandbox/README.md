@@ -410,12 +410,89 @@ no private assessor imports were compiled into the probe.
 
 This establishes an API capability only, **not** Roslyn adaptation equivalence,
 cancellation correctness, OOP support, memory budgeting or language replay.
-No dependency/converter binary or token was changed. An explicit, source-pinned
-unnamed-storage policy still needs parent approval and implementation/testing.
-The alternative managed backend must account for the pinned trivial service's
-current-position copy versus the MMF writer's rewind-to-zero semantics.
+No dependency/converter binary or token was changed. The parent subsequently
+ruled out a Roslyn fork/patch or private reflection hooks; the unnamed result is
+retained as capability evidence only, not an approved adaptation direction.
+The alternative managed backend's current-position copy versus the MMF writer's
+rewind-to-zero semantics remains a caveat, not an implementation.
 The operational task stays **in progress**. The verifier's shared requirement checklist is wired independently
 of that capability work; incomplete output/behavior/checkpoint evidence cannot pass.
+
+### Diagnostic-only LOW/MEDIUM comparison
+
+`Invoke-SandboxProbe.ps1 -OwnedProfileDiagnostic low` or `medium` runs only the
+fixed owned `OwnedProfileProbe.cs`. It rejects submitted source, binaries,
+compiler jobs, inputs, package/framework roots, expected trees and lifecycle-delay
+jobs before preparation. Signing remains disabled. There is **no medium selector
+on producer, CLI, compiler or full-replay acceptance paths**.
+
+The default `RestrictedProcess.cs` is unchanged. For the medium diagnostic only,
+the host generates a separately named helper whose sole functional difference
+is the integrity SID (`S-1-16-4096` → `S-1-16-8192`); class identity and one
+diagnostic label also differ. Tests reverse those substitutions and require the
+entire helper to match the original. Token restrictions, deny-only admin group,
+default DACL, explicit inherited-handle list, suspended creation and owned-job
+cleanup are retained. The owned probe is built without parent Directory.Build
+imports; no submitted targets or plugins participate.
+
+The probe reports actual integrity/restricting SIDs, admin membership, enabled
+privileges, controller file and process-handle access, readonly payload access,
+own-work writes, named/unnamed mappings and same-process view lifetime. An owned
+child reports job membership; the controller independently checks it has
+terminated after the native job cleanup. Process-access probes open/close
+handles only; they do not terminate or modify the controller. Controller-file
+reads never disclose contents.
+
+All results remain `FormalVerified=false` and
+`AcceptanceProfileApproved=false`. `ObservedCustodyChecksPassed` describes only
+the enumerated probes, not a general boundary assurance. Ambient medium-writable
+inputs, configuration, caches, DLL lookup, other named objects and untested
+kernel rights still need independent review and any approved hardening. A
+successful MMF call or collection of canaries cannot authorize altered replay.
+
+Actual comparison (SDK 10.0.401 / .NET 10.0.12):
+`Artifacts\owned-profile-comparison-206c94da6b27413faf39a088d1f7df23\comparison.json`.
+LOW VM: `sandbox-probe-09569f5bfb2d43bc9dfa71625fd9718a`;
+MEDIUM VM: `sandbox-probe-ac0ca553e2e546eab4b45df8ddb6dfe1`.
+
+| Observation | LOW | Diagnostic MEDIUM |
+| --- | --- | --- |
+| Actual integrity SID | `S-1-16-4096` | `S-1-16-8192` |
+| Restricted Code + World restricting SIDs | Present | Present |
+| Administrator membership | Deny-only / not admin | Deny-only / not admin |
+| Enabled privileges | `SeChangeNotifyPrivilege` only | Same |
+| Controller file read/write | Denied | Denied |
+| Controller process memory read/write handles | Denied | Denied |
+| Controller `PROCESS_TERMINATE` handle | **Opened** | **Opened** |
+| Readonly payload write | Denied | Denied |
+| Own work write | Allowed | Allowed |
+| Worker/child job membership; child termination | Observed | Observed |
+| Named mapping | Access denied, `0x80070005` | **Still access denied**, `0x80070005` |
+| Unnamed mapping and held-view lifetime | Succeeded | Succeeded |
+
+Thus **medium integrity alone did not resolve named-MMF access**. Both profiles
+also opened a controller termination handle; no termination was attempted.
+This is a distinct unresolved process-custody/availability finding, not proof
+of process-memory access or the cause of the earlier checkpoint VM disappearance.
+`ObservedCustodyChecksPassed=false` and `AcceptanceProfileApproved=false` for both.
+Both VMs stopped. Independent review must assess this finding and broader
+ambient-state risks before any altered profile can be considered.
+
+Both probes used identical authored source and unchanged LOW helper bytes.
+Their separately built diagnostic PE hashes differ (recorded in `comparison.json`);
+they are not claimed to be byte-identical artifacts. Per-VM logon SIDs/PIDs also
+differ. The generated medium native helper's exact source delta is independently
+checked by tests. No Roslyn/dependency patch, reflection hook, AppContainer
+provisioning or global named-object ACL change was performed.
+
+```powershell
+& .\assessment\Sandbox\Invoke-SandboxProbe.ps1 -OwnedProfileDiagnostic low -TimeoutSeconds 300
+& .\assessment\Sandbox\Invoke-SandboxProbe.ps1 -OwnedProfileDiagnostic medium -TimeoutSeconds 300
+```
+
+Validation: **173 replay/Sandbox tests pass**, including nine diagnostic-only
+profile preparation/fencing tests. TRX:
+`Artifacts\trusted-replay-validation\owned-profile-comparison.trx`.
 
 ## Emitted-output compilation and observable behavior
 

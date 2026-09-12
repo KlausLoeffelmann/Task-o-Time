@@ -17,6 +17,7 @@ param(
     [string] $EvidenceSuccessValue = 'succeeded',
     [switch] $PrepareOnly,
     [switch] $SignProducerProof,
+    [ValidateSet('low','medium')][string] $OwnedProfileDiagnostic,
     [ValidateRange(0,300)][int] $OwnedControllerDelaySeconds = 0,
     [ValidateRange(60,600)][int] $CliTimeoutSeconds = 120,
     [ValidateRange(60,900)][int] $TimeoutSeconds = 240
@@ -29,6 +30,11 @@ if ($SignProducerProof) {
 }
 if($OwnedControllerDelaySeconds -and ($SourceRoot -or $BinaryRoot -or $CompilerJobRoot)) {
     throw 'The owned lifecycle delay cannot be combined with submitted work.'
+}
+if($OwnedProfileDiagnostic -and ($SourceRoot -or $Projects -or $BinaryRoot -or $EntryAssembly -or $CompilerJobRoot -or
+    $InputRoot -or $CommandArguments -or $ExpectedOutputRoot -or $EvidenceFile -or
+    $PublicPackageRoot -or $PublicFrameworkRoot -or $OwnedControllerDelaySeconds)) {
+    throw 'Owned profile diagnostics cannot be combined with submitted material, replay or lifecycle-delay jobs.'
 }
 if (-not $PrepareOnly) {
     $feature = Get-CimInstance Win32_OptionalFeature -Filter "Name='Containers-DisposableClientVM'"
@@ -61,6 +67,10 @@ New-Item -ItemType Directory -Path $payload,$output | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'GuestProbe.ps1') $payload
 Copy-Item (Join-Path $PSScriptRoot 'RestrictedProcess.cs') $payload
 Copy-Item (Join-Path $assessment 'global.json') $payload
+if($OwnedProfileDiagnostic) {
+    . (Join-Path $PSScriptRoot 'OwnedProfileDiagnostic.ps1')
+    New-OwnedProfilePayload $payload $sdk $OwnedProfileDiagnostic
+}
 if($OwnedControllerDelaySeconds) {
     @{ Seconds=$OwnedControllerDelaySeconds } | ConvertTo-Json |
         Set-Content -LiteralPath (Join-Path $payload 'owned-lifecycle-delay.json') -Encoding UTF8
@@ -260,6 +270,38 @@ $producerObservation=$null
 $executionVerification=$null
 $signedProducerProof=$null
 $compilerVerification=$null
+$profileDiagnostic=$null
+if($OwnedProfileDiagnostic) {
+    $profileDiagnostic=$result.OwnedProfileDiagnostic
+    if($profileDiagnostic.Profile -cne $OwnedProfileDiagnostic -or $profileDiagnostic.FormalVerified -ne $false) {
+        throw 'Missing owned diagnostic result; no profile decision is possible.'
+    }
+    $probe=$profileDiagnostic.Probe
+    $integrity=$(if($OwnedProfileDiagnostic -eq 'medium') { 'S-1-16-8192' } else { 'S-1-16-4096' })
+    $restricting=@($probe.Token.RestrictedSids | ForEach-Object Sid | Sort-Object)
+    $admin=@($probe.Token.Groups | Where-Object Sid -eq 'S-1-5-32-544')
+    $custody=$probe.Token.Integrity -ceq $integrity -and $probe.Token.Restricted -eq $true -and
+        $probe.Token.Administrator -eq $false -and ($restricting -join ',') -ceq 'S-1-1-0,S-1-5-12' -and
+        $admin.Count -eq 1 -and ($admin[0].Attributes -band 0x10) -ne 0 -and
+        @($probe.Token.EnabledPrivileges | Where-Object { $_ -cne 'SeChangeNotifyPrivilege' }).Count -eq 0 -and
+        $probe.ControllerFileRead.Allowed -eq $false -and $probe.ControllerFileWrite.Allowed -eq $false -and
+        $probe.ControllerProcessRead -eq $false -and $probe.ControllerProcessWrite -eq $false -and
+        $probe.ControllerProcessTerminate -eq $false -and $probe.ReadonlyPayloadWrite.Allowed -eq $false -and
+        $probe.OwnWorkWrite.Allowed -eq $true -and $probe.InJob -eq $true -and $probe.ChildInJob -eq $true -and
+        $profileDiagnostic.DescendantStopped -eq $true -and $profileDiagnostic.ControllerMarkerUnchanged -eq $true -and
+        $profileDiagnostic.ReadonlyMarkerAbsent -eq $true
+    $profileDiagnostic | Add-Member -NotePropertyName ObservedCustodyChecksPassed -NotePropertyValue $custody
+    $profileDiagnostic | Add-Member -NotePropertyName AcceptanceProfileApproved -NotePropertyValue $false
+    $selectedHelper=$(if($OwnedProfileDiagnostic -eq 'medium') {
+        Join-Path $payload 'owned-profile\OwnedMediumRestrictedProcess.cs'
+    } else { Join-Path $payload 'RestrictedProcess.cs' })
+    $profileDiagnostic | Add-Member -NotePropertyName Implementation -NotePropertyValue @{
+        OwnedSourceSha256=(Get-FileHash (Join-Path $payload 'owned-profile\Program.cs') -Algorithm SHA256).Hash
+        OwnedAssemblySha256=(Get-FileHash (Join-Path $payload 'owned-profile\bin\Debug\net10.0\OwnedProfile.dll') -Algorithm SHA256).Hash
+        LowHelperSha256=(Get-FileHash (Join-Path $payload 'RestrictedProcess.cs') -Algorithm SHA256).Hash
+        SelectedHelperSha256=(Get-FileHash $selectedHelper -Algorithm SHA256).Hash
+    }
+}
 if($CompilerJobRoot) {
     if($result.Compilation.Challenge -cne $compilerPlan.Challenge -or $result.Compilation.ExportDirectory -cnotmatch '^compile-[0-9a-f]{32}$' -or
         $result.Compilation.InitialExit -ne 0 -or $result.Compilation.RepeatExit -ne 0 -or
@@ -385,6 +427,7 @@ if ($BinaryRoot) {
     HostProducerObservation=$producerObservation
     HostCompilerVerification=$compilerVerification
     HostExecutionVerification=$executionVerification
+    OwnedProfileDiagnostic=$profileDiagnostic
     SignedProducerProof=$signedProducerProof
     SandboxStopped=$true
     SandboxProcessIds=@($lifecycle | ForEach-Object Id)
