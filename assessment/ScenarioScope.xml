@@ -15,6 +15,8 @@
          contexts. A declared producer or project-reference dependency always wins. -->
     <FixtureData Owner="..\..\tools\TaskOTime.Migration\Tests\TaskOTime.Migration.Tests.csproj"
                  Root="..\..\tools\TaskOTime.Migration\Tests\Fixtures" />
+    <TestSupport Owner="TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj"
+                 Project="TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj" />
   </Discovery>
   <Localization NeutralLanguage="en">
     <RequiredLanguage>de</RequiredLanguage>

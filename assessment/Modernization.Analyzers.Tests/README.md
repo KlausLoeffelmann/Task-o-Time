@@ -94,8 +94,12 @@ regressions compile an equivalent .NET 10 executable/library pair using the actu
 source-image replacement, without reading a stale reference DLL.
 Evaluated `ReferenceOutputAssembly=false` edges remain in the loaded build graph
 and their sources are checked, but do not require a compiler assembly reference.
-Build-only dependencies of test projects are classified as test harnesses unless
-a production consumer reaches them; a helper-like filename alone grants no role.
+Build-only test edges do not establish a helper role: integration tests also
+launch standalone products. Executable helpers need an affirmative trusted
+`Discovery/TestSupport` declaration (`Owner` and `Project`) backed by the
+evaluated build-only test edge. Independent executable roots remain production
+by default; declared producers and production-reference reachability override
+helper roles. A helper-like filename alone grants no role.
 Project-shaped conversion inputs can have an explicit trusted
 `Discovery/FixtureData` role in `ScenarioScope.xml`, with `Owner` and `Root`
 paths relative to the candidate source root. The owner must compile as a test/tool,
@@ -230,7 +234,11 @@ example historical Markdown) is not a language verdict input.
   source fields/properties. Forwarding methods, indexers, returned lookup delegates,
   formatting facades and key-preserving message objects are traced with call-site
   parameter substitution. A generated strongly typed accessor is **not mandatory**
-  for this provider path; namespace-only localizer stubs do not qualify. Actual
+  for this provider path; namespace-only localizer stubs do not qualify. When
+  reaching definitions are not proven, all factory/provider alternatives must
+  resolve and agree. An earlier factory assignment cannot authenticate a later
+  key-only localizer or another unknown replacement, even when that replacement
+  implements the genuine library interface. Actual
   `ResourceManager` construction, same-assembly input, symbol-resolved
   `GetString`, constant key/base-name alignment with evaluated manifest metadata,
   and a strongly typed static string accessor are examined, **including generated
@@ -265,8 +273,12 @@ example historical Markdown) is not a language verdict input.
 
 The repository policy requires applied keys on Login Experience, Main
 time-collection UI, add/edit booking dialog, and Project Main Data dialog. The
-Options surface must contain a language-selection control bound to language or
-culture state and code that changes current/default culture behavior. Merely
+Options surface must contain a language-selection control whose state reaches
+current/default culture behavior through its bound setter, an executing bound
+`ICommand` callback, a resolved XAML UI event, or the reachable handlers installed
+by presentation constructors. Constructor-forwarded command delegates retain
+call-site arguments. Unbound/inert commands and private dead culture calls do
+not establish this connection. Merely
 moving strings into a XAML dictionary is insufficient. The checker establishes
 static UI consumption, not that a particular window is ever opened or that every
 translation is linguistically correct. Reflection, arbitrary custom markup
@@ -342,6 +354,10 @@ Calendar button-style properties can themselves come from the Calendar's
 implicit/explicit style and its base chain, including dictionary resource
 references and inline styles. An explicit missing resource does not fall back
 to an unrelated implicit button style.
+`DynamicResource` lookup uses the effective consumer scope, so a Calendar-local
+override can replace an application dictionary's style or brush. `StaticResource`
+retains declaration lookup. Shared styles are checked separately for each
+consumer rather than reusing a result obtained with another control's resources.
 
 THM002 means **unverified**, not success: missing/empty states, missing templates,
 cyclic/unresolved resources, unknown named colors, opaque bindings, animation

@@ -110,7 +110,10 @@ public sealed class RepositoryTests
             await LoadProjectSet(EvaluatorConfiguration.DiscoveryRoots.SelectMany(DiscoverProjects),
                 ToolReplay.DeclaredProjects, loader.Load,
                 FixtureDataRole.Read(System.Xml.Linq.XDocument.Load(Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml")), root));
-            var loaded = CompilerInputLoader.ClassifyTestSupport(loader.Projects, root);
+            var loaded = CompilerInputLoader.ClassifyTestSupport(loader.Projects, root,
+                TestSupportRole.Read(System.Xml.Linq.XDocument.Load(Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml")), root),
+                ToolReplay.DeclaredProjects.Concat(loader.Projects.Where(p =>
+                    Path.GetDirectoryName(p.Path) == Path.Combine(root, "TaskOTime.App")).Select(p => p.Path)));
             evaluated.AddRange(loaded.Select(p => p.State!).Where(p => p != null));
             diagnostics.AddRange(loaded.Where(p => p.IsTest).SelectMany(p =>
                 p.Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).Select(d => Convert(root, p.Name, d))));

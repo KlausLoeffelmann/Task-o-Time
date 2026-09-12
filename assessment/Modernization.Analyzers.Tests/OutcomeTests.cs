@@ -60,6 +60,9 @@ public sealed class OutcomeTests
     [InlineData("missing-state", false, true)]
     [InlineData("literal-override", true, false)]
     [InlineData("missing-style", false, true)]
+    [InlineData("dynamic-shadow", false, true)]
+    [InlineData("static-shadow", false, false)]
+    [InlineData("second-consumer-brush-shadow", true, false)]
     public async Task Calendar_style_properties_resolve_through_application_merged_dictionary_and_based_on(string variant, bool contrast, bool coverage)
     {
         const string namespaces = """xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" """;
@@ -67,6 +70,12 @@ public sealed class OutcomeTests
             ButtonStyle(type, variant == "missing-state").Replace("<Style TargetType=", $"<Style x:Key=\"{type}Palette\" TargetType=")));
         if (variant == "literal-override") buttons = buttons.Replace("Value=\"#282828\"", "Value=\"White\"");
         var overrideStyle = variant == "missing-style" ? """CalendarButtonStyle="{DynamicResource Missing}" """ : "";
+        var localResources = variant is "dynamic-shadow" or "static-shadow"
+            ? """<Calendar.Resources><Style x:Key="CalendarDayButtonPalette" TargetType="CalendarDayButton"/></Calendar.Resources>""" : "";
+        var styleReference = variant == "static-shadow" ? "StaticResource" : "DynamicResource";
+        var secondCalendar = variant == "second-consumer-brush-shadow" ? """
+            <Calendar><Calendar.Resources><SolidColorBrush x:Key="Surface" Color="White"/></Calendar.Resources></Calendar>
+            """ : "";
         var found = await Analyze(Compile(LanguageNames.CSharp, Plain(LanguageNames.CSharp)), [
             File("App.xaml", $"""<Application {namespaces}><Application.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Palette/Shared.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary></Application.Resources></Application>"""),
             File(@"Palette\Shared.xaml", $$"""
@@ -74,14 +83,14 @@ public sealed class OutcomeTests
                   <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Buttons.xaml"/></ResourceDictionary.MergedDictionaries>
                   <SolidColorBrush x:Key="Surface" Color="#202020"/><SolidColorBrush x:Key="Ink" Color="#F8F8F8"/>
                   <Style x:Key="BaseCalendar" TargetType="Calendar">
-                    <Setter Property="CalendarDayButtonStyle" Value="{DynamicResource CalendarDayButtonPalette}"/>
+                    <Setter Property="CalendarDayButtonStyle" Value="{{{styleReference}} CalendarDayButtonPalette}"/>
                     <Setter Property="CalendarButtonStyle" Value="{DynamicResource CalendarButtonPalette}"/>
                   </Style>
                   <Style TargetType="Calendar" BasedOn="{StaticResource BaseCalendar}"/>
                 </ResourceDictionary>
                 """),
             File(@"Palette\Buttons.xaml", $"""<ResourceDictionary {namespaces}>{buttons}</ResourceDictionary>"""),
-            File("Screen.xaml", $$"""<Window {{namespaces}} Background="{DynamicResource Surface}" Foreground="{DynamicResource Ink}"><Calendar {{overrideStyle}}/></Window>""")
+            File("Screen.xaml", $$"""<Window {{namespaces}} Background="{DynamicResource Surface}" Foreground="{DynamicResource Ink}"><StackPanel><Calendar {{overrideStyle}}>{{localResources}}</Calendar>{{secondCalendar}}</StackPanel></Window>""")
         ]);
         Assert.Equal(contrast, found.Any(d => d.Id == "THM001"));
         Assert.Equal(coverage, found.Any(d => d.Id == "THM002"));
