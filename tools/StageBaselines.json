@@ -65,5 +65,51 @@
     "testsFailed": 0,
     "testsSkipped": 0,
     "desktopVisualRun": false
+  },
+  "S2": {
+    "applicationCommit": "d4d514e2ed6436b6a661061e0347257b25173af4",
+    "applicationRef": "modernization-S2-csharp-net472",
+    "inputCommit": "6ca206f932105243e654db3e3888394ca50d4cd6",
+    "toolCommit": "74775a3bad80932a6fda6349ee104e077265eae3",
+    "operation": "convert-language --project TaskOTime.TimeTrackingServices\\TaskOTime.TimeTrackingServices.vbproj --project TaskOTime.ViewModel\\TaskOTime.ViewModel.vbproj --restore",
+    "convertedProductionSources": 40,
+    "convertedWpfCodeBehindFiles": 5,
+    "manualFollowups": [
+      "Removed six whitespace-only XML lines left by deleting VB options in two generated project files."
+    ],
+    "allApplicationAndTestTargets": "net472",
+    "productionLanguage": "C#",
+    "testLanguage": "C# and VB",
+    "intentionalBusinessDefectsPreserved": true,
+    "buildErrors": 0,
+    "buildWarnings": 0,
+    "timeTrackingTestsPassed": 33,
+    "appServerTestsPassed": 30,
+    "isolatedIntegrationTestsPassed": 15,
+    "stageIntegrityTestsPassed": 2,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "desktopVisualRun": false
+  },
+  "S2a": {
+    "applicationCommit": "307ecf3acbf38910b73f0e19caf665810b4ccc2a",
+    "applicationRef": "modernization-S2a-sdk-net472",
+    "inputCommit": "d4d514e2ed6436b6a661061e0347257b25173af4",
+    "toolCommit": "ec69c7d",
+    "operation": "convert-projects --sdk-style",
+    "convertedProjectCount": 3,
+    "allApplicationAndTestTargets": "net472",
+    "productionLanguage": "C#",
+    "allProductionProjectsSdkStyle": true,
+    "intentionalBusinessDefectsPreserved": true,
+    "buildErrors": 0,
+    "buildWarnings": 0,
+    "timeTrackingTestsPassed": 33,
+    "appServerTestsPassed": 30,
+    "isolatedIntegrationTestsPassed": 15,
+    "stageIntegrityTestsPassed": 2,
+    "testsFailed": 0,
+    "testsSkipped": 0,
+    "desktopVisualRun": false
   }
 }
