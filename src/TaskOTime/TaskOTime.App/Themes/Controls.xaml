@@ -25,6 +25,16 @@
             </Trigger>
         </Style.Triggers>
     </Style>
+    <Style x:Key="MainDataWindowStyle" TargetType="{x:Type Window}" BasedOn="{StaticResource MainDataControlStyle}">
+        <Setter Property="Background" Value="{DynamicResource WindowBackgroundBrush}" />
+        <Setter Property="FontFamily" Value="{DynamicResource {x:Static SystemFonts.MessageFontFamilyKey}}" />
+        <Setter Property="FontSize" Value="{DynamicResource {x:Static SystemFonts.MessageFontSizeKey}}" />
+    </Style>
+    <Style x:Key="MainDataViewStyle" TargetType="{x:Type UserControl}" BasedOn="{StaticResource MainDataControlStyle}">
+        <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
+        <Setter Property="FontFamily" Value="{DynamicResource {x:Static SystemFonts.MessageFontFamilyKey}}" />
+        <Setter Property="FontSize" Value="{DynamicResource {x:Static SystemFonts.MessageFontSizeKey}}" />
+    </Style>
     <Style x:Key="PanelBorderStyle" TargetType="{x:Type Border}">
         <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
         <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
@@ -52,6 +62,14 @@
     <Style x:Key="MainDataLabelStyle" TargetType="{x:Type Label}" BasedOn="{StaticResource MainDataControlStyle}">
         <Setter Property="Background" Value="{DynamicResource PanelBackgroundBrush}" />
     </Style>
+    <Style x:Key="MainDataHeadingTextStyle" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource MainDataTextStyle}">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style x:Key="MainDataHeadingLabelStyle" TargetType="{x:Type Label}" BasedOn="{StaticResource MainDataLabelStyle}">
+        <Setter Property="FontSize" Value="18" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
     <Style x:Key="MainDataTextBoxStyle" TargetType="{x:Type TextBox}" BasedOn="{StaticResource MainDataControlStyle}">
         <Setter Property="CaretBrush" Value="{DynamicResource ContentForegroundBrush}" />
         <Setter Property="SelectionBrush" Value="{DynamicResource ListItemSelectedBackgroundBrush}" />
@@ -69,6 +87,20 @@
         </Setter>
     </Style>
     <Style TargetType="{x:Type TextBox}" BasedOn="{StaticResource MainDataTextBoxStyle}" />
+    <Style x:Key="MainDataPasswordBoxStyle" TargetType="{x:Type PasswordBox}" BasedOn="{StaticResource MainDataControlStyle}">
+        <Setter Property="CaretBrush" Value="{DynamicResource ContentForegroundBrush}" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type PasswordBox}">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ContentHost" Padding="{TemplateBinding Padding}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
     <Style x:Key="MainDataButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource MainDataControlStyle}">
         <Setter Property="MinHeight" Value="28" />
         <Setter Property="Padding" Value="10,5" />
@@ -173,6 +205,53 @@
     </Style>
     <Style x:Key="MainDataListViewStyle" TargetType="{x:Type ListView}" BasedOn="{StaticResource MainDataControlStyle}">
         <Setter Property="ItemContainerStyle" Value="{StaticResource MainDataListViewItemStyle}" />
+    </Style>
+    <Style x:Key="MainDataGridViewColumnHeaderStyle" TargetType="{x:Type GridViewColumnHeader}" BasedOn="{StaticResource MainDataControlStyle}">
+        <Setter Property="Padding" Value="6,3" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type GridViewColumnHeader}">
+                    <Grid>
+                        <Border x:Name="HeaderBorder" Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <Canvas x:Name="PART_FloatingHeaderCanvas" Visibility="Collapsed" IsHitTestVisible="False" />
+                        <Thumb x:Name="PART_HeaderGripper" Width="8" HorizontalAlignment="Right" Cursor="SizeWE">
+                            <Thumb.Template>
+                                <ControlTemplate TargetType="{x:Type Thumb}">
+                                    <Border Background="Transparent" />
+                                </ControlTemplate>
+                            </Thumb.Template>
+                        </Thumb>
+                    </Grid>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="Role" Value="Padding">
+                            <Setter TargetName="PART_HeaderGripper" Property="Visibility" Value="Collapsed" />
+                        </Trigger>
+                        <Trigger Property="Role" Value="Floating">
+                            <Setter TargetName="HeaderBorder" Property="Visibility" Value="Hidden" />
+                            <Setter TargetName="PART_HeaderGripper" Property="Visibility" Value="Collapsed" />
+                            <Setter TargetName="PART_FloatingHeaderCanvas" Property="Visibility" Value="Visible" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource HoverForegroundBrush}" />
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource DisabledForegroundBrush}" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
     <Style x:Key="MainDataTabItemStyle" TargetType="{x:Type TabItem}" BasedOn="{StaticResource MainDataControlStyle}">
         <Setter Property="Padding" Value="8,5" />

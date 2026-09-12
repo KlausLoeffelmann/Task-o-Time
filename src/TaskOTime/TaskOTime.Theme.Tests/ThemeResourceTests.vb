@@ -2,7 +2,6 @@ Imports System
 Imports System.Collections.Generic
 Imports System.Linq
 Imports System.Reflection
-Imports System.Runtime.CompilerServices
 Imports System.Runtime.ExceptionServices
 Imports System.Threading
 Imports System.Windows
@@ -16,18 +15,13 @@ Imports System.Windows.Shapes
 Imports System.Windows.Threading
 Imports Microsoft.VisualStudio.TestTools.UnitTesting
 Imports TaskOTime.App.Themes
+Imports TaskOTime.TimeTrackingServices.Tests.Doubles
+Imports TaskOTime.ViewModel.ViewModels
+Imports TaskOTime.ViewModel.Views
 
-Namespace TaskOTime.TimeTrackingServices.Tests
+Namespace TaskOTime.Theme.Tests
     <TestClass, DoNotParallelize>
     Public Class ThemeResourceTests
-        Private Shared isolated As Boolean
-        Private Shared ReadOnly isolatedRunner As New Lazy(Of ThemeScenarioRunner)(
-            Function()
-                ' WPF's native rendering threads give this one domain a test-host lifetime.
-                Dim domain = AppDomain.CreateDomain("ThemeScenarios", Nothing, AppDomain.CurrentDomain.SetupInformation)
-                Return DirectCast(domain.CreateInstanceAndUnwrap(
-                    GetType(ThemeScenarioRunner).Assembly.FullName, GetType(ThemeScenarioRunner).FullName), ThemeScenarioRunner)
-            End Function)
         <TestMethod>
         Public Sub CalendarPalettes_ResolveStateBrushesAndPreserveSelectionNavigationAndBlackout()
             OnSta(
@@ -319,6 +313,128 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 End Sub)
         End Sub
 
+        <TestMethod>
+        Public Sub MainDataWindow_RealViewsKeepReadableContentBindingsAndEditingAcrossPalettes()
+            OnSta(
+                Sub()
+                    Dim services As New TestApplicationServices()
+                    Dim model As New MainDataViewModel(services.Tenant, services.ActingUserId,
+                        services, services, services, 0, New ThemeInteraction())
+                    Dim window As New MainDataWindow With {.DataContext = model}
+                    Using host As New ThemeHost(window)
+                        host.UseContrastScheme()
+                        host.Show()
+                        For Each palette In {AppTheme.Dark, AppTheme.Light, AppTheme.HighContrast, AppTheme.Dark}
+                            host.Service.SetTheme(palette)
+                            For tabIndex As Integer = 0 To 3
+                                model.SelectedTab = tabIndex
+                                host.Layout()
+                                AssertReadableSubtree(window)
+                                If tabIndex = 3 Then
+                                    For detail = 0 To 4
+                                        model.Collaboration.SelectedTab = detail
+                                        host.Layout()
+                                        AssertReadableSubtree(window)
+                                    Next
+                                End If
+                            Next
+
+                            model.SelectedTab = 0
+                            host.Layout()
+                            Dim users = window.TenantUserScreen
+                            Dim password = DirectCast(users.FindName("TemporaryPasswordBox"), PasswordBox)
+                            Assert.AreSame(window.FindResource("MainDataPasswordBoxStyle"), password.Style)
+                            Assert.IsNotNull(password.Template.FindName("PART_ContentHost", password))
+                            password.Password = "Theme-only-test-42"
+                            Assert.IsTrue(password.SecurePassword.Length > 0)
+                            password.Clear()
+                            AssertEditorStates(password)
+                            AssertEditorStates(users.TenantNameTextBox)
+                            Dim header = Descendants(Of GridViewColumnHeader)(users.UserListView).
+                                First(Function(item) item.Role = GridViewColumnHeaderRole.Normal)
+                            Dim gripper = DirectCast(header.Template.FindName("PART_HeaderGripper", header), Thumb)
+                            Assert.IsNotNull(gripper, "The themed header must retain column resizing.")
+                            Dim width = header.Column.Width
+                            gripper.RaiseEvent(New DragStartedEventArgs(0, 0) With {.RoutedEvent = Thumb.DragStartedEvent})
+                            gripper.RaiseEvent(New DragDeltaEventArgs(20, 0) With {.RoutedEvent = Thumb.DragDeltaEvent})
+                            gripper.RaiseEvent(New DragCompletedEventArgs(20, 0, False) With {.RoutedEvent = Thumb.DragCompletedEvent})
+                            Assert.AreEqual(width + 20, header.Column.Width)
+                            header.Column.Width = width
+
+                            model.SelectedTab = 1
+                            host.Layout()
+                            Dim projects = window.ProjectScreen
+                            Assert.AreSame(model.Projects.Projects, projects.ProjectListView.ItemsSource)
+                            projects.ProjectListView.SelectedIndex = 1
+                            Assert.AreSame(projects.ProjectListView.SelectedItem, model.Projects.SelectedProject)
+                            projects.ProjectNameTextBox.SetCurrentValue(TextBox.TextProperty, "Themed draft")
+                            host.Layout()
+                            Assert.AreEqual("Themed draft", model.Projects.ProjectName)
+                            AssertEditorStates(projects.ProjectNameTextBox)
+                            AssertEditorStates(projects.ActiveCheckBox)
+                            AssertReadableSubtree(projects)
+
+                            model.SelectedTab = 2
+                            host.Layout()
+                            Dim projectPicker = Descendants(Of ComboBox)(window.TaskScreen).Single()
+                            Assert.AreSame(model.Tasks.Projects, projectPicker.ItemsSource)
+                            projectPicker.SelectedIndex = 1
+                            Assert.AreSame(projectPicker.SelectedItem, model.Tasks.SelectedProject)
+                            AssertEditorStates(projectPicker)
+                            projectPicker.IsDropDownOpen = True
+                            host.Layout()
+                            Dim optionItem = DirectCast(projectPicker.ItemContainerGenerator.ContainerFromIndex(1), ComboBoxItem)
+                            Assert.IsNotNull(optionItem)
+                            AssertReadableSubtree(optionItem)
+                            projectPicker.IsDropDownOpen = False
+                        Next
+                    End Using
+                End Sub)
+        End Sub
+
+        Private Shared Sub AssertEditorStates(editor As Control)
+            SetState(editor, "IsKeyboardFocusWithin", True)
+            AssertBrush(editor.BorderBrush, editor.FindResource("FocusBrush"))
+            SetState(editor, "IsKeyboardFocusWithin", False)
+            editor.IsEnabled = False
+            AssertPair(editor, "DisabledForegroundBrush", "DisabledBackgroundBrush")
+            AssertReadableSubtree(editor)
+            editor.ClearValue(UIElement.IsEnabledProperty)
+        End Sub
+
+        Private Shared Sub AssertReadableSubtree(root As DependencyObject)
+            For Each control In Descendants(Of Control)(root).Where(Function(item) item.IsVisible)
+                If TypeOf control Is Label OrElse TypeOf control Is TextBox OrElse TypeOf control Is PasswordBox OrElse
+                   TypeOf control Is Button OrElse TypeOf control Is CheckBox OrElse TypeOf control Is ComboBox OrElse
+                   TypeOf control Is ListBox OrElse TypeOf control Is ListBoxItem OrElse
+                   TypeOf control Is TabControl OrElse TypeOf control Is TabItem OrElse TypeOf control Is UserControl Then
+                    Assert.IsNotNull(control.Style, control.GetType().Name & " " & control.Name & " has no shared style.")
+                    Assert.IsInstanceOfType(control.Background, GetType(SolidColorBrush), control.GetType().Name & " " & control.Name)
+                    Assert.IsTrue(Contrast(control.Foreground, control.Background) >= 4.5,
+                                  control.GetType().Name & " " & control.Name & " has an unreadable control pair.")
+                End If
+            Next
+            For Each textBlock As TextBlock In Descendants(Of TextBlock)(root).Where(Function(item) item.IsVisible AndAlso Not String.IsNullOrWhiteSpace(item.Text))
+                Dim background = PaintedBackground(textBlock)
+                Assert.IsNotNull(background, "No painted background for " & textBlock.Text)
+                Assert.IsTrue(Contrast(textBlock.Foreground, background) >= 4.5, "Rendered text: " & textBlock.Text)
+            Next
+        End Sub
+
+        Private Shared Function PaintedBackground(element As DependencyObject) As Brush
+            While element IsNot Nothing
+                Dim background As Brush = Nothing
+                If TypeOf element Is Border Then background = DirectCast(element, Border).Background
+                If TypeOf element Is Panel Then background = DirectCast(element, Panel).Background
+                If TypeOf element Is Control Then background = DirectCast(element, Control).Background
+                If TypeOf element Is TextBlock Then background = DirectCast(element, TextBlock).Background
+                Dim solid = TryCast(background, SolidColorBrush)
+                If solid IsNot Nothing AndAlso solid.Color.A = 255 AndAlso solid.Opacity = 1 Then Return solid
+                element = VisualTreeHelper.GetParent(element)
+            End While
+            Return Nothing
+        End Function
+
         Private Shared Sub AssertPair(control As Control, foreground As String, background As String)
             AssertBrush(control.Foreground, control.FindResource(foreground))
             AssertBrush(control.Background, control.FindResource(background))
@@ -365,12 +481,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Next
         End Function
 
-        Private Shared Sub OnSta(action As Action, <CallerMemberName> Optional testName As String = Nothing)
-            If Not isolated Then
-                ' Other Framework tests shut down Application, which is permanent within an AppDomain.
-                isolatedRunner.Value.Run(testName)
-                Return
-            End If
+        Private Shared Sub OnSta(action As Action)
             Dim failure As Exception = Nothing
             Dim thread As New Thread(
                 Sub()
@@ -389,33 +500,31 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             If failure IsNot Nothing Then ExceptionDispatchInfo.Capture(failure).Throw()
         End Sub
 
-        Public NotInheritable Class ThemeScenarioRunner
-            Inherits MarshalByRefObject
-            Public Overrides Function InitializeLifetimeService() As Object
-                Return Nothing
-            End Function
-            Public Sub Run(testName As String)
-                isolated = True
-                Try
-                    GetType(ThemeResourceTests).GetMethod(testName).Invoke(New ThemeResourceTests(), Nothing)
-                Catch ex As TargetInvocationException
-                    ExceptionDispatchInfo.Capture(ex.InnerException).Throw()
-                End Try
+        Private NotInheritable Class ThemeInteraction
+            Implements TaskOTime.ViewModel.IMaintenanceInteraction
+            Public Sub Notify(message As String, title As String) Implements TaskOTime.ViewModel.IMaintenanceInteraction.Notify
+                Assert.Fail(title & ": " & message)
             End Sub
+            Public Function Confirm(message As String, title As String) As Boolean Implements TaskOTime.ViewModel.IMaintenanceInteraction.Confirm
+                Return True
+            End Function
         End Class
 
         Private NotInheritable Class ThemeHost
             Implements IDisposable
-            Public ReadOnly Window As New Window With {
-                .Width = 420, .Height = 720, .Left = -32000, .Top = -32000,
-                .ShowInTaskbar = False, .ShowActivated = False}
+            Public ReadOnly Window As Window
             Public ReadOnly Panel As New StackPanel()
             Public ReadOnly Environment As New TestThemeEnvironment()
             Public ReadOnly Service As ThemeService
-            Public Sub New()
+            Public Sub New(Optional contentWindow As Window = Nothing)
+                Window = If(contentWindow, New Window With {.Width = 420, .Height = 720})
+                Window.Left = -32000
+                Window.Top = -32000
+                Window.ShowInTaskbar = False
+                Window.ShowActivated = False
                 Window.Resources.MergedDictionaries.Add(New ResourceDictionary With {
                     .Source = New Uri("/TaskOTime.App;component/Themes/ClassicDark.xaml", UriKind.Relative)})
-                Window.Content = Panel
+                If contentWindow Is Nothing Then Window.Content = Panel
                 Service = New ThemeService(Window.Resources, Window.Dispatcher, Environment)
             End Sub
             Public Sub Show()

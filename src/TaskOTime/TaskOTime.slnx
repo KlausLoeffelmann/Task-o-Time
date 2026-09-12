@@ -18,5 +18,6 @@
     <Project Path="TaskOTime.AppServer.Tests/TaskOTime.AppServer.Tests.csproj" />
     <Project Path="TaskOTime.AppServer.IntegrationTests/TaskOTime.AppServer.IntegrationTests.csproj" />
     <Project Path="TaskOTime.TimeTrackingServices.Tests/TaskOTime.TimeTrackingServices.Tests.vbproj" />
+    <Project Path="TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj" />
   </Folder>
 </Solution>

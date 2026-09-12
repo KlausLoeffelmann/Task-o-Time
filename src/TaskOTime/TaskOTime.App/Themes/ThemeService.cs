@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Security;
 using System.Windows;
 using System.Windows.Threading;
@@ -118,8 +119,16 @@ namespace TaskOTime.App.Themes
                             @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", false))
                             return (key?.GetValue("AppsUseLightTheme") as int? ?? 0) != 0;
                     }
-                    catch (SecurityException) { return false; }
-                    catch (UnauthorizedAccessException) { return false; }
+                    catch (SecurityException ex)
+                    {
+                        Trace.TraceWarning("Cannot read the Windows app-color preference; retaining the dark fallback: {0}", ex.Message);
+                        return false;
+                    }
+                    catch (UnauthorizedAccessException ex)
+                    {
+                        Trace.TraceWarning("Cannot read the Windows app-color preference; retaining the dark fallback: {0}", ex.Message);
+                        return false;
+                    }
                 }
             }
 

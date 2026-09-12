@@ -1,26 +1,26 @@
-﻿<?xml version="1.0" encoding="utf-8"?><UserControl x:Class="TaskOTime.ViewModel.Views.TaskWorkView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Background="White">
+<?xml version="1.0" encoding="utf-8"?><UserControl x:Class="TaskOTime.ViewModel.Views.TaskWorkView" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" Style="{DynamicResource MainDataViewStyle}">
  <Grid Margin="8">
   <Grid.RowDefinitions><RowDefinition Height="42" /><RowDefinition Height="*" /><RowDefinition Height="48" /></Grid.RowDefinitions>
-  <TextBlock x:Name="HeadingLabel" x:FieldModifier="public" Text="Listen und Aufgaben" FontFamily="Verdana" FontSize="18" Foreground="DarkGreen" />
+  <TextBlock x:Name="HeadingLabel" x:FieldModifier="public" Text="Listen und Aufgaben" Style="{DynamicResource MainDataHeadingTextStyle}" />
   <Grid Grid.Row="1"><Grid.ColumnDefinitions><ColumnDefinition Width="240" /><ColumnDefinition Width="*" /><ColumnDefinition Width="280" /></Grid.ColumnDefinitions>
-   <ListBox x:Name="TaskListListBox" ItemsSource="{Binding TaskLists}" SelectedItem="{Binding SelectedList, Mode=TwoWay}" x:FieldModifier="public" DisplayMemberPath="TaskListName" Background="Honeydew" />
-   <ListView x:Name="TaskListView" ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelectedTask, Mode=TwoWay}" x:FieldModifier="public" Grid.Column="1" Margin="10,0,13,0">
-    <ListView.View><GridView><GridViewColumn Header="Aufgabe" DisplayMemberBinding="{Binding TaskItemName}" Width="220" /><GridViewColumn Header="Priorität" DisplayMemberBinding="{Binding Priority}" Width="75" /><GridViewColumn Header="Fällig" DisplayMemberBinding="{Binding DueDate}" Width="145" /></GridView></ListView.View>
+   <ListBox x:Name="TaskListListBox" ItemsSource="{Binding TaskLists}" SelectedItem="{Binding SelectedList, Mode=TwoWay}" x:FieldModifier="public" DisplayMemberPath="TaskListName" Style="{DynamicResource MainDataListBoxStyle}" />
+   <ListView x:Name="TaskListView" ItemsSource="{Binding Tasks}" SelectedItem="{Binding SelectedTask, Mode=TwoWay}" x:FieldModifier="public" Grid.Column="1" Margin="10,0,13,0" Style="{DynamicResource MainDataListViewStyle}">
+    <ListView.View><GridView ColumnHeaderContainerStyle="{DynamicResource MainDataGridViewColumnHeaderStyle}"><GridViewColumn Header="Aufgabe" DisplayMemberBinding="{Binding TaskItemName}" Width="220" /><GridViewColumn Header="Priorität" DisplayMemberBinding="{Binding Priority}" Width="75" /><GridViewColumn Header="Fällig" DisplayMemberBinding="{Binding DueDate}" Width="145" /></GridView></ListView.View>
    </ListView>
    <StackPanel Grid.Column="2">
-    <TextBlock Text="Aufgabendetails" FontWeight="Bold" FontSize="15" />
-    <TextBox x:Name="TaskNameTextBox" Text="{Binding TaskName, UpdateSourceTrigger=PropertyChanged}" x:FieldModifier="public" Margin="0,12,0,4" Height="27" />
-    <TextBox x:Name="TaskDescriptionTextBox" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" x:FieldModifier="public" Height="115" AcceptsReturn="True" TextWrapping="Wrap" />
-    <CheckBox x:Name="CompletedCheckBox" IsChecked="{Binding IsCompleted}" x:FieldModifier="public" Content="erledigt" Margin="0,13" />
-    <Label x:Name="TaskStatusLabel" Content="{Binding StatusText}" x:FieldModifier="public" Background="LightYellow" />
+    <TextBlock Text="Aufgabendetails" Style="{DynamicResource SectionHeaderTextStyle}" />
+    <TextBox x:Name="TaskNameTextBox" Text="{Binding TaskName, UpdateSourceTrigger=PropertyChanged}" x:FieldModifier="public" Margin="0,12,0,4" Height="27" Style="{DynamicResource MainDataTextBoxStyle}" />
+    <TextBox x:Name="TaskDescriptionTextBox" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" x:FieldModifier="public" Height="115" AcceptsReturn="True" TextWrapping="Wrap" Style="{DynamicResource MainDataTextBoxStyle}" />
+    <CheckBox x:Name="CompletedCheckBox" IsChecked="{Binding IsCompleted}" x:FieldModifier="public" Content="erledigt" Margin="0,13" Style="{DynamicResource MainDataCheckBoxStyle}" />
+    <Label x:Name="TaskStatusLabel" Content="{Binding StatusText}" x:FieldModifier="public" Style="{DynamicResource MainDataLabelStyle}" />
    </StackPanel>
   </Grid>
   <StackPanel Grid.Row="2" Orientation="Horizontal">
-   <ComboBox Width="180" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject, Mode=TwoWay}" DisplayMemberPath="ProjectName" ToolTip="Project for new lists" />
-   <Button x:Name="AddListButton" Command="{Binding AddListCommand}" x:FieldModifier="public" Content="Neue Liste" Width="100" Margin="2,8" />
-   <Button x:Name="AddTaskButton" Command="{Binding AddTaskCommand}" x:FieldModifier="public" Content="Neue Aufgabe" Width="110" Margin="7,8" />
-   <Button x:Name="SaveTaskButton" Command="{Binding SaveTaskCommand}" x:FieldModifier="public" Content="Aufgabe speichern" Width="140" Margin="2,8" Background="LightBlue" />
-   <Button x:Name="DeleteTaskButton" Command="{Binding DeleteTaskCommand}" x:FieldModifier="public" Content="Löschen" Width="85" Margin="12,8" />
+   <ComboBox Width="180" ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject, Mode=TwoWay}" DisplayMemberPath="ProjectName" ToolTip="Project for new lists" Style="{DynamicResource MainDataComboBoxStyle}" />
+   <Button x:Name="AddListButton" Command="{Binding AddListCommand}" x:FieldModifier="public" Content="Neue Liste" Width="100" Margin="2,8" Style="{DynamicResource MainDataButtonStyle}" />
+   <Button x:Name="AddTaskButton" Command="{Binding AddTaskCommand}" x:FieldModifier="public" Content="Neue Aufgabe" Width="110" Margin="7,8" Style="{DynamicResource MainDataButtonStyle}" />
+   <Button x:Name="SaveTaskButton" Command="{Binding SaveTaskCommand}" x:FieldModifier="public" Content="Aufgabe speichern" Width="140" Margin="2,8" Style="{DynamicResource MainDataButtonStyle}" />
+   <Button x:Name="DeleteTaskButton" Command="{Binding DeleteTaskCommand}" x:FieldModifier="public" Content="Löschen" Width="85" Margin="12,8" Style="{DynamicResource MainDataButtonStyle}" />
   </StackPanel>
  </Grid>
 </UserControl>

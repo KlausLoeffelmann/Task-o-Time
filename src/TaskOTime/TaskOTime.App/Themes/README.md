@@ -51,10 +51,12 @@ brush keys above to obtain high-contrast system overrides.
 - `PanelBorderStyle`, `SectionHeaderTextStyle`, `ClassicButtonStyle`,
   `ClassicToolBarStyle` retain the previous entry-point keys.
 - `MainDataControlStyle`, `MainDataTextStyle`, `MainDataLabelStyle`,
-  `MainDataTextBoxStyle`, `MainDataButtonStyle`, `MainDataCheckBoxStyle`,
+  `MainDataWindowStyle`, `MainDataViewStyle`, `MainDataHeadingTextStyle`,
+  `MainDataHeadingLabelStyle`, `MainDataTextBoxStyle`, `MainDataPasswordBoxStyle`,
+  `MainDataButtonStyle`, `MainDataCheckBoxStyle`,
   `MainDataComboBoxStyle`, `MainDataComboBoxItemStyle`,
   `MainDataListBoxStyle`, `MainDataListBoxItemStyle`,
-  `MainDataListViewStyle`, `MainDataListViewItemStyle`,
+  `MainDataListViewStyle`, `MainDataListViewItemStyle`, `MainDataGridViewColumnHeaderStyle`,
   `MainDataTabControlStyle`, `MainDataTabItemStyle`.
 - `ThemedCalendarStyle`, `ThemedCalendarItemStyle`,
   `ThemedCalendarDayButtonStyle`, `ThemedCalendarButtonStyle`,
@@ -62,7 +64,12 @@ brush keys above to obtain high-contrast system overrides.
 - Existing implicit TextBox, StatusBar, ContextMenu, and ToolTip styling remains.
   Other controls opt in via the named styles.
 
-The view owner must remove local hardcoded colors, initial code-behind color
+The maintenance window and its Project, Tenant/User, Task, and Collaboration
+views now use these shared styles without local color or font-family overrides.
+Their bindings, commands, password adapter, and control structures are unchanged.
+GridView headers retain their resize gripper and floating-header canvas.
+
+For other views, remove local hardcoded colors, initial code-behind color
 assignments, and local calendar templates that override these resources.
 Apply `Style="{DynamicResource ThemedCalendarStyle}"` to the calendar and retain
 its existing `SelectedDate` binding (and any range, culture, or selection-mode
@@ -75,20 +82,25 @@ list/tab/button content. Content inside stateful controls should inherit
 `Foreground` from its container rather than applying a local color. Apply a
 matching foreground and background together; an inherited light foreground
 on an unstyled native light surface is not a themed reading surface.
-The list-view item style supports plain items and GridView rows; applications
-adding a custom ViewBase or custom GridView column headers must theme those
-custom surfaces explicitly.
+The list-view item style supports plain items and GridView rows. Set
+`GridView.ColumnHeaderContainerStyle` to `MainDataGridViewColumnHeaderStyle`.
+Applications adding a custom ViewBase must theme its custom surfaces explicitly.
 
-The existing Framework test project contains `ThemeResourceTests`. Its STA tests
+`TaskOTime.Theme.Tests` contains `ThemeResourceTests`. Its STA tests
 instantiate production templates, exercise two-way date selection and navigation,
 resolve state brushes, check contrast, edit text, open a combo popup, switch tabs,
 and change live process-local high-contrast resources. Mouse/focus state triggers
 are driven through WPF dependency-property keys to avoid moving the user's cursor
-or keyboard focus. They do not change machine settings. Actual MVVM view wiring
-and visual acceptance are separate integration checks.
+or keyboard focus. They do not change machine settings. An additional scenario
+hosts the real MainDataWindow with production ViewModels and test service data,
+visits all maintenance tabs in each palette, and checks rendered text against its
+painted background, disabled/focused editors, GridView column resizing, password
+editing, project selection/edit bindings, and the task-project combo popup.
+MainWindow calendar/startup wiring and visual acceptance remain separate
+integration checks owned by the main-window/startup workstream.
 
-The Framework tests share one isolated, test-host-lifetime AppDomain because the
-older application binding test permanently shuts down `Application` in its own
-domain. Every scenario closes its windows and shuts down its STA dispatcher.
-The separate .NET 10 migration must replace this Framework-only isolation with
-a process-isolated WPF test host.
+Theme tests run in their own test project/host because the older application
+binding test permanently shuts down WPF `Application`. This avoids shared
+application lifetime and cross-AppDomain COM input-service teardown problems.
+Every scenario closes its windows and shuts down its STA dispatcher. The project
+uses the same Framework target and package versions as the existing test suite.
