@@ -13,8 +13,29 @@ The coordinator owns the repository-wide SDK choice.
 .\Run-Validation.ps1 -IncludeSql -IncludeIdeal
 ```
 
-Default execution runs all 30 existing AppServer and all 33 TimeTrackingServices
-tests, non-SQL isolation/fixture-runner guardrails, and the independent STA host
+The final-branch default is **`net10.0-windows`** for `Run-Validation.ps1`,
+`FixtureRunner` and `IdealRegression.Tests`; the modern fixture defaults to EF6
+6.5.2. The adjacent application source root is used unless explicitly supplied.
+From an old worktree, point at a modern root or explicitly select the baseline:
+
+```powershell
+.\Run-Validation.ps1 -ApplicationRoot '<absolute modern src\TaskOTime>'
+.\Run-Validation.ps1 -ApplicationRoot '<absolute baseline src\TaskOTime>' -ValidationFramework net472 -IncludeSql
+dotnet run --project FixtureRunner -p:ValidationFramework=net472 -- fixture-check
+```
+
+The shared build preflight checks the known AppServer project's declared
+framework before restore/build, and the script runs that check before tests or
+SQL setup. Modern defaults reject a legacy adjacent root with an actionable
+error; `net472` also rejects a modern root. No automatic retargeting or fallback
+occurs. The `net472` override accepts compatible older Framework service targets
+(including the original `net461` source). Framework baseline validation retains
+EF6 6.5.1 and the generated
+Framework-only test-host redirects.
+
+Default execution runs the selected root's complete AppServer and
+TimeTrackingServices suites (original baseline: 30 and 33 tests),
+non-SQL isolation/fixture-runner guardrails, and the independent STA host
 self-test, a synthetic startup-driver run, and four synthetic negative startup
 cases. Negative cases require both exit code 1 **and their specific diagnostic**;
 an unrelated missing runtime/build failure cannot satisfy them. There is no
@@ -36,12 +57,13 @@ manual/recorded 90-minute intervals, and manual/recorded day-plus-fractional-min
 intervals. They deliberately fail against S0, and should become green only on the
 ideal track. They have no production/demo SQL dependency.
 
-`IdealRegression.Tests` accepts `-p:ApplicationRoot=<absolute stage src\TaskOTime>`
-and `-p:ValidationFramework=net10.0-windows` after that stage's product **and test
-double** projects have migrated. It discovers VB/C# ViewModel project names.
+`IdealRegression.Tests` accepts `-p:ApplicationRoot=<absolute stage src\TaskOTime>`.
+Its default requires that stage's product **and test double** projects to be
+migrated; use `-p:ValidationFramework=net472` explicitly for a Framework baseline.
+It discovers VB/C# ViewModel project names.
 Use a fresh private tooling copy/output per stage; don't share intermediates.
 `Run-Validation.ps1` also accepts `-ApplicationRoot` and `-ValidationFramework`
-(default `net472`), forwarding them to the private fixture/correctness projects.
+(default `net10.0-windows`), forwarding them to the private fixture/correctness projects.
 
 ## Database ownership and failure policy
 
@@ -77,7 +99,7 @@ manually; never reset `TaskOTime` or `TaskOTime_AppServerIntegrationTests`.
 ## Fixture-owning runner
 
 `FixtureRunner` is an executable referencing the **real application services**,
-not source-linked service doubles. It defaults to `net472`, links the already-safe
+not source-linked service doubles. It defaults to `net10.0-windows`, links the already-safe
 integration database helper from `ApplicationRoot`, and preserves its GUID/token
 ownership lifecycle. It extracts its private EF metadata from the stage EDMX;
 this is fixture metadata, not proof that the desktop packaged its own metadata.
@@ -133,7 +155,7 @@ Build output and fixture logs identify the selected API.
 selection and aliases its query type; its five correctness assertions are
 unchanged. Preserve that sibling import when making a private tooling copy.
 
-Run the seven source-layout selection checks without SQL:
+Run the seven API-layout and eight framework-selection checks without SQL:
 
 ```powershell
 .\Test-FixtureApiSelection.ps1
@@ -167,15 +189,36 @@ timeouts and verified cleanup. This does **not** establish .NET 10 acceptance.
 After the runtime stage, use its matching `ValidationFramework` and preserve
 production project references rather than source-linking duplicate service types.
 
-The private correctness project also compiles against both APIs. Its five tests
-passed against the integrated Framework root after an **artifact-only test-host**
-binding redirect: the copied output contains `System.Threading.Tasks.Extensions`
-assembly 4.2.4.0, while MSTest requests 4.2.0.1. The copied
-`IdealRegression.Tests.dll.config` redirected versions 0.0.0.0–4.2.4.0 to 4.2.4.0.
-No production configuration/dependencies were changed. Initial zero-test discovery
-was rejected, not counted as a pass. This Framework test-host compatibility step
-must be retained for equivalent Framework reruns; do not assume the .NET 10 host
-needs the same redirect. Always verify actual discovery/execution counts.
+The private correctness project also compiles against both APIs. Framework
+test-host configuration is generated reproducibly by
+`IdealRegression.Tests\FrameworkTestHost.targets`; no copied-config edit or
+package upgrade is required:
+
+- `AutoGenerateBindingRedirects` and `GenerateBindingRedirectsOutputType` are
+  enabled for Framework. Those switches alone do not cover the MSTest adapter's
+  runtime-only `System.Threading.Tasks.Extensions` dependency.
+- After reference resolution, the target reads the identity of the single
+  resolved copy-local DLL and supplies a missing `SuggestedBindingRedirects`
+  entry to the standard MSBuild generator. Existing SDK suggestions are retained.
+- The SDK generates, copies and incrementally tracks `IdealRegression.Tests.dll.config`
+  normally. Its redirect follows the resolved assembly version, not a hard-coded
+  package version (integrated Framework currently resolves assembly 4.2.4.0;
+  the original baseline resolves 4.2.0.1).
+- The custom target is inactive for .NET 10; production configuration and
+  dependencies are untouched.
+
+For a Framework source root, the explicit override restores/builds and runs all
+five unchanged assertions:
+
+```powershell
+dotnet test .\IdealRegression.Tests\IdealRegression.Tests.csproj -p:ValidationFramework=net472 --nologo --verbosity minimal
+```
+
+The clean-build verification used a private source snapshot of the committed
+Framework integration revision `0dbc123`, because the parent worktree was
+undergoing its .NET 10 merge. All five tests were discovered and passed without
+editing generated files. Initial zero-test discovery during investigation was
+rejected, not counted as a pass. Always verify actual discovery/execution counts.
 
 ## .NET 10 Windows STA smoke
 
