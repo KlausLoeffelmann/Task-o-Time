@@ -21,9 +21,11 @@ try {
     New-Item -ItemType Directory -Path 'C:\ProbeWork' -Force | Out-Null
     Set-Location 'C:\ProbeWork'
     $env:DOTNET_ROOT = 'C:\PublicSdk'
+    $env:PATH = 'C:\PublicSdk;' + $env:PATH
     $env:DOTNET_CLI_HOME = 'C:\ProbeWork\home'
     $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
     $env:DOTNET_NOLOGO = '1'
+    $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
     $env:MSBUILDDISABLENODEREUSE = '1'
     $env:UseSharedCompilation = 'false'
     Copy-Item 'C:\ProbePayload\global.json' '.\global.json'
@@ -128,7 +130,7 @@ public static class Program {
     }
     if (Test-Path 'C:\ProbePayload\job.json') {
         $job=Get-Content 'C:\ProbePayload\job.json' -Raw | ConvertFrom-Json
-        if ($job.Kind -notin @('producer','execute')) { throw 'Unsupported controlled job kind.' }
+        if ($job.Kind -notin @('producer','execute','compile')) { throw 'Unsupported controlled job kind.' }
         $producerRoot=Join-Path $low 'producer'
         function Copy-CheckedTree([string]$source,[string]$destination) {
             if ((Get-Item -LiteralPath $source -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Output reparse point rejected.' }
@@ -152,6 +154,64 @@ public static class Program {
             Copy-Item "$low\cli.stdout","$low\cli.stderr" $export
             $result.Execution=@{ ExitCode=$exit; ExportDirectory=$exportName }
         }
+        elseif ($job.Kind -eq 'compile') {
+            Copy-CheckedTree 'C:\ProbePayload\compiler\files' $low
+            foreach($property in $job.Outputs.PSObject.Properties) {
+                New-Item -ItemType Directory -Path (Split-Path $property.Name -Parent) -Force | Out-Null
+            }
+            & icacls.exe $low /grant '*S-1-5-12:(OI)(CI)M' /T | Out-Null
+            if($LASTEXITCODE -ne 0) { throw 'Compiler work ACL failed.' }
+            & icacls.exe $low /setintegritylevel '(OI)(CI)L' /T | Out-Null
+            if($LASTEXITCODE -ne 0) { throw 'Compiler work integrity label failed.' }
+            $response='C:\ProbeWork\compiler.rsp'
+            [IO.File]::WriteAllLines($response,@($job.Arguments | ForEach-Object { '"'+$_+'"' }),[Text.Encoding]::UTF8)
+            $exportName='compile-'+[guid]::NewGuid().ToString('N')
+            $export=Join-Path 'C:\ProbeOutput' $exportName
+            $exits=@()
+            function Check-CompilerInputs {
+                foreach($binding in $job.Inputs.PSObject.Properties) {
+                    if((Get-FileHash -LiteralPath $binding.Name -Algorithm SHA256).Hash -cne $binding.Value.Sha256) {
+                        throw 'Protected compiler input hash mismatch.'
+                    }
+                }
+                foreach($binding in $job.CompilerFiles.PSObject.Properties) {
+                    $file=Join-Path 'C:\PublicSdk\sdk\10.0.401\Roslyn\bincore' $binding.Name
+                    if((Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash -cne $binding.Value) {
+                        throw 'Protected compiler implementation hash mismatch.'
+                    }
+                }
+            }
+            foreach($pass in @('initial','repeat')) {
+                Check-CompilerInputs
+                foreach($property in $job.Outputs.PSObject.Properties) {
+                    if(Test-Path -LiteralPath $property.Name) { Remove-Item -LiteralPath $property.Name }
+                }
+                $exit=[RestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',
+                    @('C:\PublicSdk\sdk\10.0.401\Roslyn\bincore\csc.dll','/noconfig',('@'+$response)),
+                    $job.WorkingDirectory,"$low\compiler-$pass.stdout","$low\compiler-$pass.stderr",120000)
+                $exits+=,$exit
+                if($exit -ne 0) { throw "Protected csc failed: $(Get-Content "$low\compiler-$pass.stdout","$low\compiler-$pass.stderr" -Raw)" }
+                Check-CompilerInputs
+                $target=Join-Path $export $pass
+                New-Item -ItemType Directory -Path $target -Force | Out-Null
+                foreach($property in $job.Outputs.PSObject.Properties) {
+                    $relative=$property.Name.Substring('C:\ProbeWork\restricted\producer\'.Length)
+                    $destination=Join-Path $target $relative
+                    New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
+                    Copy-Item -LiteralPath $property.Name -Destination $destination
+                }
+                foreach($file in Get-ChildItem -LiteralPath $job.WorkingDirectory -Recurse -File -Filter '*.pdb') {
+                    $relative=$file.FullName.Substring('C:\ProbeWork\restricted\producer\'.Length)
+                    $destination=Join-Path $target $relative
+                    New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
+                    Copy-Item -LiteralPath $file.FullName -Destination $destination -Force
+                }
+            }
+            $result.Compilation=@{
+                Challenge=$job.Challenge; ExportDirectory=$exportName; InitialExit=$exits[0]; RepeatExit=$exits[1]
+                InputHashesVerified=$true; CompilerClosureVerified=$true
+            }
+        }
         else {
         Copy-CheckedTree 'C:\ProbePayload\source' $producerRoot
         & icacls.exe $producerRoot /grant '*S-1-5-12:(OI)(CI)M' /T | Out-Null
@@ -168,7 +228,9 @@ public static class Program {
             $exit=[RestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',
                 @('C:\PublicSdk\sdk\10.0.401\MSBuild.dll',$project,'-restore','-target:Build','-nologo','-verbosity:quiet',
                     '-p:NuGetAudit=false','-p:UseSharedCompilation=false','-p:ProvideCommandLineArgs=true',
-                    '-p:Configuration=Debug','-nodeReuse:false','-getProperty:TargetPath,SkipCompilerExecution',
+                    '-p:Configuration=Debug','-p:EmitCompilerGeneratedFiles=true',
+                    ('-p:CompilerGeneratedFilesOutputPath='+ (Join-Path (Split-Path $project -Parent) 'obj\protected-generated')),
+                    '-nodeReuse:false','-getProperty:TargetPath,SkipCompilerExecution',
                     '-getItem:CscCommandLineArgs,VbcCommandLineArgs'),
                 $producerRoot,$stdout,$stderr,120000)
             $outputText=Get-Content $stdout -Raw
@@ -187,6 +249,24 @@ public static class Program {
         }
         $exportName='producer-'+[guid]::NewGuid().ToString('N')
         Copy-CheckedTree $producerRoot (Join-Path 'C:\ProbeOutput' $exportName)
+        foreach($record in $records) {
+            $metadata=$record.StandardOutput | ConvertFrom-Json
+            foreach($argument in $metadata.Items.CscCommandLineArgs) {
+                if($argument.Identity -match '^/reference:(C:\\ProbeWork\\restricted\\packages\\|C:\\PublicPackages\\)(.+)$') {
+                    $prefix=$Matches[1]
+                    $reference=[IO.Path]::GetFullPath($argument.Identity.Substring('/reference:'.Length))
+                    if(-not $reference.StartsWith($prefix,[StringComparison]::OrdinalIgnoreCase)) { throw 'Package reference escapes approved root.' }
+                    $relative=$reference.Substring($prefix.Length)
+                    for($ancestor=Get-Item -LiteralPath (Split-Path $reference -Parent) -Force; $ancestor; $ancestor=$ancestor.Parent) {
+                        if($ancestor.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Package reference ancestor reparse point rejected.' }
+                    }
+                    $destination=Join-Path (Join-Path 'C:\ProbeOutput' $exportName) ('_compiler-references\'+$relative)
+                    New-Item -ItemType Directory -Path (Split-Path $destination -Parent) -Force | Out-Null
+                    if((Get-Item -LiteralPath $reference -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Package reference reparse point rejected.' }
+                    Copy-Item -LiteralPath $reference -Destination $destination
+                }
+            }
+        }
         $result.Producer=@{ ExportDirectory=$exportName; Projects=$records }
         }
     }
