@@ -108,6 +108,7 @@ namespace TaskOTime.TimeTrackingServices.Tests.Doubles
         public Guid ProjectId { get; }
         public Guid CategoryId { get; }
         public bool FailMutations { get; set; }
+        public bool FailMainDataReads { get; set; }
         public int MutationCalls { get; private set; }
         public Guid LastMutationTenant { get; private set; }
         public Guid LastMutationActingUser { get; private set; }
@@ -375,6 +376,8 @@ namespace TaskOTime.TimeTrackingServices.Tests.Doubles
 
         private ServiceResult<IReadOnlyList<T>> Query<T>(MainDataQueryRequest request, List<T> items, Func<T, bool> predicate = null)
         {
+            if (FailMainDataReads)
+                return ServiceResult<IReadOnlyList<T>>.Fail("TestReadFailure", "Requested main data read failure.");
             if (request == null || request.IdTenant != Tenant.IdTenant)
                 return ServiceResult<IReadOnlyList<T>>.Fail("InvalidRequest", "A benchmark tenant query is required.");
             return ServiceResult<IReadOnlyList<T>>.Ok((predicate == null ? items : items.Where(predicate)).ToList());

@@ -18,6 +18,12 @@ namespace TaskOTime.ViewModel.ViewModels
             NewCommand = Command(NewProject);
             SaveCommand = Command(SaveProject, () => SelectedProject != null);
             ArchiveCommand = Command(ArchiveProject, () => SelectedProject != null);
+            Projects.CollectionChanged += (_, __) =>
+            {
+                var selectedId = SelectedProject?.IdProject;
+                SelectedProject = Projects.FirstOrDefault(project => project.IdProject == selectedId)
+                    ?? Projects.FirstOrDefault();
+            };
             SelectedProject = Projects.FirstOrDefault();
         }
 

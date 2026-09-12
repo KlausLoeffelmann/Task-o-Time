@@ -35,6 +35,10 @@
     <Compile Include="..\TaskOTime.ViewModel\ServiceWorkspace.cs" Link="ViewModel\ServiceWorkspace.cs" />
     <Compile Include="..\TaskOTime.ViewModel\ViewModels\MaintenanceViewModel.cs" Link="ViewModel\ViewModels\MaintenanceViewModel.cs" />
     <Compile Include="..\TaskOTime.ViewModel\ViewModels\TenantUserViewModel.cs" Link="ViewModel\ViewModels\TenantUserViewModel.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\ViewModels\MainDataViewModel.cs" Link="ViewModel\ViewModels\MainDataViewModel.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\ViewModels\ProjectViewModel.cs" Link="ViewModel\ViewModels\ProjectViewModel.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\ViewModels\MasterTaskViewModel.cs" Link="ViewModel\ViewModels\MasterTaskViewModel.cs" />
+    <Compile Include="..\TaskOTime.ViewModel\ViewModels\CollaborationViewModel.cs" Link="ViewModel\ViewModels\CollaborationViewModel.cs" />
     <Compile Include="..\TaskOTime.AppServer\Security\*.cs" LinkBase="AppServer\Security" />
     <Compile Include="..\TaskOTime.AppServer\TimeBooking\*.cs" LinkBase="AppServer\TimeBooking" />
     <Compile Include="..\TaskOTime.DataLayer\Model\TaskOTime.Context.cs" Link="DataLayer\Model\TaskOTime.Context.cs" />

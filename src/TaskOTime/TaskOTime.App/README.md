@@ -102,9 +102,21 @@ duplicate names. The workspace adopts the service result, and reopening it reads
 the tenant through the authorized `GetTenant` API rather than a cached DTO.
 
 An active administrator may reactivate an inactive tenant using this dedicated
-operation. While the tenant is inactive, other maintenance mutations are disabled.
+operation. Recreating the maintenance model for an existing administrator first
+reads the authorized tenant state, even if its caller supplies a stale active DTO.
+An inactive tenant opens on the tenant tab with no normal Main Data collections
+loaded; users remain readable, but only tenant updates are enabled. Normal Main
+Data authorization is not relaxed. Reactivation reloads all collections before
+enabling normal mutations. If reload fails, the saved tenant remains visible,
+the error is reported, and another tenant save retries the load.
+
 Closing maintenance with the tenant still inactive ends the desktop session
 instead of attempting further project/booking queries for that tenant.
+This is not a new inactive-tenant login path: the existing authentication service
+checks user credentials/status but does not itself check tenant activity; normal
+desktop creation still fails its Main Data reads for inactive tenants. This branch
+composes maintenance in `MainWindow.OnMainDataRequested` using `TenantFor` and the
+`MainDataViewModel` service constructor; it has no separate desktop factory helper.
 
 Application API types use `MainData` (for example `IAdminMainDataService`).
 SQL table names, EF mappings, and persisted identifiers are unchanged.

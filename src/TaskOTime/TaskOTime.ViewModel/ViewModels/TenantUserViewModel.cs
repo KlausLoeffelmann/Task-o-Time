@@ -73,6 +73,7 @@ namespace TaskOTime.ViewModel.ViewModels
             }), "Save tenant");
             Store.ApplyTenant(saved);
             SelectedTenant = saved;
+            Store.ReloadMainData();
             Interaction.Notify("Tenant saved.", "Tenant");
         }
 

@@ -320,6 +320,33 @@ Namespace TaskOTime.TimeTrackingServices.Tests
         End Sub
 
         <TestMethod>
+        Public Sub ReactivationLoadFailure_KeepsSavedTenantButDisablesNormalCommandsUntilRetry()
+            Dim f As New Fixture()
+            Dim staleTenant = f.Store.Tenant
+            f.Main.TenantUsers.TenantActive = False
+            f.Main.TenantUsers.SaveTenantCommand.Execute(Nothing)
+            f.Services.FailMainDataReads = True
+            Dim reopened = New MainDataViewModel(staleTenant, f.Services.ActingUserId,
+                f.Services, f.Services, f.Services, 1, f.Interaction)
+            Assert.AreEqual(0, reopened.SelectedTab)
+            Assert.IsFalse(reopened.Tenant.IsActive)
+            reopened.TenantUsers.TenantActive = True
+            reopened.TenantUsers.SaveTenantCommand.Execute(Nothing)
+            Assert.IsTrue(reopened.Tenant.IsActive)
+            Assert.AreSame(reopened.Tenant, reopened.TenantUsers.SelectedTenant)
+            Assert.IsFalse(reopened.Projects.NewCommand.CanExecute(Nothing))
+            Assert.AreEqual(0, reopened.Projects.Projects.Count)
+            StringAssert.Contains(f.Interaction.Messages.Last(), "TestReadFailure")
+            f.Services.FailMainDataReads = False
+            reopened.TenantUsers.SaveTenantCommand.Execute(Nothing)
+            Assert.IsTrue(reopened.Projects.NewCommand.CanExecute(Nothing))
+            Assert.AreEqual(2, reopened.Projects.Projects.Count)
+            Assert.IsNotNull(reopened.Projects.SelectedProject)
+            Assert.IsNotNull(reopened.Tasks.SelectedList)
+            Assert.IsNotNull(reopened.Tasks.SelectedTask)
+        End Sub
+
+        <TestMethod>
         Public Sub NonAdministrator_CannotExecuteAnyMaintenanceMutation()
             Dim f As New Fixture()
             f.Store.Users.Single().IsAdmin = False

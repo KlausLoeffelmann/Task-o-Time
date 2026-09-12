@@ -18,11 +18,11 @@ namespace TaskOTime.ViewModel.ViewModels
             Store.PropertyChanged += (_, __) => RefreshCommands();
         }
 
-        public bool CanManage => Store.CanManage && Store.Tenant.IsActive;
+        public bool CanManage => Store.CanManage && Store.Tenant.IsActive && Store.IsMainDataLoaded;
 
         protected DelegateCommand Command(Action action, Func<bool> enabled = null, bool allowInactiveTenant = false)
         {
-            bool CanExecute() => Store.CanManage && (allowInactiveTenant || Store.Tenant.IsActive)
+            bool CanExecute() => Store.CanManage && (allowInactiveTenant || (Store.Tenant.IsActive && Store.IsMainDataLoaded))
                 && (enabled == null || enabled());
             var command = new DelegateCommand(_ =>
             {
