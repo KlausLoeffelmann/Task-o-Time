@@ -1,5 +1,11 @@
 # Independent compiler-assisted modernization assessment
 
+**Execution timing:** this evaluator runs during later assessment, not while
+creating the staged starting points or Golden. Trials use a completely new
+repository containing only the selected starting branch inside a headless
+Windows container. Golden preparation does not require running these commands
+or obtaining a replay receipt; see `..\Assessor-Guide.md`.
+
 This **xUnit** project is independent of the legacy MSTest
 `ArchitectureFitness.Tests` project. Static diagnostics use Roslyn
 `DiagnosticAnalyzer`; stage policy and independent CLI replay run outside its
@@ -504,7 +510,7 @@ For independently reviewed **owned reference tools**, the separately labelled
 a fresh build and actual replay. It sets neither `ReferenceVerified=true` nor
 formal `Verified=true`: post-build compiler/target files are both mutable, so
 matching hashes do not establish producer provenance. It cannot satisfy TOOL002
-or Golden acceptance. See `..\Reference-Replay.md` for commands, the approval
+or a formal Golden grade. See `..\Reference-Replay.md` for commands, the approval
 contract and the double-overwrite regression. Sandbox producer signing is also
 disabled until trusted compiler capture exists outside submitted build control.
 
@@ -729,4 +735,5 @@ All business, architecture, localization, language, comment, naming, theme,
 scope, core and EF6 rules stay mandatory in final mode, including regressions in
 pre-satisfied work. The hard gate requires zero mandatory defects and valid
 compilations; S4 also requires full weighted score 1.0. Separate application
-unit/SQL/STA and explicit visual checks are required before calling Golden ideal.
+unit/SQL/STA and explicit visual checks are separate formal acceptance evidence.
+These grading requirements do not gate preparation of the Golden branch.

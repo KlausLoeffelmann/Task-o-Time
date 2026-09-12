@@ -29,9 +29,9 @@ S2/S3 prohibit production VB, not VB test projects.
   all application/test projects to net472. S2 removes production VB while
   preserving nonmigration defects. S2a is the SDK-style net472 checkpoint.
   S3 is SDK-style C# .NET 10, still intentionally nonmigration-defective.
-- S4 / `TheGoldenBranch` is reserved for the fully corrected reference. The
+- S4 / `TheGoldenBranch` contains the fully corrected reference. The
   historical evaluator-custody Golden at `1f1b552` is not evidence of correctness.
-  Preserve that revision privately before promoting the new reference.
+  That revision is preserved privately as `assessment-baseline`.
 - `main` and its history are not rewritten.
 - The actual Git author remains the configured contributor. The
   `Klaus obo ...` titles describe fictional documentation voices; no fabricated
@@ -42,6 +42,27 @@ assessment. A separate branch is not an access-control boundary: an agent that
 can fetch `TheGoldenBranch` can inspect its oracle. Use a candidate-only export
 or a restricted repository for actual trials. Rebasing removes reachability
 from a branch, not objects from other branches, remote caches, or local reflogs.
+
+## Preparation versus later evaluation
+
+Stage creation and Golden preparation do **not** run the assessment tests or
+wait for isolated replay, signing, or process-profile experiments. Previously
+collected development evidence remains historical evidence; it does not imply
+that a formal assessment has awarded a score.
+
+Actual trials happen later in a **headless Windows container**, with a completely
+new repository containing only the selected start/origin branch. Initialize it
+from the clean stage export; do not copy this private repository's Git objects,
+other branches, Golden implementation, preparation tools, or evaluator into the
+candidate-visible repository. Provide private grading material separately when
+evaluation takes place.
+
+The acceptance commands and scoring requirements below describe that later
+evaluation, not prerequisites for creating or advancing `TheGoldenBranch`.
+Experimental Windows Sandbox and owned-reference replay utilities are retained
+as private diagnostics, not the required infrastructure for the planned trials.
+The S4 preparation record in `tools\StageBaselines.json` explicitly leaves formal
+assessment deferred and its score unset.
 
 ## Scope and expected changes
 
@@ -184,7 +205,7 @@ cannot establish conversion correctness. TOOL002 reports missing/failed trusted
 replay for applicable work. AcceptanceDiagnostics retains all mandatory quality,
 stage-target and replay failures; only TOOL001 is separated from acceptance
 because a genuine wrapper need not match a custom emitter's source shape.
-Final acceptance requires valid inputs and **zero AcceptanceDiagnostics**;
+Later formal acceptance requires valid inputs and **zero AcceptanceDiagnostics**;
 S4 additionally needs full score 1.0 and separate runtime/SQL/visual evidence.
 A rich companion fixture beside a converter that emits an empty class is not
 conversion acceptance; the replay negative regression exercises that exact case.
@@ -217,7 +238,8 @@ a separate runnable `reference-reviewed` path: exact-source independent approval
 fresh evaluated builds and actual local replay provide diagnostics only.
 Both `ReferenceVerified` and `Verified` stay false; tracked payloads can replace
 both outputs after compilation without changing source. No reference TOOL002 or
-Golden acceptance is granted; no other quality rule is waived.
+formal Golden grade is granted; no other quality rule is waived. This does not
+prevent preparation of the Golden branch.
 Preparation tooling, expected outputs, logs and evaluator files are never
 candidate handover material. Export only application allowlisted files and the
 stage-appropriate candidate brief, without Git history or private support refs.

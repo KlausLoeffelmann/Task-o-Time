@@ -1,5 +1,11 @@
 # Windows Sandbox diagnostics and bounded protected compilation
 
+**Preparation status:** this is retained experimental diagnostic work, not a
+prerequisite for creating stages or advancing Golden. Further Sandbox/profile
+experiments are deferred. The planned later assessment uses a fresh repository
+containing only the selected starting branch inside a headless Windows container;
+see `..\Assessor-Guide.md`. No formal assessment result is claimed here.
+
 This implementation uses the **existing enabled Windows Sandbox feature**.
 It does not enable/install Windows features, create Windows users, install a
 container engine, or import a signing key into the guest.

@@ -162,5 +162,40 @@
     "formalToolReplayAccepted": false,
     "reusableToolReview": "Independent review findings resolved in dc92172; all 16 migration scenarios passed in parent verification. Formal isolated replay remains separate.",
     "goldenIdealAccepted": false
+  },
+  "S4": {
+    "applicationRef": "modernization-S4-ideal",
+    "branch": "TheGoldenBranch",
+    "inputCommit": "073d1c4483ffec987937f8f4c865958d82bb10e3",
+    "applicationBinarySourceCommit": "78339e7f473247a80b876e40e0db74a713e356cf",
+    "productionLanguage": "C#",
+    "testLanguage": "C# and VB",
+    "allProductionProjectsSdkStyle": true,
+    "allApplicationAndTestTargets": "net10.0 or net10.0-windows",
+    "entityFrameworkVersion": "6.5.2",
+    "intentionalBusinessDefectsPreserved": false,
+    "referenceImplementationPrepared": true,
+    "completedAreas": [
+      "Business correctness and persisted task/booking workflows",
+      "MVVM presentation boundaries and authorized Main Data workflows",
+      "English comments/XML documentation and Main Data naming",
+      "Live en/de/nl/es localization on the required surfaces",
+      "Light/dark/high-contrast theme and calendar states",
+      "Reusable compiler-aware language and project migration tools"
+    ],
+    "priorDevelopmentEvidence": {
+      "productTestsPassed": 207,
+      "privateCorrectnessTestsPassed": 5,
+      "freshReleaseBuildVerified": true,
+      "publishedIdealDesktopStartupVerified": true,
+      "ownedDatabaseCleanupVerified": true,
+      "visualInspectionCompleted": true,
+      "evidenceIsFormalAssessment": false
+    },
+    "formalAssessmentStatus": "deferred",
+    "formalToolReplayAccepted": false,
+    "formalAssessmentScore": null,
+    "assessmentEnvironment": "Later: a completely new repository containing only the selected starting branch inside a headless Windows container.",
+    "preparationPolicy": "Do not run assessment tests or require isolated replay during stage/Golden creation. Preserve prior development evidence without claiming a formal grade."
   }
 }

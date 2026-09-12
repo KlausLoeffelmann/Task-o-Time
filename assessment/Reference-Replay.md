@@ -2,8 +2,13 @@
 
 This lane validates **independently source-reviewed, assessor-owned reference
 tools** without pretending a local process is isolated. It cannot satisfy TOOL002
-or authorize Golden promotion. It is not an alternative route for an untrusted
+or establish a formal assessment grade. It is not an alternative route for an untrusted
 candidate submission.
+
+This is historical diagnostic infrastructure, not a stage-creation prerequisite.
+Per `Assessor-Guide.md`, actual assessment happens later in a headless Windows
+container with a new repository containing only the selected starting branch.
+Preparing or advancing Golden does not run this lane or require its acceptance.
 
 **Provenance correction:** submitted MSBuild controls both the compiler `/out:`
 file and evaluated `TargetPath` after build. An `AfterTargets="Build"` copy can
