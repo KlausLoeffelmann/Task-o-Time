@@ -521,4 +521,7 @@
   <data name="Common_ErrorDetail" xml:space="preserve">
     <value>De bewerking is mislukt: {0}</value>
   </data>
+  <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
+    <value>Het afronden van de taak is mislukt en de boekingen konden niet worden hersteld.</value>
+  </data>
 </root>

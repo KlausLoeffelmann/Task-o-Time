@@ -521,4 +521,7 @@
   <data name="Common_ErrorDetail" xml:space="preserve">
     <value>La operación falló: {0}</value>
   </data>
+  <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
+    <value>No se pudo completar la tarea ni restaurar sus registros de tiempo.</value>
+  </data>
 </root>

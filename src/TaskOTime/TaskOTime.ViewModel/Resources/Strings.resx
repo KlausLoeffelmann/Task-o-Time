@@ -521,4 +521,7 @@
   <data name="Common_ErrorDetail" xml:space="preserve">
     <value>The operation failed: {0}</value>
   </data>
+  <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
+    <value>Task completion failed and its bookings could not be restored.</value>
+  </data>
 </root>

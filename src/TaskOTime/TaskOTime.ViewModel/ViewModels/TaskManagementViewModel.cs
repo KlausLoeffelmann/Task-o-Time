@@ -325,13 +325,14 @@ SelectedTaskList.Subtitle = subtitle;
                 return;
             }
 
-            // de taakstatus verandert pas nadat de gekoppelde boekingsaanvraag zonder uitzondering is verwerkt.  zo blijft de zichtbare status gelijk aan de opgeslagen toestand.
-            TaskCompletionRequested?.Invoke(this, new TaskCompletionRequestEventArgs(SelectedTaskItem, _clock()));
-            SelectedTaskItem.MarkDone();
-            if (_saveTask is not null)
-                _saveTask(SelectedTaskItem);
-            if (ReferenceEquals(CurrentRecordingTask, SelectedTaskItem))
+            var task = SelectedTaskItem;
+            RequestCompletion(task, _clock(), false, true);
+            task.MarkDone();
+            if (ReferenceEquals(CurrentRecordingTask, task))
+            {
+                CompleteRecordingOnNextTimeEntry = false;
                 ClearCurrentRecording();
+            }
             RefreshSelectedTaskState();
         }
 
@@ -359,21 +360,49 @@ SelectedTaskList.Subtitle = subtitle;
                 return;
             }
 
-            TaskCompletionRequested?.Invoke(this, new TaskCompletionRequestEventArgs(CurrentRecordingTask, boundaryTime, true));
+            var task = CurrentRecordingTask;
+            RequestCompletion(task, boundaryTime, true, completeTask);
             if (completeTask)
             {
-                CurrentRecordingTask.MarkDone();
-                if (_saveTask is not null)
-                    _saveTask(CurrentRecordingTask);
+                task.MarkDone();
             }
             else
             {
-                CurrentRecordingTask.StopRecordingWithoutFinishing();
+                task.StopRecordingWithoutFinishing();
             }
 
             CompleteRecordingOnNextTimeEntry = false;
             ClearCurrentRecording();
             RefreshSelectedTaskState();
+        }
+
+        private void RequestCompletion(TaskItemViewModel task, DateTime completedAt, bool useExistingBoundary, bool completeTask)
+        {
+            var request = new TaskCompletionRequestEventArgs(task, completedAt, useExistingBoundary);
+            try
+            {
+                TaskCompletionRequested?.Invoke(this, request);
+                // The save callback receives the intended persisted state, but the
+                // live task keeps its recording timestamp and flags until success.
+                if (completeTask && _saveTask is not null)
+                    _saveTask(task.CreateCompletedSnapshot());
+            }
+            catch (Exception failure)
+            {
+                try
+                {
+                    request.RollbackBooking?.Invoke();
+                }
+                catch (Exception rollbackFailure)
+                {
+                    throw new AggregateException(Text("Booking_CompletionRollbackFailed"), failure, rollbackFailure);
+                }
+                finally
+                {
+                    RefreshSelectedTaskState();
+                }
+                throw;
+            }
         }
 
         public void UpdateRecordingClock(DateTime nowValue)

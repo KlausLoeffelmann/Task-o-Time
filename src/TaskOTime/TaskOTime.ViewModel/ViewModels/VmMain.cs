@@ -26,6 +26,7 @@ namespace TaskOTime.ViewModel.ViewModels
             TimeCollection.TimeEntryEditRequested += OnTimeEntryEditRequested;
 
             TaskManagement = suppliedTaskManagement ?? new TaskManagementViewModel();
+            TimeCollection.RecordingTask = () => TaskManagement.CurrentRecordingTask;
             TaskManagement.PropertyChanged += OnTaskManagementPropertyChanged;
             TaskManagement.TaskListEditRequested += OnTaskListEditRequested;
             TaskManagement.TaskCompletionRequested += OnTaskCompletionRequested;
@@ -337,7 +338,7 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (!e.Task.StartedAt.HasValue)
                     throw new InvalidOperationException(Text("Main_NoStart"));
-                TimeCollection.RecordTask(e.Task, e.Task.StartedAt.Value, e.CompletedAt, true);
+                e.RollbackBooking = TimeCollection.RecordTaskWithCompensation(e.Task, e.Task.StartedAt.Value, e.CompletedAt, true);
                 SelectedDate = e.Task.StartedAt.Value.Date;
                 return;
             }
@@ -361,8 +362,8 @@ namespace TaskOTime.ViewModel.ViewModels
                 }
                 startTime = SelectedDate.Add(start);
             }
-            var endTime = startTime.AddMinutes(duration.Minutes);
-            TimeCollection.RecordTask(e.Task, startTime, endTime);
+            var endTime = startTime.Add(duration);
+            e.RollbackBooking = TimeCollection.RecordTaskWithCompensation(e.Task, startTime, endTime);
             SelectedDate = startTime.Date;
         }
 

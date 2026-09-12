@@ -241,6 +241,17 @@ namespace TaskOTime.ViewModel.ViewModels
             UpdateRecordingElapsed(DateTime.Now);
         }
 
+        internal TaskItemViewModel CreateCompletedSnapshot()
+        {
+            var completed = new TaskItemViewModel(Id, Title, Description, DueText)
+            {
+                IdProject = IdProject,
+                IdTask = IdTask
+            };
+            completed.MarkDone();
+            return completed;
+        }
+
         public void MarkDone()
         {
             NeedsMore = false;

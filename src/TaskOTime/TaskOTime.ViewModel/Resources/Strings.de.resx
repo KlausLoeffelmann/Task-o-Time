@@ -521,4 +521,7 @@
   <data name="Common_ErrorDetail" xml:space="preserve">
     <value>Die Aktion ist fehlgeschlagen: {0}</value>
   </data>
+  <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
+    <value>Der Aufgabenabschluss ist fehlgeschlagen und die Buchungen konnten nicht wiederhergestellt werden.</value>
+  </data>
 </root>
