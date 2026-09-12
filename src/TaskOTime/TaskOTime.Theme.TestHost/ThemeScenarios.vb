@@ -11,6 +11,7 @@ Imports System.Windows.Controls
 Imports System.Windows.Controls.Primitives
 Imports System.Windows.Data
 Imports System.Windows.Media
+Imports System.Windows.Media.Imaging
 Imports System.Windows.Markup
 Imports System.Windows.Shapes
 Imports System.Windows.Threading
@@ -428,6 +429,109 @@ Namespace TaskOTime.Theme.TestHost
                 End Sub)
         End Sub
 
+        Public Sub SharedListViewports_PaintEmptySpaceAndPreserveScrolling()
+            OnSta(
+                Sub()
+                    RenderOptions.ProcessRenderMode = System.Windows.Interop.RenderMode.SoftwareOnly
+                    Using host As New ThemeHost()
+                        Dim columns As New GridView()
+                        columns.Columns.Add(New GridViewColumn With {.Header = "Name", .Width = 600, .DisplayMemberBinding = New Binding()})
+                        columns.ColumnHeaderContainerStyle = DirectCast(host.Window.FindResource("MainDataGridViewColumnHeaderStyle"), Style)
+                        Dim lists As ListBox() = {New ListBox(), New ListView(), New ListView With {.View = columns}}
+                        For Each list In lists
+                            list.Height = 200
+                            list.ItemsSource = New String() {"Alpha", "Beta"}
+                            list.SelectedIndex = 0
+                            list.SetResourceReference(FrameworkElement.StyleProperty,
+                                If(TypeOf list Is ListView, "MainDataListViewStyle", "MainDataListBoxStyle"))
+                            host.Panel.Children.Add(list)
+                        Next
+                        host.Show()
+                        For Each palette In {AppTheme.Dark, AppTheme.Light, AppTheme.HighContrast}
+                            For Each lightContrast In {False, True}
+                                host.UseContrastScheme(lightContrast)
+                                host.Service.SetTheme(palette)
+                                For Each enabled In {True, False}
+                                    For Each list In lists
+                                        list.IsEnabled = enabled
+                                    Next
+                                    host.Layout()
+                                    For Each list In lists
+                                        AssertEmptyViewportPixels(list, If(enabled, "ContentBackgroundBrush", "DisabledBackgroundBrush"))
+                                        Dim selected = DirectCast(list.ItemContainerGenerator.ContainerFromIndex(0), ListBoxItem)
+                                        AssertPair(selected, If(enabled, "SelectedForegroundBrush", "DisabledForegroundBrush"),
+                                            If(enabled, "ListItemSelectedBackgroundBrush", "DisabledBackgroundBrush"))
+                                        Dim normal = DirectCast(list.ItemContainerGenerator.ContainerFromIndex(1), ListBoxItem)
+                                        AssertPair(normal, If(enabled, "ContentForegroundBrush", "DisabledForegroundBrush"),
+                                            If(enabled, "ContentBackgroundBrush", "DisabledBackgroundBrush"))
+                                    Next
+                                Next
+                            Next
+                        Next
+                        For Each list In lists
+                            list.IsEnabled = True
+                            SetState(list, "IsKeyboardFocusWithin", True)
+                            AssertBrush(list.BorderBrush, list.FindResource("FocusBrush"))
+                            SetState(list, "IsKeyboardFocusWithin", False)
+                            list.ItemsSource = Enumerable.Range(0, 1000).Select(Function(index) "Item " & index).ToArray()
+                            host.Layout()
+                            Dim panel = Descendants(Of VirtualizingStackPanel)(list).Single()
+                            Assert.IsTrue(panel.Children.Count < 100, "The finite viewport must not realize all 1000 rows.")
+                            Dim viewer = Descendants(Of ScrollViewer)(list).First()
+                            Assert.IsTrue(viewer.CanContentScroll)
+                            list.SelectedIndex = 999
+                            list.ScrollIntoView(list.SelectedItem)
+                            host.Layout()
+                            Assert.IsNotNull(list.ItemContainerGenerator.ContainerFromIndex(999))
+                            Assert.IsTrue(viewer.VerticalOffset > 0)
+                            Assert.IsTrue(panel.Children.Count < 100)
+                        Next
+                        Dim gridList = DirectCast(lists(2), ListView)
+                        Assert.IsTrue(Descendants(Of GridViewColumnHeader)(gridList).Any(Function(header) header.Role = GridViewColumnHeaderRole.Normal))
+                        Assert.IsTrue(Descendants(Of GridViewRowPresenter)(gridList).Any())
+                        Dim gridViewer = Descendants(Of ScrollViewer)(gridList).First()
+                        Assert.IsTrue(gridViewer.ScrollableWidth > 0, "Wide columns must retain horizontal scrolling.")
+                        gridViewer.ScrollToHorizontalOffset(100)
+                        host.Layout()
+                        Assert.IsTrue(gridViewer.HorizontalOffset > 0)
+                        For Each list In lists
+                            list.ItemsSource = New String() {"Alpha", "Beta", "Gamma"}
+                            list.GroupStyle.Add(New GroupStyle())
+                            VirtualizingPanel.SetIsVirtualizingWhenGrouping(list, False)
+                            CollectionViewSource.GetDefaultView(list.ItemsSource).GroupDescriptions.Add(New PropertyGroupDescription("Length"))
+                            host.Layout()
+                            Assert.IsTrue(list.IsGrouping)
+                            Assert.IsFalse(Descendants(Of ScrollViewer)(list).First().CanContentScroll,
+                                "Nonvirtualized grouping must retain pixel scrolling.")
+                            Assert.AreEqual(2, Descendants(Of GroupItem)(list).Count())
+                        Next
+                    End Using
+                End Sub)
+        End Sub
+
+        Private Shared Sub AssertEmptyViewportPixels(list As ListBox, backgroundKey As String)
+            Dim viewer = Descendants(Of ScrollViewer)(list).First()
+            Dim viewport = DirectCast(viewer.Template.FindName("PART_ScrollContentPresenter", viewer), ScrollContentPresenter)
+            Assert.IsNotNull(viewport)
+            Dim hostWindow = Window.GetWindow(list)
+            Dim point = viewport.TranslatePoint(New Point(viewport.ActualWidth / 2, viewport.ActualHeight - 15), hostWindow)
+            For Each row As ListBoxItem In Descendants(Of ListBoxItem)(list)
+                Dim bottom = row.TranslatePoint(New Point(0, row.ActualHeight), hostWindow).Y
+                Assert.IsTrue(bottom < point.Y - 3, "The sampled viewport region must be below every row.")
+            Next
+            Dim bitmap As New RenderTargetBitmap(CInt(Math.Ceiling(hostWindow.ActualWidth)), CInt(Math.Ceiling(hostWindow.ActualHeight)),
+                96, 96, PixelFormats.Pbgra32)
+            bitmap.Render(hostWindow)
+            Dim pixels(24) As Integer
+            bitmap.CopyPixels(New Int32Rect(CInt(point.X) - 2, CInt(point.Y) - 2, 5, 5), pixels, 20, 0)
+            Dim expected = DirectCast(list.FindResource(backgroundKey), SolidColorBrush).Color
+            For Each pixel In pixels
+                Dim bytes = BitConverter.GetBytes(pixel)
+                Dim actual = Color.FromArgb(bytes(3), bytes(2), bytes(1), bytes(0))
+                Assert.AreEqual(expected, actual, list.GetType().Name & ": painted empty viewport must use " & backgroundKey)
+            Next
+        End Sub
+
         Public Sub MainDataWindow_RealViewsKeepReadableContentBindingsAndEditingAcrossPalettes()
             OnSta(
                 Sub()
@@ -487,6 +591,12 @@ Namespace TaskOTime.Theme.TestHost
                             AssertEditorStates(projects.ProjectNameTextBox)
                             AssertEditorStates(projects.ActiveCheckBox)
                             AssertReadableSubtree(projects)
+                            AssertEmptyViewportPixels(projects.ProjectListView, "ContentBackgroundBrush")
+                            projects.IsEnabled = False
+                            host.Layout()
+                            AssertEmptyViewportPixels(projects.ProjectListView, "DisabledBackgroundBrush")
+                            projects.IsEnabled = True
+                            host.Layout()
 
                             model.SelectedTab = 2
                             host.Layout()

@@ -179,6 +179,30 @@
     </Style>
     <Style x:Key="MainDataListBoxStyle" TargetType="{x:Type ListBox}" BasedOn="{StaticResource MainDataControlStyle}">
         <Setter Property="ItemContainerStyle" Value="{StaticResource MainDataListBoxItemStyle}" />
+        <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto" />
+        <Setter Property="ScrollViewer.CanContentScroll" Value="True" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ListBox}">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ScrollViewer" Focusable="False" Padding="{TemplateBinding Padding}">
+                            <ItemsPresenter x:Name="ItemsPresenter" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                        </ScrollViewer>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Style.Triggers>
+            <MultiTrigger>
+                <MultiTrigger.Conditions>
+                    <Condition Property="IsGrouping" Value="True" />
+                    <Condition Property="VirtualizingPanel.IsVirtualizingWhenGrouping" Value="False" />
+                </MultiTrigger.Conditions>
+                <Setter Property="ScrollViewer.CanContentScroll" Value="False" />
+            </MultiTrigger>
+        </Style.Triggers>
     </Style>
     <Style x:Key="MainDataListViewItemStyle" TargetType="{x:Type ListViewItem}" BasedOn="{StaticResource MainDataListBoxItemStyle}">
         <Setter Property="Template">
@@ -203,8 +227,26 @@
             </Setter.Value>
         </Setter>
     </Style>
-    <Style x:Key="MainDataListViewStyle" TargetType="{x:Type ListView}" BasedOn="{StaticResource MainDataControlStyle}">
+    <Style x:Key="MainDataListViewStyle" TargetType="{x:Type ListView}" BasedOn="{StaticResource MainDataListBoxStyle}">
         <Setter Property="ItemContainerStyle" Value="{StaticResource MainDataListViewItemStyle}" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="{x:Type ListView}">
+                    <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}" SnapsToDevicePixels="True">
+                        <ScrollViewer x:Name="PART_ScrollViewer" Focusable="False" Padding="{TemplateBinding Padding}"
+                                      Style="{DynamicResource {x:Static GridView.GridViewScrollViewerStyleKey}}">
+                            <ItemsPresenter x:Name="ItemsPresenter" SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}" />
+                        </ScrollViewer>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="View" Value="{x:Null}">
+                            <Setter TargetName="PART_ScrollViewer" Property="Style" Value="{x:Null}" />
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
     <Style x:Key="MainDataGridViewColumnHeaderStyle" TargetType="{x:Type GridViewColumnHeader}" BasedOn="{StaticResource MainDataControlStyle}">
         <Setter Property="Padding" Value="6,3" />

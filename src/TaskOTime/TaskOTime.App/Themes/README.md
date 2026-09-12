@@ -98,6 +98,12 @@ on an unstyled native light surface is not a themed reading surface.
 The list-view item style supports plain items and GridView rows. Set
 `GridView.ColumnHeaderContainerStyle` to `MainDataGridViewColumnHeaderStyle`.
 Applications adding a custom ViewBase must theme its custom surfaces explicitly.
+The shared ListBox/ListView templates paint their outer border from the themed
+background, including the empty viewport while disabled. Native list chrome
+otherwise substitutes the system control brush independently of `Background`.
+The templates retain ScrollViewer/ItemsPresenter, virtualizing item panels,
+the nonvirtualized-group scrolling fallback, and the native GridView scroll
+viewer style for column headers and synchronized horizontal scrolling.
 
 `TaskOTime.Theme.TestHost` contains the real WPF scenarios. They
 instantiate production templates, exercise two-way date selection and navigation,
@@ -132,6 +138,14 @@ These scenarios neither read/write shared settings nor save dialog drafts.
 Dialog palette brushes use dynamic lookup; static style/template/string
 references, localization, commands, and control bindings remain unchanged.
 
+`list-viewports` samples actual rendered pixels below the rows for ListBox,
+plain ListView, and GridView, in normal/disabled states across all palettes and
+both process-local contrast schemes. It also checks selected/normal/disabled row
+pairs, focus, scrolling to item 999 with fewer than 100 realized containers, and
+GridView horizontal scrolling/headers and nonvirtualized grouping. The real maintenance-view scenario samples
+the Project list's empty viewport with its parent view enabled and disabled.
+Bitmap rendering is process-local and needs no image files or machine settings.
+
 ## Strict process test protocol
 
 `TaskOTime.Theme.Tests` starts a fresh executable for each UI scenario:
@@ -142,7 +156,7 @@ dotnet test .\TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj
 ```
 
 Accepted cases are `calendar-states`, `calendar-weekday-headers`,
-`calendar-range-preview`, `control-states`, `list-tab-states`,
+`calendar-range-preview`, `control-states`, `list-tab-states`, `list-viewports`,
 `runtime-preferences`, `maintenance-views`, `main-window`, and
 `application-lifetime`, plus `dialog-options`, `dialog-time-entry`, `dialog-login`,
 `dialog-shell`, and `dialog-task-list`. `self-test-failure` deliberately fails an assertion for
