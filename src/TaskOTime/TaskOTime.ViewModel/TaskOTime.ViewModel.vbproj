@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net461</TargetFramework>
+    <TargetFramework>net472</TargetFramework>
     <UseWPF>true</UseWPF>
     <RootNamespace>TaskOTime.ViewModel</RootNamespace>
     <OptionStrict>On</OptionStrict>
@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
     <ProjectReference Include="..\TaskOTime.AppServer\TaskOTime.AppServer.csproj" />
     <ProjectReference Include="..\TaskOTime.DTOs\TaskOTime.DTOs.csproj" />
     <ProjectReference Include="..\TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj" />
