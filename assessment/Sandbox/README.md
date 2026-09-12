@@ -2,7 +2,7 @@
 
 This implementation uses the **existing enabled Windows Sandbox feature**.
 It does not enable/install Windows features, create Windows users, install a
-container engine, import a signing key, or issue a verification receipt.
+container engine, or import a signing key into the guest.
 
 `Invoke-SandboxProbe.ps1` supports an owned capability probe, source producer
 builds, and actual CLI execution. Despite the historical probe filename, producer
@@ -31,6 +31,12 @@ $build = & $runner `
   -PublicPackageRoot 'C:\private\curated-public-package-cache' `
   -TimeoutSeconds 600
 $build.HostProducerVerification.CompilerTargets
+
+# Optional producer-only proof, signed on the HOST after actual checks/VM shutdown.
+# Requires PowerShell 7+. A fresh private key exists only in host memory.
+$proof = & $runner -SourceRoot 'C:\private\owned-tool-source' `
+  -Projects 'Utility\Utility.csproj' -SignProducerProof
+$proof.SignedProducerProof
 
 # Fresh Sandbox for actual CLI execution. Expected files stay on the HOST.
 $run = & $runner `
@@ -135,11 +141,25 @@ On this machine, non-elevated `Win32_OptionalFeature` reported enabled
 One immediate subsequent VM startup failed to bootstrap; a fresh retry passed.
 Startup failure is reported, never converted to a successful case.
 
-## Claims deliberately not made
+## Precisely scoped producer proof and remaining claims
 
 All script results retain `FormalVerified=false`. This is a working execution
 and producer-verification primitive, **not a completed whole-assessment signer**.
-No receipt has been fabricated or signed. The standard external replay contract
+`-SignProducerProof` can sign only the actual host-verified producer result, after
+VM shutdown. It binds source-file hashes, compiler/target hashes, SDK version,
+restricted-build result and observed controller protections. It generates a fresh
+3072-bit RSA key only in the host process, writes the public key and its fingerprint,
+self-verifies the RSA-PSS/SHA256 signature, and disposes the private key without
+exporting it.
+
+The proof policy is deliberately `taskotime-sandbox-producer-v1`, scope
+`producer-source-build-only`. It is **not** the full
+`taskotime-isolated-replay-v1` receipt and cannot satisfy full TOOL002 acceptance.
+A regression explicitly rejects producer-only proofs at the full-replay verifier.
+One actual producer run was signed and independently verified with its exported
+public key; no fake run or claimed unexecuted fixture was signed.
+
+The standard external replay contract
 is in `..\Modernization.Analyzers.Tests\README.md` / `ExternalReplay.cs`.
 
 Before formal use, independently review this native/controller boundary and wire

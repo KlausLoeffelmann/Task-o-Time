@@ -11,9 +11,13 @@ param(
     [string[]] $CommandArguments,
     [string] $ExpectedOutputRoot,
     [switch] $PrepareOnly,
+    [switch] $SignProducerProof,
     [ValidateRange(60,900)][int] $TimeoutSeconds = 240
 )
 $ErrorActionPreference = 'Stop'
+if ($SignProducerProof -and (-not $SourceRoot -or $PrepareOnly -or $PSVersionTable.PSVersion.Major -lt 7)) {
+    throw 'Signing an actual producer proof requires producer mode, execution, and PowerShell 7 or later.'
+}
 if (-not $PrepareOnly) {
     $feature = Get-CimInstance Win32_OptionalFeature -Filter "Name='Containers-DisposableClientVM'"
     if ($feature.InstallState -ne 1) { throw 'Windows Sandbox is not enabled. This command never enables or installs it.' }
@@ -182,6 +186,7 @@ if (Test-Path (Join-Path $payload 'forbidden-write.txt')) { throw 'Readonly mapp
 if (-not $result.Success) { throw ('Owned Sandbox preflight failed: ' + ($result | ConvertTo-Json -Depth 8)) }
 $producerVerification=$null
 $executionVerification=$null
+$signedProducerProof=$null
 if ($SourceRoot) {
     if ($result.Producer.ExportDirectory -notmatch '^producer-[0-9a-f]{32}$') { throw 'Invalid producer export identity.' }
     $export=Join-Path $output $result.Producer.ExportDirectory
@@ -231,6 +236,41 @@ if ($SourceRoot) {
         $verified+=@{ Project=$project; Target=$target; Sha256=$targetHash }
     }
     $producerVerification=@{ SourceUnchanged=$true; CompilerTargets=$verified; Export=$export }
+    if ($SignProducerProof) {
+        $proof=[ordered]@{
+            Policy='taskotime-sandbox-producer-v1'
+            Scope='producer-source-build-only'
+            FormalVerified=$false
+            SourceFiles=(Get-TreeSnapshot $sourceCopy)
+            CompilerTargets=$verified
+            SdkVersion=$result.SdkVersion
+            RestrictedBuildExit=$result.RestrictedBuildExit
+            ControllerBoundary=$result.Boundary
+            ReadonlyPayload=$result.ReadonlyPayload
+            DefaultRoutes=$result.DefaultRoutes
+            ExpiresAt=[DateTimeOffset]::UtcNow.AddMinutes(30).ToString('O')
+        }
+        $bytes=[Text.Encoding]::UTF8.GetBytes(($proof | ConvertTo-Json -Depth 12 -Compress))
+        $key=[Security.Cryptography.RSA]::Create(3072)
+        try {
+            $signature=$key.SignData($bytes,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pss)
+            if(-not $key.VerifyData($bytes,$signature,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pss)) {
+                throw 'Host producer signature self-verification failed.'
+            }
+            # Created only after the VM has stopped; this private key never leaves this host process.
+            $publicKey=Join-Path $run 'producer-public.pem'
+            [IO.File]::WriteAllText($publicKey,$key.ExportSubjectPublicKeyInfoPem())
+            $receipt=Join-Path $run 'producer-proof.json'
+            @{ PayloadBase64=[Convert]::ToBase64String($bytes); SignatureBase64=[Convert]::ToBase64String($signature) } |
+                ConvertTo-Json | Set-Content -LiteralPath $receipt -Encoding UTF8
+            $signedProducerProof=@{
+                Receipt=$receipt; PublicKey=$publicKey
+                PublicKeySha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($key.ExportSubjectPublicKeyInfo()))
+                Scope='producer-source-build-only'; FormalVerified=$false
+            }
+        }
+        finally { $key.Dispose() }
+    }
 }
 if ($BinaryRoot) {
     if($result.Execution.ExportDirectory -notmatch '^execution-[0-9a-f]{32}$') { throw 'Invalid CLI export identity.' }
@@ -263,6 +303,7 @@ if ($BinaryRoot) {
     Execution=$result.Execution
     HostProducerVerification=$producerVerification
     HostExecutionVerification=$executionVerification
+    SignedProducerProof=$signedProducerProof
     FormalVerified=$false
     Note='Owned feasibility probe only. Guest controller isolation and host verification are still required for formal grading.'
 }
