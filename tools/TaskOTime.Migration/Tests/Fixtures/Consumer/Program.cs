@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.Windows;
 using System.Windows.Controls;
 using Canary;
@@ -20,6 +21,7 @@ internal static class Program
         Require(collection.Count == 2 && collection[0] == "a" && collection["z"] == "z" && events == 2, "identity, sort, overloaded indexers, events");
         list[1] = "b";
         Require((string)list[1] == "b" && events == 3, "explicit untyped indexer");
+        Require(((IReadOnlyList<string>)collection)[1] == "b", "second explicit interface indexer");
         var number = 4;
         Require(Semantics.Adjust(ref number) == 9 && number == 7, "ByRef, optional, rounding, integer division");
         var application = new Application();
