@@ -51,7 +51,7 @@ function ConvertTo-CompilerArguments([string[]]$arguments,[string]$projectBase,[
             $result.Add('/'+$kind+':'+$path)
         }
         elseif($arg.StartsWith('/')) {
-            if($arg -notmatch '^/(noconfig|unsafe[-+]|checked[-+]|fullpaths|nostdlib\+|errorreport:(prompt|none)|warn:[0-9]+|nowarn:[A-Za-z0-9_,]+|define:[A-Za-z0-9_;]+|highentropyva[-+]|features:InterceptorsNamespaces=;Microsoft\.Extensions\.Validation\.Generated|debug\+|debug:portable|filealign:512|optimize[-+]|target:exe|warnaserror[-+]|warnaserror[-+]?:[A-Za-z0-9_,]+|utf8output|deterministic\+|langversion:[0-9.]+|nullable:(enable|disable|warnings|annotations))$') {
+            if($arg -notmatch '^/(noconfig|unsafe[-+]|checked[-+]|fullpaths|nostdlib\+|platform:AnyCPU|subsystemversion:6\.00|errorreport:(prompt|none)|warn:[0-9]+|nowarn:[A-Za-z0-9_,]+|define:[A-Za-z0-9_;]+|highentropyva[-+]|features:InterceptorsNamespaces=;Microsoft\.Extensions\.Validation\.Generated|debug\+|debug:portable|filealign:512|optimize[-+]|target:exe|warnaserror[-+]|warnaserror[-+]?:[A-Za-z0-9_,]+|utf8output|deterministic\+|langversion:[0-9.]+|nullable:(enable|disable|warnings|annotations))$') {
                 throw "Unsupported compiler feature: $arg"
             }
             if($arg -eq '/deterministic+') { $deterministic=$true }
@@ -71,7 +71,7 @@ function ConvertTo-CompilerArguments([string[]]$arguments,[string]$projectBase,[
     return ,$result.ToArray()
 }
 
-function New-CompilerPlan([object]$build,[string]$project,[string]$sdk,[string]$packages,[string]$destination) {
+function New-CompilerPlan([object]$build,[string]$project,[string]$sdk,[string]$packages,[string]$destination,[string]$framework) {
     if(Test-Path -LiteralPath $destination) { throw 'Compiler capture requires a fresh destination.' }
     $guestRoot='C:\ProbeWork\restricted\producer'
     $export=$build.HostProducerObservation.Export
@@ -110,6 +110,15 @@ function New-CompilerPlan([object]$build,[string]$project,[string]$sdk,[string]$
             }
             $from=Join-Path $sdk $relative; $hash=Get-CompilerFileHash $from; $copy=$null; $origin='readonly-sdk'
         }
+        elseif($path.StartsWith('C:\PublicFrameworkReferences\',[StringComparison]::OrdinalIgnoreCase)) {
+            $relative=$path.Substring('C:\PublicFrameworkReferences\'.Length)
+            if(-not $framework -or $kind -ne 'reference' -or
+                $relative -notmatch '^\.NETFramework\\v4\.7\.2\\(Facades\\)?[^\\]+\.dll$') {
+                throw 'Unsupported Framework compiler reference.'
+            }
+            $from=Join-Path $framework $relative; $hash=Get-CompilerFileHash $from
+            $copy=Join-Path $destination ('files\framework\'+$relative); $origin='readonly-framework472'
+        }
         elseif($path.StartsWith('C:\ProbeWork\restricted\packages\',[StringComparison]::OrdinalIgnoreCase) -or
                $path.StartsWith('C:\PublicPackages\',[StringComparison]::OrdinalIgnoreCase)) {
             if($kind -ne 'reference' -or -not $packages) { throw 'Only approved package assembly references are supported.' }
@@ -130,7 +139,8 @@ function New-CompilerPlan([object]$build,[string]$project,[string]$sdk,[string]$
     }
     function Bind-Output([string]$path,[string]$kind) {
         if(-not $path.StartsWith($base+'\obj\',[StringComparison]::OrdinalIgnoreCase) -or
-            [IO.Path]::GetExtension($path) -notin @('.dll','.pdb') -or $outputs.ContainsKey($path)) {
+            ([IO.Path]::GetExtension($path) -notin @('.dll','.pdb') -and
+                -not ($framework -and [IO.Path]::GetExtension($path) -eq '.exe')) -or $outputs.ContainsKey($path)) {
             throw 'Compiler output must be a unique managed artifact inside the project obj directory.'
         }
         $outputs[$path]=$kind
@@ -167,6 +177,7 @@ function New-CompilerPlan([object]$build,[string]$project,[string]$sdk,[string]$
         BuildSandboxStopped=$build.SandboxStopped; BuildSandboxProcessIds=$build.SandboxProcessIds
         CompilerSha256=(Get-CompilerFileHash (Join-Path $sdk 'sdk\10.0.401\Roslyn\bincore\csc.dll'))
         CompilerFiles=$compilerFiles
+        ReferenceSurface=$(if($framework) { 'framework472-console' } else { 'net10-console' })
     }
     New-Item -ItemType Directory -Path $destination -Force | Out-Null
     $plan | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath (Join-Path $destination 'job.json') -Encoding UTF8
@@ -204,6 +215,13 @@ function Assert-CompilerPlan([string]$root,[string]$sdk) {
             $file=Join-Path $root ('files\packages\'+$path.Substring('C:\PublicPackages\'.Length))
         } elseif($path.StartsWith('C:\PublicSdk\',[StringComparison]::OrdinalIgnoreCase)) {
             $file=Join-Path $sdk $path.Substring('C:\PublicSdk\'.Length)
+        } elseif($path.StartsWith('C:\PublicFrameworkReferences\',[StringComparison]::OrdinalIgnoreCase)) {
+            $relative=$path.Substring('C:\PublicFrameworkReferences\'.Length)
+            if($plan.ReferenceSurface -cne 'framework472-console' -or $kind -ne 'reference' -or
+                $relative -notmatch '^\.NETFramework\\v4\.7\.2\\(Facades\\)?[^\\]+\.dll$') {
+                throw 'Unsupported captured Framework reference.'
+            }
+            $file=Join-Path $root ('files\framework\'+$relative)
         } else { throw 'Unapproved compiler input root.' }
         if((Get-CompilerFileHash $file) -cne $record.Value.Sha256) { throw 'Compiler snapshot hash mismatch.' }
         [void]$seen.Add($path)
@@ -211,7 +229,8 @@ function Assert-CompilerPlan([string]$root,[string]$sdk) {
     $seenOutputs=New-Object 'Collections.Generic.HashSet[string]' ([StringComparer]::OrdinalIgnoreCase)
     function Check-Output([string]$path,[string]$kind) {
         if(-not $path.StartsWith($base+'\obj\',[StringComparison]::OrdinalIgnoreCase) -or
-           [IO.Path]::GetExtension($path) -notin @('.dll','.pdb') -or
+           ([IO.Path]::GetExtension($path) -notin @('.dll','.pdb') -and
+                -not ($plan.ReferenceSurface -ceq 'framework472-console' -and [IO.Path]::GetExtension($path) -eq '.exe')) -or
            $plan.Outputs.PSObject.Properties[$path].Value -cne $kind -or -not $seenOutputs.Add($path)) {
             throw 'Unbound or escaping compiler output.'
         }

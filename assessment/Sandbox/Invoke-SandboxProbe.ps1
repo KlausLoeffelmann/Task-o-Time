@@ -7,6 +7,7 @@ param(
     [string] $PublicFrameworkRoot,
     [string] $BinaryRoot,
     [string] $EntryAssembly,
+    [ValidateSet('net10','framework472')][string] $ExecutionRuntime = 'net10',
     [string] $CompilerJobRoot,
     [string] $InputRoot,
     [string[]] $CommandArguments,
@@ -106,7 +107,10 @@ if ($BinaryRoot) {
     if (-not ($CommandArguments -match '\{input\}') -or -not ($CommandArguments -match '\{output\}')) { throw 'Explicit {input}/{output} templates are required.' }
     Copy-SourceTree $binary (Join-Path $payload 'binary') $false
     Copy-SourceTree ((Resolve-Path $InputRoot).Path) (Join-Path $payload 'input') $false
-    @{ Kind='execute'; EntryAssembly=$EntryAssembly; Arguments=$CommandArguments } | ConvertTo-Json -Depth 6 |
+    if($ExecutionRuntime -eq 'framework472' -and [IO.Path]::GetExtension($EntryAssembly) -ine '.exe') {
+        throw 'Framework execution requires an explicit managed executable.'
+    }
+    @{ Kind='execute'; EntryAssembly=$EntryAssembly; Arguments=$CommandArguments; Runtime=$ExecutionRuntime } | ConvertTo-Json -Depth 6 |
         Set-Content (Join-Path $payload 'job.json') -Encoding UTF8
 }
 function Get-TreeSnapshot([string]$root) {
@@ -165,6 +169,9 @@ $folders=$document.CreateElement('MappedFolders'); [void]$configuration.AppendCh
 $mappings=@(@($payload,'C:\ProbePayload','true'),@($sdk,'C:\PublicSdk','true'),@($output,'C:\ProbeOutput','false'))
 if($CompilerJobRoot -and (Test-Path (Join-Path $payload 'compiler\files\packages'))) {
     $mappings+=,@((Join-Path $payload 'compiler\files\packages'),'C:\PublicPackages','true')
+}
+if($CompilerJobRoot -and (Test-Path (Join-Path $payload 'compiler\files\framework'))) {
+    $mappings+=,@((Join-Path $payload 'compiler\files\framework'),'C:\PublicFrameworkReferences','true')
 }
 if ($PublicPackageRoot) { $mappings+=,@((Resolve-Path $PublicPackageRoot).Path,'C:\PublicPackages','true') }
 if ($PublicFrameworkRoot) { $mappings+=,@((Resolve-Path $PublicFrameworkRoot).Path,'C:\PublicFrameworkReferences','true') }

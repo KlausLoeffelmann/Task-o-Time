@@ -152,8 +152,13 @@ public static class Program {
             $assembly=[IO.Path]::GetFullPath((Join-Path 'C:\ProbePayload\binary' $job.EntryAssembly))
             if (-not $assembly.StartsWith('C:\ProbePayload\binary\',[StringComparison]::OrdinalIgnoreCase)) { throw 'CLI entry escapes readonly binary root.' }
             $target=Join-Path $low 'output'
-            $arguments=@($assembly)+@($job.Arguments | ForEach-Object { $_.Replace('{input}','C:\ProbePayload\input').Replace('{output}',$target) })
-            $exit=[RestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',$arguments,$low,"$low\cli.stdout","$low\cli.stderr",120000)
+            $arguments=@($job.Arguments | ForEach-Object { $_.Replace('{input}','C:\ProbePayload\input').Replace('{output}',$target) })
+            if($job.Runtime -eq 'framework472') {
+                $executable=$assembly
+            } elseif($job.Runtime -eq 'net10') {
+                $executable='C:\PublicSdk\dotnet.exe'; $arguments=@($assembly)+$arguments
+            } else { throw 'Unsupported isolated execution runtime.' }
+            $exit=[RestrictedProcess]::Run($executable,$arguments,$low,"$low\cli.stdout","$low\cli.stderr",120000)
             $exportName='execution-'+[guid]::NewGuid().ToString('N')
             $export=Join-Path 'C:\ProbeOutput' $exportName
             New-Item -ItemType Directory -Path $export | Out-Null

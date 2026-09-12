@@ -71,11 +71,11 @@ The sequence is:
    A difference throws and preserves `protected-producer.json` as **rejection
    evidence**. Only the protected assembly is returned on success.
 
-Current support is deliberately **C# `net10.0` console executables**, explicit
+Current support is deliberately **C# `net10.0` and `net472` console executables**, explicit
 sources, managed embedded resources, standard SDK references and hash-matched
 approved package references. VB, library/Windows executable targets, project/local
-assembly dependencies requiring separate protected compilations, Framework/WPF
-reference surfaces, arbitrary compiler features, source-link files, signing/native
+assembly dependencies requiring separate protected compilations, WPF markup
+generation, other Framework versions, arbitrary compiler features, source-link files, signing/native
 resource options and response-file escapes are rejected.
 
 This establishes **compilation of the exact captured input set**, not that
@@ -270,11 +270,11 @@ replace or modify any modernization stage/ref. Session SQL table
 
 | Case | Actual status | Remaining |
 | --- | --- | --- |
-| Project held-out normalization | Initial, repeat, idempotent and JSON/source comparisons passed | Output compilation and formal evidence import |
+| Project held-out normalization | Initial, repeat, idempotent, JSON/source comparisons and protected **net472 emitted-output compilation** passed | Formal evidence import |
 | Project unsupported downgrade | Diagnostic nonzero exit/no output passed | Formal evidence import |
 | Language held-out behavior | Arithmetic diagnostic failed at named MMF creation | Portable capability, **predeclared frozen oracle and observational behavior fixture**, initial/repeat, compilation and behavior |
 | Language unsupported/no VB | Diagnostic nonzero exit/no output passed | Import, or rerun if language artifact/policy changes |
-| Prepared S0 → S1 normalization | Not run in this executor | Initial/repeat, compilation, checkpoint reconciliation |
+| Prepared S0 → S1 normalization | No accepted reconciliation yet | Initial/repeat, compilation, checkpoint reconciliation |
 | S1 → S2 language conversion | Not run in this executor | Portable capability, initial/repeat, compilation, reconciliation |
 | S2 → S2a SDK conversion | Not run in this executor | Initial/repeat, compilation, reconciliation |
 | S2a → S3 prepare + retarget | Not run in this executor | Explicit ordered-pipeline protocol, both operations for initial/repeat, final compilation/reconciliation |
@@ -319,6 +319,75 @@ operational task stays **in progress**, without relaxing token restrictions or
 claiming the current MMF incompatibility proves that every safe adaptation is
 impossible. The verifier's shared requirement checklist is now wired independently
 of that capability work; incomplete output/behavior/checkpoint evidence cannot pass.
+
+## Emitted-output compilation and observable behavior
+
+`Invoke-IsolatedOutputCompilation.ps1` does not credit a producer build as output
+compilation. It first independently compares **every emitted file** against the
+host-only frozen oracle (with only the declared evidence JSON separated). The
+explicit project list must cover every emitted `.csproj`/`.vbproj` exactly once.
+For supported projects, it builds those actual emitted sources in one restricted
+VM, terminates that VM, and runs the SDK compiler in a fresh VM. It verifies the
+independently produced artifact against the build target and records unchanged
+output/oracle hashes. VB, WPF and local-project dependency graphs remain rejected,
+not silently reduced to a supported subset.
+
+For net472, supply `-PublicFrameworkRoot` pointing to the installed public
+`Reference Assemblies\Microsoft\Framework` tree. The second compiler receives
+only selected, hash-bound `.NETFramework\v4.7.2\[Facades\]*.dll` references in a
+read-only mapping. No submitted MSBuild, response files or plugins run there.
+AnyCPU and subsystem 6.00 are retained as exact data switches. This is not a
+general Framework/WPF output-build implementation.
+
+Actual held-out project output was successfully compiled on this machine:
+
+- Full orchestration result:
+  `Artifacts\protected-tool-cases\project-output-compilation-v2.json`.
+- Host verification:
+  `Artifacts\output-compilation-6f4acb77e184405ca571a5e9afcd31e1\compilation-observation.json`.
+- Independent compiler evidence:
+  `Artifacts\sandbox-probe-2cf464b086a34f06ac337bb1bd37e603\protected-producer.json`.
+- Protected `Probe.exe` SHA256:
+  `1FDA10B0F2F1D6BCA3316356D2B563C9D4DBBAA7DCF0955E8FA0F46EFDCF4956`.
+- Compared emitted-source and frozen-oracle tree SHA256:
+  `337FBA56E8506EF2E824E374172C04007992F85EEA9FF63C95123DCC0A140A34`.
+
+The first attempt rejected `/platform:AnyCPU`; its preserved build observation is
+`Artifacts\sandbox-probe-889bc5afb97344b18017562b94e25dd6\host-build-observation.json`.
+The successful attempt exercised the full output-verification entry point, not
+an edited observation or an in-process compiler.
+
+`Invoke-IsolatedBehavior.ps1` executes a supplied, immutable runtime tree inside a
+fresh restricted Sandbox. Its host-only JSON contract has `Runtime` (`net10` or
+`framework472`), `EntryAssembly`, `Arguments`, `ExpectedExitCode`,
+`ExpectedStandardOutput` and `ExpectedStandardError`. Arguments retain explicit
+`{input}`/`{output}` tokens; only arguments/entry identity enter the VM. Exit,
+stdout and stderr are compared exactly on host after observed VM termination.
+The contract is rejected if it lies inside a mapped/staged tree. Binary/input/
+contract hashes are checked before and after. This primitive's runtime-tree hash
+must still be linked to protected output compilation before full-policy import;
+it is not a substitute for the missing language behavior fixture.
+
+The actual protected net472 `Probe.exe` was then executed in a third fresh VM:
+`Artifacts\sandbox-probe-a413f83395224d63b9135dbe83a16089\behavior-observation.json`.
+It matched its predeclared zero exit and empty stdout/stderr; VM termination was
+observed. The single-file runtime tree hash was
+`7B5C44822C2151ED73F530C00D50CFE47B8ACD86F5885644E2B05C4B6274C1B6`.
+This establishes the Framework runtime path for this owned console output only,
+not arithmetic/language behavior or WPF initialization.
+
+`ReplayVerification.ps1` additionally reconciles exact frozen input/output hashes
+with explicit 40-digit baseline revisions. Its canonical tree hash matches
+`ToolReplay.HashTree`. `Invoke-IsolatedToolCase.ps1 -CheckpointBindingFile` checks
+those bindings for each completed run; `-OutputProjects` adds actual emitted-output
+compilation. No flag infers WPF compilation, behavior, authentication or signing.
+`FormalVerified` remains false. Contract tests cover changed sources, extra files,
+failed evidence, changed baseline/input hashes, changed Framework references and
+wrong observable behavior.
+New tool-case observations also record logical runtime/input/oracle paths, exact
+arguments, evidence declaration and runtime-manifest immutability for eventual
+request-bound import. These additional bindings do not authenticate an imported
+JSON file or supply a missing full-policy attestation.
 
 ## Commands
 

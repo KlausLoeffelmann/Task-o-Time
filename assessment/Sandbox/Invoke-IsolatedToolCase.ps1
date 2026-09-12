@@ -10,14 +10,20 @@ param(
     [string]$EvidenceSuccessValue='succeeded',
     [string]$PublicPackageRoot,
     [string]$PublicFrameworkRoot,
+    [string]$CheckpointBindingFile,
+    [string[]]$OutputProjects,
     [switch]$Unsupported,
     [switch]$Idempotent,
     [ValidateRange(60,900)][int]$TimeoutSeconds=240
 )
 $ErrorActionPreference='Stop'
 . (Join-Path $PSScriptRoot 'CompilerPlan.ps1')
+. (Join-Path $PSScriptRoot 'ReplayVerification.ps1')
 if($Name -notmatch '^[A-Za-z0-9_.-]+$' -or ($Unsupported -and ($ExpectedOutputRoot -or $Idempotent -or $EvidenceFile)) -or
     (-not $Unsupported -and -not $ExpectedOutputRoot)) { throw 'Invalid isolated case contract.' }
+if($Unsupported -and ($CheckpointBindingFile -or $OutputProjects)) { throw 'Unsupported cases cannot claim compilation or checkpoint success.' }
+$checkpointHash=$(if($CheckpointBindingFile) { Get-CompilerFileHash $CheckpointBindingFile } else { $null })
+$checkpoint=$(if($CheckpointBindingFile) { Get-Content -LiteralPath $CheckpointBindingFile -Raw | ConvertFrom-Json } else { $null })
 function Snapshot([string]$root) {
     $root=(Resolve-Path -LiteralPath $root).Path.TrimEnd('\')
     if((Get-Item -LiteralPath $root -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Case root reparse point rejected.' }
@@ -55,10 +61,16 @@ $parameters=@{
     TimeoutSeconds=$TimeoutSeconds
 }
 $report=[ordered]@{
+    Protocol='isolated-toolcase-observation-v2'
     Name=$Name; Scope='isolated-cli-output-checks-only'; FormalVerified=$false; OutputChecksPassed=$false
     OutputCompilationVerified=$false; BehaviorVerified=$false; BaselineCheckpointVerified=$false
     InputSha256=$inputHash; RuntimeSha256=$binaryHash; ExpectedSha256=$expectedHash
     RuntimeManifestSha256=(Get-CompilerFileHash $RuntimeManifest); Runs=$runs
+    CheckpointBindingSha256=$checkpointHash
+    InputRoot=(Resolve-Path $InputRoot).Path; RuntimeRoot=$runtime.BinaryRoot
+    ExpectedRoot=$(if($ExpectedOutputRoot) { (Resolve-Path $ExpectedOutputRoot).Path } else { $null })
+    Command=@{ EntryAssembly=$runtime.EntryAssembly; Arguments=$CommandArguments }
+    EvidenceContract=@{ FileName=$EvidenceFile; StatusProperty=$EvidenceStatusProperty; SuccessValue=$EvidenceSuccessValue }
 }
 try {
     $initialOutput=$null; $initialHash=$null
@@ -84,10 +96,16 @@ try {
             $actualHash=SnapshotHash $actualFiles
             if($pass -eq 'initial') { $initialOutput=$actual; $initialHash=$actualHash }
             elseif($actualHash -cne $initialHash) { throw 'Determinism or idempotence failed.' }
+            if($checkpoint) {
+                $comparison=Assert-FrozenReplayOutput $actual $ExpectedOutputRoot $EvidenceFile $EvidenceStatusProperty $EvidenceSuccessValue
+                $report.Checkpoint=Assert-ReplayCheckpoint $checkpoint $InputRoot $ExpectedOutputRoot $comparison
+                if((Get-CompilerFileHash $CheckpointBindingFile) -cne $checkpointHash) { throw 'Checkpoint declaration changed during execution.' }
+            }
         }
         if((SnapshotHash (Snapshot $input)) -cne $passInputHash -or
             (SnapshotHash (Snapshot $InputRoot)) -cne $inputHash -or
             (SnapshotHash (Snapshot $runtime.BinaryRoot)) -cne $binaryHash -or
+            (Get-CompilerFileHash $RuntimeManifest) -cne $report.RuntimeManifestSha256 -or
             ($ExpectedOutputRoot -and (SnapshotHash (Snapshot $ExpectedOutputRoot)) -cne $expectedHash)) {
             throw 'Host fixture, oracle or producer artifact changed during execution.'
         }
@@ -95,6 +113,16 @@ try {
         Start-Sleep -Seconds 10
     }
     $report.OutputChecksPassed=$true
+    if($checkpoint) { $report.BaselineCheckpointVerified=$true }
+    if($OutputProjects) {
+        $compilation=& (Join-Path $PSScriptRoot 'Invoke-IsolatedOutputCompilation.ps1') -OutputRoot $initialOutput `
+            -ExpectedOutputRoot $ExpectedOutputRoot -Projects $OutputProjects -EvidenceFile $EvidenceFile `
+            -EvidenceStatusProperty $EvidenceStatusProperty -EvidenceSuccessValue $EvidenceSuccessValue `
+            -PublicPackageRoot $PublicPackageRoot -PublicFrameworkRoot $PublicFrameworkRoot -TimeoutSeconds $TimeoutSeconds
+        $report.OutputCompilation=$compilation
+        $report.OutputCompilationVerified=($compilation.Observation.OutputCompilationVerified -eq $true)
+    }
+    if($checkpoint -or $OutputProjects) { $report.Scope='isolated-cli-with-explicit-verification'; }
 } catch { $report.Error=$_.Exception.Message; throw }
 finally { $report | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath (Join-Path $runRoot 'case-observation.json') -Encoding UTF8 }
 [pscustomobject]@{ Evidence=(Join-Path $runRoot 'case-observation.json'); OutputChecksPassed=$true; FormalVerified=$false }

@@ -146,6 +146,50 @@ public sealed class ProtectedCompilerTests
             """)).Trim());
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Framework_console_capture_binds_the_exact_reference_bytes_without_enabling_Wpf(bool mutate)
+    {
+        var root = Path.Combine(EvaluatorConfiguration.ArtifactRoot, "framework-compiler-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var result = await Run("$root='" + root.Replace("'", "''") + "'; " + """
+                $authored=Join-Path $root 'build\payload\source'; $export=Join-Path $root 'export'
+                $framework=Join-Path $root 'framework'; $capture=Join-Path $root 'capture'
+                New-Item -ItemType Directory -Path $authored,$export,(Join-Path $framework '.NETFramework\v4.7.2') -Force | Out-Null
+                [IO.File]::WriteAllText((Join-Path $authored 'Program.cs'),'public class Program {}')
+                Copy-Item (Join-Path $authored 'Program.cs') $export
+                # Data-only synthetic reference; this test never invokes csc or asserts execution.
+                [IO.File]::WriteAllText((Join-Path $framework '.NETFramework\v4.7.2\mscorlib.dll'),'owned reference bytes')
+                $args=@('/noconfig','/target:exe','/deterministic+','/platform:AnyCPU','/subsystemversion:6.00',
+                    '/out:obj\Debug\net472\Unit.exe','Program.cs',
+                    '/reference:C:\PublicFrameworkReferences\.NETFramework\v4.7.2\mscorlib.dll')
+                $metadata=@{Items=@{CscCommandLineArgs=@($args | ForEach-Object {@{Identity=$_}});VbcCommandLineArgs=@()}}
+                $build=[pscustomobject]@{
+                    HostProducerObservation=@{Export=$export};Artifacts=(Join-Path $root 'build');FormalVerified=$false
+                    SdkVersion='10.0.401';SandboxStopped=$true;SandboxProcessIds=@(1,2)
+                    Producer=@{Projects=@(@{Project='Unit.csproj';ExitCode=0;StandardOutput=($metadata | ConvertTo-Json -Depth 8)})}
+                }
+                $sdk=Join-Path $env:ProgramFiles 'dotnet'
+                $plan=New-CompilerPlan $build 'Unit.csproj' $sdk '' $capture $framework
+                $null=Assert-CompilerPlan $capture $sdk
+                if('__MUTATE__' -eq 'True') {
+                    Add-Content (Join-Path $capture 'files\framework\.NETFramework\v4.7.2\mscorlib.dll') 'changed'
+                    try { $null=Assert-CompilerPlan $capture $sdk; throw 'UNEXPECTED_ACCEPTANCE' }
+                    catch { if($_.Exception.Message -eq 'UNEXPECTED_ACCEPTANCE') { throw }; Write-Output 'rejected-reference-mutation' }
+                } else {
+                    $args[1]='/target:winexe'
+                    try { $null=ConvertTo-CompilerArguments $args 'C:\ProbeWork\restricted\producer' {} {}; throw 'UNEXPECTED_ACCEPTANCE' }
+                    catch { if($_.Exception.Message -eq 'UNEXPECTED_ACCEPTANCE') { throw }; Write-Output 'accepted-console-rejected-wpf' }
+                }
+                """.Replace("__MUTATE__", mutate.ToString()));
+            Assert.Equal(mutate ? "rejected-reference-mutation" : "accepted-console-rejected-wpf", result.Trim());
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     internal static async Task<string> Run(string script)
     {
         var sandbox = Path.Combine(EvaluatorConfiguration.AssessmentRoot, "Sandbox");

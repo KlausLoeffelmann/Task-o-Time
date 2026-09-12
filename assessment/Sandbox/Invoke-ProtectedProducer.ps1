@@ -4,17 +4,18 @@ param(
     [Parameter(Mandatory)][string]$Project,
     [string]$SdkRoot=(Join-Path $env:ProgramFiles 'dotnet'),
     [string]$PublicPackageRoot,
+    [string]$PublicFrameworkRoot,
     [ValidateRange(60,900)][int]$TimeoutSeconds=240
 )
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSVersion.Major -lt 7) { throw 'Protected producer requires PowerShell 7.' }
 . (Join-Path $PSScriptRoot 'CompilerPlan.ps1')
 $runner=Join-Path $PSScriptRoot 'Invoke-SandboxProbe.ps1'
-$build=& $runner -SourceRoot $SourceRoot -Projects @($Project) -SdkRoot $SdkRoot -PublicPackageRoot $PublicPackageRoot -TimeoutSeconds $TimeoutSeconds
+$build=& $runner -SourceRoot $SourceRoot -Projects @($Project) -SdkRoot $SdkRoot -PublicPackageRoot $PublicPackageRoot -PublicFrameworkRoot $PublicFrameworkRoot -TimeoutSeconds $TimeoutSeconds
 $build | ConvertTo-Json -Depth 16 | Set-Content -LiteralPath (Join-Path $build.Artifacts 'host-build-observation.json') -Encoding UTF8
 # Invoke-SandboxProbe returns only after the submitted VM has stopped.
 $capture=Join-Path $build.Artifacts 'protected-compiler-input'
-$plan=New-CompilerPlan $build $Project $SdkRoot $PublicPackageRoot $capture
+$plan=New-CompilerPlan $build $Project $SdkRoot $PublicPackageRoot $capture $PublicFrameworkRoot
 Start-Sleep -Seconds 10
 try { $compiled=& $runner -CompilerJobRoot $capture -SdkRoot $SdkRoot -TimeoutSeconds $TimeoutSeconds }
 catch {
