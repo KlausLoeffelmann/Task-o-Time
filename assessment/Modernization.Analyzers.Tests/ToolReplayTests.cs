@@ -180,6 +180,15 @@ public sealed class ToolReplayTests : IDisposable
     }
 
     [Fact]
+    public void Frozen_csharp_expectations_preserve_BOM_aware_text_comparison()
+    {
+        var expected = Folder("expected"); var actual = Folder("actual");
+        File.WriteAllText(Path.Combine(expected, "Source.cs"), "public class Example {}", new System.Text.UTF8Encoding(true));
+        File.WriteAllText(Path.Combine(actual, "Source.cs"), "public class Example {}");
+        ToolReplay.CompareTrees(expected, actual);
+    }
+
+    [Fact]
     public async Task Owned_mutation_fixture_cannot_rewrite_expected_output_to_match_itself()
     {
         var input = Folder("input"); var expected = Folder("expected");

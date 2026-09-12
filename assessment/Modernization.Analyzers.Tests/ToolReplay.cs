@@ -22,6 +22,8 @@ public sealed record ReplayEvidence(string Name, bool Passed, string Message, st
 public sealed record ReplayResult(bool Verified, ReplayEvidence[] Cases, string Message)
 {
     public bool LocalEvidencePassed { get; init; }
+    public bool ReferenceVerified { get; init; }
+    public ReferenceBuildEvidence? ReferenceBuild { get; init; }
     public string ExecutionBoundary { get; init; } = "not-executed";
 }
 
@@ -63,6 +65,8 @@ internal static class ToolReplay
         var execution = Environment.GetEnvironmentVariable("ASSESSMENT_REPLAY_EXECUTION") ?? "external-receipt";
         if (execution == "external-receipt")
             return ExternalReplay.VerifyConfigured(plan, policy);
+        if (execution == "reference-reviewed")
+            return await ReferenceReplay.RunConfigured(plan, policy, artifactRoot);
         if (execution != "local-reviewed")
             return new(false, [], "Unknown execution policy; no candidate command was executed.");
         return await RunLocal(plan, policy, artifactRoot);
@@ -181,6 +185,7 @@ internal static class ToolReplay
             RedirectStandardOutput = true, RedirectStandardError = true
         };
         FilterEnvironment(start);
+        ConfigureRuntimeState(start, Path.Combine(workingDirectory, "runtime-state"));
         foreach (var argument in command.Arguments)
             start.ArgumentList.Add(argument.Replace("{input}", input).Replace("{output}", output));
         using var process = Process.Start(start) ?? throw new InvalidOperationException("CLI did not start.");
@@ -202,9 +207,35 @@ internal static class ToolReplay
     internal static void FilterEnvironment(ProcessStartInfo start)
     {
         var allowed = new HashSet<string>(["PATH", "SystemRoot", "WINDIR", "COMSPEC", "PATHEXT",
-            "DOTNET_ROOT", "DOTNET_ROOT_X64", "DOTNET_MULTILEVEL_LOOKUP"], StringComparer.OrdinalIgnoreCase);
+            "DOTNET_ROOT", "DOTNET_ROOT_X64", "DOTNET_MULTILEVEL_LOOKUP", "ProgramFiles", "ProgramFiles(x86)",
+            "ProgramW6432", "ProgramData", "ALLUSERSPROFILE", "PROCESSOR_ARCHITECTURE", "OS"], StringComparer.OrdinalIgnoreCase);
         foreach (var key in start.Environment.Keys.ToArray())
             if (!allowed.Contains(key)) start.Environment.Remove(key);
+    }
+    internal static void ConfigureRuntimeState(ProcessStartInfo start, string directory)
+    {
+        Directory.CreateDirectory(directory);
+        start.Environment["TEMP"] = directory;
+        start.Environment["TMP"] = directory;
+        start.Environment["DOTNET_CLI_HOME"] = directory;
+        start.Environment["DOTNET_CLI_TELEMETRY_OPTOUT"] = "1";
+        start.Environment["DOTNET_SKIP_FIRST_TIME_EXPERIENCE"] = "1";
+        start.Environment["DOTNET_NOLOGO"] = "1";
+        start.Environment["MSBUILDDISABLENODEREUSE"] = "1";
+        start.Environment["UseSharedCompilation"] = "false";
+        var profile = Path.Combine(directory, "profile");
+        foreach (var (name, path) in new[] {
+            ("USERPROFILE", profile), ("HOME", profile),
+            ("APPDATA", Path.Combine(profile, "AppData", "Roaming")),
+            ("LOCALAPPDATA", Path.Combine(profile, "AppData", "Local")),
+            ("NUGET_PACKAGES", Path.Combine(directory, "packages")),
+            ("NUGET_HTTP_CACHE_PATH", Path.Combine(directory, "http-cache")) })
+        {
+            Directory.CreateDirectory(path);
+            start.Environment[name] = path;
+        }
+        var fallback = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".nuget", "packages");
+        if (Directory.Exists(fallback)) start.Environment["NUGET_FALLBACK_PACKAGES"] = fallback;
     }
 
     private static SortedDictionary<string, string> Files(string directory)
@@ -254,7 +285,8 @@ internal static class ToolReplay
         {
             if (Path.GetExtension(key) == ".cs")
             {
-                var left = CSharpSyntaxTree.ParseText(Encoding.UTF8.GetString(a[key])).GetRoot().NormalizeWhitespace().ToFullString();
+                using var reader = new StreamReader(new MemoryStream(a[key]), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+                var left = CSharpSyntaxTree.ParseText(reader.ReadToEnd()).GetRoot().NormalizeWhitespace().ToFullString();
                 var right = CSharpSyntaxTree.ParseText(File.ReadAllText(b[key])).GetRoot().NormalizeWhitespace().ToFullString();
                 if (left != right) throw new InvalidDataException("Emitted content differs from trusted checkpoint: " + key);
             }
