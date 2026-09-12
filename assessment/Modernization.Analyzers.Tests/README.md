@@ -51,6 +51,9 @@ MSBuild properties. Supply absolute paths when overriding them.
 repository `tools\` / `tooling\` roots. Add a relative `<Discovery><Root>` or set
 `MIGRATION_TOOL_ROOT` for another tooling location. **Build/restore independently
 supplied tooling projects first**; they need not be referenced by the application.
+Trusted replay `Projects` paths are explicitly unioned into the load set even
+outside all discovery roots. Missing project files or source-compilation errors
+invalidate the evaluation; a declared CLI binary cannot substitute for its source.
 Hidden/build/package folders and the assessment itself are excluded. Test projects
 are loaded for evaluated framework validity, but excluded from production
 quality diagnostics using test-framework references and `IsTestProject`.
@@ -363,6 +366,21 @@ around a Roslyn conversion engine is eligible through the same executable
 contract as a custom emitter. The assessor separately reviews compiler-aware
 engine identity/licensing; successful fixture replay is not a general proof.
 
+**Formal and local execution are different operations.** The default
+`ASSESSMENT_REPLAY_EXECUTION=external-receipt` executes no CLI or emitted behavior
+on the assessor host. It fails closed until a separately trusted isolated
+executor supplies a valid signed receipt. There is no bundled sandbox and no
+provisioned external executor in this repository. Missing isolation is a blocker,
+not permission to mark TOOL002 satisfied.
+
+For development of **source-reviewed, assessor-owned reference tooling only**,
+explicitly set `ASSESSMENT_REPLAY_EXECUTION=local-reviewed`. Local case checks
+can pass and `LocalEvidencePassed` can be true, but `Verified` remains false,
+`ExecutionBoundary=local-reviewed-unisolated`, and TOOL002 remains mandatory.
+Never use this mode for an untrusted submission. An owned fixture-copying stub
+regression demonstrates why: it can reproduce accessible expected files perfectly
+without performing conversion, yet cannot earn formal verification.
+
 Set `ASSESSMENT_REPLAY_PLAN` to an absolute JSON path **inside the private
 assessment tree**, not the candidate checkout. Plans, fixture inputs, expected
 checkpoint outputs and behavior programs are trusted assessor artifacts; never
@@ -376,6 +394,8 @@ a shell. Every command must take explicit `{input}` and `{output}` directories:
 ```json
 {
   "Projects": ["C:\\submission\\utility\\Utility.csproj"],
+  "SourceRoots": ["C:\\submission\\utility"],
+  "ArtifactRoots": ["C:\\submission\\utility\\bin\\Release\\net10.0"],
   "Cases": [{
     "Name": "held-out-language-canary",
     "Kind": "language",
@@ -416,6 +436,118 @@ output. Behavior compiles actual emitted C# with the trusted program and runs a
 child process with a timeout. The process is **not a security sandbox**: inspect
 submissions and run under an isolated low-privilege account without production
 credentials/network access.
+
+Those process steps describe explicit reviewed-local execution and the required
+external executor algorithm, not the default local verifier. Reviewed-local
+execution freezes expected-output bytes/hashes and behavior source **before**
+starting the CLI, compares output against the frozen snapshot, and detects
+persistent expectation mutation. Child environments use a small runtime allowlist;
+assessor paths/configuration and credentials are not inherited. **Neither measure
+provides isolation**: same-identity code can still read fixture files, discover
+paths without environment hints, modify and restore files, attack its parent,
+or tamper with mutable reports. Hashes and environment filtering alone must never
+upgrade local evidence into formal acceptance.
+
+### Minimal external executor contract (not a sandbox implementation)
+
+Use an already organization-provisioned disposable Windows VM/runner suitable
+for WPF/Framework builds; no Windows users or broad software installation on a
+shared developer host is required by this verifier. A separately trusted
+supervisor must enforce the following boundary before its key may be pinned:
+
+1. The trusted supervisor holds the plan, expected trees, immutable snapshots,
+   comparison logic, receipt-signing key and request challenge. None is readable
+   or writable by submission processes. The signing key must never enter the VM
+   or candidate job. An administrator of the candidate environment cannot also
+   control the supervisor or signing policy.
+2. Candidate custom MSBuild targets, tool source builds, CLI commands, emitted
+   code and behavior run only in disposable isolated jobs, with no supervisor
+   mounts, production credentials, host filesystem access or unrestricted
+   network. A candidate job receives only its input/tool artifacts and explicit
+   output area, not expected outputs or the private plan. A same-user directory,
+   environment flag, container label or candidate claim is not sufficient.
+3. Terminate submission processes before exporting outputs. The supervisor
+   rejects reparse/path traversal outputs and compares complete immutable output
+   snapshots outside the job. Use fresh jobs/inputs for deterministic reruns and
+   project idempotence; compile and run behavioral canaries in isolated jobs too.
+   The supervisor independently checks source/tool build provenance, input
+   immutability, unsupported exits/no partial output, output compilation and every
+   required case. It must never sign a candidate-written `Passed` value.
+4. The supervisor signs a short-lived receipt only after those checks. The
+   assessor pins the executor's RSA public key through trusted out-of-band
+   configuration, **never from the submission**. Signature verification establishes
+   trust in that executor's attestation, not remote hardware attestation or a
+   proof that an arbitrary service actually enforces these controls.
+
+The repository scan itself invokes MSBuild and therefore is **not safe for
+unreviewed project files on the assessor host**. Run the full scan/build process
+inside the external execution boundary for adversarial submissions. A signed
+replay receipt does not retrospectively isolate a local repository scan or certify
+runtime/SQL/visual acceptance. Current local baseline/reference scans are
+reviewed-source development evidence only.
+Merely copying the assessor and fixtures into a VM and running everything as the
+same identity is still insufficient. The external integration must keep trusted
+evaluation/comparison in a protected supervisor compartment and route candidate
+MSBuild/compiler-input extraction and executable work into separate restricted
+jobs. `CompilerInputLoader` does not itself implement that process separation.
+
+Configuration and wire format:
+
+```powershell
+$env:ASSESSMENT_REPLAY_EXECUTION = 'external-receipt' # default
+$env:ASSESSMENT_REPLAY_CHALLENGE = [guid]::NewGuid().ToString('N')
+$env:ASSESSMENT_REPLAY_PUBLIC_KEY = 'C:\private\assessment\executor-public.pem'
+$env:ASSESSMENT_REPLAY_RECEIPT = 'C:\private\assessment\executor-receipt.json'
+```
+
+With a private plan and challenge, the verifier writes
+`Artifacts\Reports\<profile>\external-replay-request.json`. Its `PayloadBase64`
+decodes to a `ReplayRequest`; `Sha256` is the uppercase SHA256 of those exact
+decoded bytes, avoiding cross-platform JSON canonicalization ambiguity.
+The request binds policy/profile/configuration, challenge, the complete declared
+plan, input/expected-tree/behavior hashes, project-file hashes, complete reviewed
+source-root and binary/dependency-root snapshots, and explicit
+executable/DLL/script artifact hashes. `SourceRoots` and `ArtifactRoots` are
+mandatory for formal receipts. Source snapshots omit `bin`, `obj`, `Artifacts`
+and `.git`; binary snapshots include the complete declared artifact trees.
+Include every linked/imported source and dependency root in the trusted plan;
+the supervisor must reject builds that consume unbound external inputs.
+The trusted supervisor must independently
+verify transferred artifacts against these bindings and review/build the full
+source/dependency graph; hashing a project file alone is not source-to-binary
+provenance. Absolute artifact names are logical request identities; only the
+trusted supervisor may map them into job-local paths.
+
+The receipt JSON is `SignedReplayReceipt`: `PayloadBase64` plus
+`SignatureBase64`. Sign the decoded payload using RSA-PSS/SHA256 with a minimum
+3072-bit RSA key. The payload is `ReplayAttestation`:
+
+```text
+Policy: "taskotime-isolated-replay-v1"
+Challenge: the assessor-issued, fresh GUID-N
+RequestHash: request Sha256
+Executor: nonempty trusted executor identity
+ExpiresAt: UTC timestamp after verification time, no more than one hour ahead
+Cases: [{ Evidence: ReplayEvidence, Checks: [ ... ] }, ...]
+```
+
+Use the record definitions in `ExternalReplay.cs` and `ToolReplay.cs` as the wire
+schema. Case names must match exactly once, all cases must pass, and the signed
+checks must include `isolated-process`, `tool-source-build`, `input-immutable`;
+positive cases additionally require `frozen-expectation-comparison`,
+`deterministic-rerun`, `output-compilation`, plus `behavior` and
+`idempotent-rerun` when applicable. Unsupported cases require
+`unsupported-diagnostic` and `no-partial-output`, a nonzero exit and diagnostics.
+The verifier rechecks current immutable request bindings and expiry. Issue a
+fresh challenge per evaluation and retain its signed receipt in private custody.
+Unsigned `sandbox=true`/`isolated=true`, wrong keys, stale challenges, mutated
+inputs/expectations/tools and incomplete checks all fail closed.
+
+No production signing key, signed acceptance fixture, live runner, account
+creation or untrusted submission execution is included. Tests sign contract-only
+receipts with ephemeral in-memory test keys and never execute their dummy tool
+artifacts. Provisioning and independently validating the executor remains an
+explicit integration prerequisite for formal TOOL002 acceptance.
 
 Record private baseline/checkpoint commit identities when preparing reconciliation
 trees from reviewed refs. Replay records actual input/output SHA256, command,

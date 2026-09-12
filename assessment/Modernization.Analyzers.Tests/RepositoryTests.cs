@@ -107,9 +107,8 @@ public sealed class RepositoryTests
                     .Single(p => Path.GetExtension(p) is ".csproj" or ".vbproj");
                 await loader.Load(projectPath);
             }
-            foreach (var project in EvaluatorConfiguration.DiscoveryRoots.SelectMany(DiscoverProjects)
-                .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal))
-                await loader.Load(project);
+            await LoadProjectSet(EvaluatorConfiguration.DiscoveryRoots.SelectMany(DiscoverProjects),
+                ToolReplay.DeclaredProjects, loader.Load);
             var loaded = CompilerInputLoader.ClassifyTestSupport(loader.Projects, root);
             evaluated.AddRange(loaded.Select(p => p.State!).Where(p => p != null));
             diagnostics.AddRange(loaded.Where(p => p.IsTest).SelectMany(p =>
@@ -300,6 +299,23 @@ public sealed class RepositoryTests
         string.IsNullOrEmpty(path) ? "" : Path.GetRelativePath(root, path).Replace('/', '\\');
     private static string FindRoot() => EvaluatorConfiguration.SourceRoot;
     private static string ReportRoot => Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports", StagePolicy.Current.Identity);
+    internal static async Task LoadProjectSet(IEnumerable<string> discovered, IEnumerable<string> declared,
+        Func<string, Task<LoadedProject>> load)
+    {
+        var required = declared.Select(Path.GetFullPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var project in discovered.Concat(required).Select(Path.GetFullPath)
+            .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal))
+        {
+            if (!File.Exists(project) || Path.GetExtension(project).ToLowerInvariant() is not (".csproj" or ".vbproj"))
+                throw new InvalidDataException("Missing or unsupported declared/discovered project: " + project);
+            var loaded = await load(project);
+            if (required.Contains(project))
+            {
+                var errors = loaded.Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+                if (errors.Length > 0) throw new SourceCompilationException(project, errors);
+            }
+        }
+    }
     private static IEnumerable<string> DiscoverProjects(string root)
     {
         if (Path.GetFullPath(root).TrimEnd('\\').Equals(EvaluatorConfiguration.AssessmentRoot.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))

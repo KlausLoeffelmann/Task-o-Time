@@ -190,11 +190,30 @@ A rich companion fixture beside a converter that emits an empty class is not
 conversion acceptance; the replay negative regression exercises that exact case.
 
 See the analyzer README's replay contract for private plans and fixtures.
+Formal replay now defaults to a **signed receipt from a separately trusted
+isolated executor**; this bundle does not supply or provision that executor.
+Explicit `ASSESSMENT_REPLAY_EXECUTION=local-reviewed` is only for source-reviewed
+owned tooling. It can produce passing local case evidence, but never sets
+`Verified=true` or satisfies TOOL002. Expectation snapshots and filtered child
+environments detect some mistakes, not same-identity adversarial access.
+Do not run candidate MSBuild projects, CLI binaries or emitted code locally:
+the full untrusted build/scan must also run inside the external boundary.
+The README specifies request hashing, pinned RSA-PSS receipt verification and
+executor obligations. Missing isolation remains a formal acceptance blocker.
 Preparation tooling, expected outputs, logs and evaluator files are never
 candidate handover material. Export only application allowlisted files and the
 stage-appropriate candidate brief, without Git history or private support refs.
 
 ### Stage-profile implementation verification
+
+Independent-review follow-up: the combined filter below now passes **296 tests**
+on the owned S0 Debug baseline, including absent/uncompilable/out-of-discovery
+declared projects, pre-execution expectation snapshots, environment filtering,
+fixture-copying refusal of formal credit, and signed-receipt binding/expiry/key
+regressions. The baseline generic scan still passes and the final gate still
+fails as expected. Receipt tests use ephemeral in-memory test keys and
+non-executable dummy artifacts; only assessor-authored regression CLIs were
+executed. No untrusted submission or real external executor was run.
 
 Verified against the original application in the private assessor worktree:
 

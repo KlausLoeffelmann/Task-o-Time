@@ -34,4 +34,6 @@ Modernization.Analyzers.Tests\StagePolicy.cs
 Modernization.Analyzers.Tests\StagePolicyTests.cs
 Modernization.Analyzers.Tests\ToolReplay.cs
 Modernization.Analyzers.Tests\ToolReplayTests.cs
+Modernization.Analyzers.Tests\ExternalReplay.cs
+Modernization.Analyzers.Tests\ExternalReplayTests.cs
 Modernization.Analyzers.Tests\README.md

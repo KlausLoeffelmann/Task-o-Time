@@ -165,6 +165,76 @@ public sealed class ToolReplayTests : IDisposable
         Assert.False(ToolReplay.HasRequiredCoverage(plan, StagePolicy.Parse("S3", "final-delivery")));
     }
 
+    [Fact]
+    public void Child_environment_does_not_inherit_assessor_configuration_or_credentials()
+    {
+        var start = new System.Diagnostics.ProcessStartInfo("dotnet");
+        start.Environment["ASSESSMENT_REPLAY_PLAN"] = "private-plan";
+        start.Environment["ASSESSMENT_REPLAY_PUBLIC_KEY"] = "private-key-path";
+        start.Environment["TASKOTIME_SOURCE_ROOT"] = "private-source";
+        start.Environment["GITHUB_TOKEN"] = "synthetic-test-value";
+        ToolReplay.FilterEnvironment(start);
+        Assert.DoesNotContain(start.Environment.Keys, k => k.StartsWith("ASSESSMENT_", StringComparison.Ordinal));
+        Assert.False(start.Environment.ContainsKey("TASKOTIME_SOURCE_ROOT"));
+        Assert.False(start.Environment.ContainsKey("GITHUB_TOKEN"));
+    }
+
+    [Fact]
+    public async Task Owned_mutation_fixture_cannot_rewrite_expected_output_to_match_itself()
+    {
+        var input = Folder("input"); var expected = Folder("expected");
+        File.WriteAllText(Path.Combine(input, "Source.vb"), MigrationToolTests.Input);
+        var expectation = Path.Combine(expected, "Source.cs");
+        File.WriteAllText(expectation, MigrationToolTests.Output);
+        var cli = BuildCli("""
+            public class Entry {
+              public static int Main(string[] args) {
+                System.IO.File.WriteAllText(args[2], "public class Empty {}");
+                System.IO.Directory.CreateDirectory(args[1]);
+                System.IO.File.Copy(args[2], System.IO.Path.Combine(args[1], "Source.cs"));
+                return 0;
+              }
+            }
+            """);
+        cli = cli with { Arguments = cli.Arguments.Append(expectation).ToArray() };
+        var result = await ToolReplay.RunCase(new("owned-expectation-mutation", "language", cli, input, expected), root);
+        Assert.False(result.Passed);
+        Assert.Contains("Trusted expectations changed", result.Message);
+    }
+
+    [Fact]
+    public async Task Owned_fixture_copying_stub_can_match_locally_but_never_earns_formal_verification()
+    {
+        var input = Folder("input"); var expected = Folder("expected");
+        File.WriteAllText(Path.Combine(input, "Source.cs"), "public class Unconverted {}");
+        File.WriteAllText(Path.Combine(expected, "Source.cs"), "public class Expected {}");
+        // Assessor-authored regression stub: deliberately reads expected files. Not an untrusted submission.
+        var cli = BuildCli("""
+            public class Entry {
+              public static int Main(string[] args) {
+                if(args[3] == "unsupported") { System.Console.Error.WriteLine("Unsupported"); return 2; }
+                System.IO.Directory.CreateDirectory(args[1]);
+                foreach(var file in System.IO.Directory.GetFiles(args[2]))
+                  System.IO.File.Copy(file, System.IO.Path.Combine(args[1], System.IO.Path.GetFileName(file)));
+                return 0;
+              }
+            }
+            """);
+        var copy = cli with { Arguments = cli.Arguments.Concat([expected, "copy"]).ToArray() };
+        var unsupported = cli with { Arguments = cli.Arguments.Concat([expected, "unsupported"]).ToArray() };
+        var plan = new ReplayPlan(["AssessorOwnedFixture.csproj"], [
+            new("positive", "project", copy, input, expected, Idempotent: true),
+            new("unsupported", "project", unsupported, input, null, Unsupported: true),
+            new("checkpoint", "project", copy, input, expected, Checkpoint: true)
+        ]);
+        var result = await ToolReplay.RunLocal(plan, StagePolicy.Parse("S2", "final-delivery"), root);
+        Assert.All(result.Cases, c => Assert.True(c.Passed, c.Message));
+        Assert.True(result.LocalEvidencePassed);
+        Assert.False(result.Verified);
+        Assert.Equal("local-reviewed-unisolated", result.ExecutionBoundary);
+        Assert.Contains("TOOL002 remains mandatory", result.Message);
+    }
+
     public void Dispose()
     {
         if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
