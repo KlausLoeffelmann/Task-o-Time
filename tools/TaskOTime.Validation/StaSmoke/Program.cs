@@ -21,6 +21,12 @@ internal static class Program
                 SelfTest();
                 return 0;
             }
+            if (args.Length == 2 && args[0] == "--startup-self-test" &&
+                new[] { "core", "invalid-login", "early-exit", "missing-ideal", "timeout" }.Contains(args[1]))
+            {
+                StartupDriverSelfTest.Run(args[1]);
+                return 0;
+            }
             var options = Parse(args);
             var connection = IsolatedConnection.Validate(options["--connection"], options["--owner"]);
             IsolatedConnection.VerifyOwnership(connection, options["--owner"]);
@@ -39,8 +45,13 @@ internal static class Program
                 ["Connect Timeout"] = 15,
                 ["Encrypt"] = false
             };
-            RunDesktop(assemblyPath, provider.ConnectionString, options["--user"], password);
-            Console.WriteLine("SQL/WPF smoke passed: isolated login, main collection identity, categories, and dialog construction.");
+            var startup = options.GetValueOrDefault("--mode", "construction") == "startup";
+            RunDesktop(assemblyPath, provider.ConnectionString, options["--user"], password, startup,
+                options.GetValueOrDefault("--required-features") == "ideal",
+                int.Parse(options.GetValueOrDefault("--timeout-seconds", "110")));
+            Console.WriteLine(startup
+                ? "Genuine App startup passed (" + options["--required-features"] + "): forced password UI, main/options/SQL booking, isolated settings and shutdown."
+                : "Construction smoke passed: isolated login, main collection identity, categories, and dialog construction; genuine App startup NOT RUN.");
             return 0;
         }
         catch (Exception error)
@@ -52,7 +63,8 @@ internal static class Program
 
     private static Dictionary<string, string> Parse(string[] args)
     {
-        var names = new[] { "--app", "--connection", "--owner", "--user" };
+        var required = new[] { "--app", "--connection", "--owner", "--user" };
+        var names = required.Concat(new[] { "--mode", "--required-features", "--timeout-seconds" }).ToArray();
         var options = new Dictionary<string, string>(StringComparer.Ordinal);
         for (var index = 0; index < args.Length; index += 2)
         {
@@ -61,8 +73,18 @@ internal static class Program
                 !options.TryAdd(args[index], args[index + 1]))
                 throw new ArgumentException("Expected --app <net10 app.dll> --connection <isolated SQL connection> --owner <token> --user <fixture user>.");
         }
-        if (options.Count != names.Length)
+        if (required.Any(name => !options.ContainsKey(name)))
             throw new ArgumentException("All four explicit smoke options are required; there are no demo defaults.");
+        var mode = options.GetValueOrDefault("--mode", "construction");
+        if (mode != "construction" && mode != "startup")
+            throw new ArgumentException("Mode must be construction or startup.");
+        if (mode == "startup" && options.GetValueOrDefault("--required-features") is not ("core" or "ideal"))
+            throw new ArgumentException("Startup requires explicit --required-features core|ideal.");
+        if (mode == "construction" && options.ContainsKey("--required-features"))
+            throw new ArgumentException("Required features apply only to genuine startup, never construction.");
+        if (options.TryGetValue("--timeout-seconds", out var timeout) &&
+            (!int.TryParse(timeout, out var seconds) || seconds < 1 || seconds > 1800))
+            throw new ArgumentException("Timeout must be between 1 and 1800 seconds.");
         return options;
     }
 
@@ -75,7 +97,8 @@ internal static class Program
             throw new InvalidOperationException("This host requires the .NET 10 application, not Framework binaries.");
     }
 
-    private static void RunDesktop(string assemblyPath, string providerConnection, string user, string password)
+    private static void RunDesktop(string assemblyPath, string providerConnection, string user, string password,
+        bool startup, bool ideal, int timeoutSeconds)
     {
         var root = Path.GetDirectoryName(assemblyPath)!;
         var metadata = Path.Combine(root, "Model", "TaskOTime");
@@ -114,6 +137,13 @@ internal static class Program
             Environment.CurrentDirectory = root;
             var assembly = AssemblyLoadContext.Default.LoadFromAssemblyPath(assemblyPath);
             var viewModel = AssemblyLoadContext.Default.LoadFromAssemblyPath(Path.Combine(root, "TaskOTime.ViewModel.dll"));
+            var settings = IsolatedSettings.Install(assembly);
+            if (startup)
+            {
+                StartupDriver.Run(StartupDriver.ProductContract(assembly, viewModel), viewModel, user, password, ideal,
+                    settings, timeoutSeconds, booking => StartupDriver.VerifySqlBooking(providerConnection, booking));
+                return;
+            }
             app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
             foreach (var resource in new[] { "Themes/ClassicDark.xaml", "Resources/Strings.xaml" })
                 app.Resources.MergedDictionaries.Add((ResourceDictionary)Application.LoadComponent(
@@ -206,6 +236,20 @@ internal static class Program
         if (rejected != 7) throw new InvalidOperationException("Connection guardrail self-test failed.");
         try { Parse(Array.Empty<string>()); throw new InvalidOperationException("Missing options were accepted."); }
         catch (ArgumentException) { }
+        var explicitOptions = new[] { "--app", "app.dll", "--connection", valid, "--owner", owner, "--user", "fixture" };
+        foreach (var invalid in new[]
+        {
+            new[] { "--mode", "startup" },
+            new[] { "--mode", "startup", "--required-features", "optional" },
+            new[] { "--required-features", "core" },
+            new[] { "--mode", "unknown" },
+            new[] { "--timeout-seconds", "0" }
+        })
+        {
+            try { Parse(explicitOptions.Concat(invalid).ToArray()); throw new InvalidOperationException("Unsafe startup options accepted."); }
+            catch (ArgumentException) { }
+        }
+        _ = Parse(explicitOptions.Concat(new[] { "--mode", "startup", "--required-features", "core" }).ToArray());
         try { IsolatedConnection.Validate(valid, ""); throw new InvalidOperationException("Missing owner was accepted."); }
         catch (ArgumentException) { }
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
