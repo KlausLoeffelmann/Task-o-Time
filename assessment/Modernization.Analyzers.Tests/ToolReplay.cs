@@ -12,13 +12,18 @@ internal sealed record ReplayCommand(string Executable, string[] Arguments);
 internal sealed record ReplayCase(string Name, string Kind, ReplayCommand Command, string InputDirectory,
     string? ExpectedDirectory, string? BehaviorFile = null, bool Unsupported = false,
     bool Idempotent = false, bool Checkpoint = false);
-internal sealed record ReplayPlan(string[] Projects, ReplayCase[] Cases);
+internal sealed record ReplayPlan(string[] Projects, ReplayCase[] Cases,
+    string[]? SourceRoots = null, string[]? ArtifactRoots = null);
 public sealed record ReplayEvidence(string Name, bool Passed, string Message, string InputHash,
     string OutputHash, string Command, int ExitCode, string StandardOutput, string StandardError)
 {
     public SortedDictionary<string, string> ToolArtifactHashes { get; init; } = new(StringComparer.Ordinal);
 }
-public sealed record ReplayResult(bool Verified, ReplayEvidence[] Cases, string Message);
+public sealed record ReplayResult(bool Verified, ReplayEvidence[] Cases, string Message)
+{
+    public bool LocalEvidencePassed { get; init; }
+    public string ExecutionBoundary { get; init; } = "not-executed";
+}
 
 // Execution is deliberately outside DiagnosticAnalyzer callbacks. Plans and expected
 // outputs belong to the assessor; candidates supply only an executable/interface.
@@ -55,13 +60,26 @@ internal static class ToolReplay
             return new(false, [], "Migration replay is not applicable to an S3 starting point.");
         var plan = Plan;
         if (plan == null) return new(false, [], "No trusted CLI replay plan supplied.");
+        var execution = Environment.GetEnvironmentVariable("ASSESSMENT_REPLAY_EXECUTION") ?? "external-receipt";
+        if (execution == "external-receipt")
+            return ExternalReplay.VerifyConfigured(plan, policy);
+        if (execution != "local-reviewed")
+            return new(false, [], "Unknown execution policy; no candidate command was executed.");
+        return await RunLocal(plan, policy, artifactRoot);
+    }
+    internal static async Task<ReplayResult> RunLocal(ReplayPlan plan, StagePolicy policy, string artifactRoot)
+    {
         var results = new List<ReplayEvidence>();
         foreach (var fixture in plan.Cases)
             results.Add(await RunCase(fixture, artifactRoot));
         var complete = HasRequiredCoverage(plan, policy);
-        return new(complete && results.Count > 0 && results.All(r => r.Passed), results.ToArray(),
-            complete ? "Actual replay; no inference of historical usage or token savings."
-                : "Incomplete trusted coverage: require independent behavioral language / idempotent project fixtures, unsupported cases, and baseline-to-checkpoint reconciliation for each applicable operation.");
+        return new(false, results.ToArray(),
+            "Local reviewed-source development replay is NOT isolated submission verification; TOOL002 remains mandatory. " +
+            (complete ? "" : "Required fixture/checkpoint coverage is incomplete."))
+        {
+            LocalEvidencePassed = complete && results.Count > 0 && results.All(r => r.Passed),
+            ExecutionBoundary = "local-reviewed-unisolated"
+        };
     }
     internal static bool HasRequiredCoverage(ReplayPlan plan, StagePolicy policy)
     {
@@ -88,12 +106,26 @@ internal static class ToolReplay
         var tools = new SortedDictionary<string, string>(StringComparer.Ordinal);
         try
         {
+            // Freeze expectations before invoking even reviewed local code. This catches
+            // persistent corruption, not read access or a modify-and-restore attack.
+            var expected = fixture.Unsupported ? null :
+                TrustedPath(fixture.ExpectedDirectory ?? throw new InvalidDataException("Expected output required."));
+            var expectedHash = expected == null ? "" : HashTree(expected);
+            var behavior = fixture.BehaviorFile == null ? null : File.ReadAllText(TrustedPath(fixture.BehaviorFile));
+            var expectedSnapshot = expected == null ? null : Snapshot(expected);
+            void CheckExpectations()
+            {
+                if (expected != null && HashTree(expected) != expectedHash ||
+                    fixture.BehaviorFile != null && File.ReadAllText(TrustedPath(fixture.BehaviorFile)) != behavior)
+                    throw new InvalidDataException("Trusted expectations changed during local replay.");
+            }
             foreach (var file in fixture.Command.Arguments.Prepend(fixture.Command.Executable)
                 .Where(p => Path.IsPathFullyQualified(p) && File.Exists(p)))
                 tools[Path.GetFullPath(file)] = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file)));
             CopyTree(TrustedPath(fixture.InputDirectory), input);
             before = HashTree(input);
             run = await Execute(fixture.Command, input, output, work);
+            CheckExpectations();
             if (HashTree(input) != before) throw new InvalidDataException("CLI modified its input.");
             if (fixture.Unsupported)
             {
@@ -105,11 +137,10 @@ internal static class ToolReplay
             {
                 if (run.Code != 0) throw new InvalidDataException("CLI failed.");
                 if (!Directory.Exists(output)) throw new InvalidDataException("CLI emitted no output.");
-                var expected = TrustedPath(fixture.ExpectedDirectory ?? throw new InvalidDataException("Expected output required."));
-                CompareTrees(expected, output);
+                CompareSnapshot(expectedSnapshot!, output);
                 after = HashTree(output);
                 if (fixture.BehaviorFile != null)
-                    await VerifyBehavior(output, File.ReadAllText(TrustedPath(fixture.BehaviorFile)));
+                    await VerifyBehavior(output, behavior!);
                 var repeated = Path.Combine(work, "repeated");
                 var second = await Execute(fixture.Command, input, repeated, work);
                 if (second.Code != 0 || HashTree(repeated) != after)
@@ -126,7 +157,8 @@ internal static class ToolReplay
             if (tools.Any(file => !File.Exists(file.Key) ||
                 Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(file.Key))) != file.Value))
                 throw new InvalidDataException("CLI executable artifacts changed during replay.");
-            return new(fixture.Name, true, "Verified actual emitted files.", before, after, command, run.Code, run.Output, run.Error)
+            CheckExpectations();
+            return new(fixture.Name, true, "Local output checks passed; no isolation claim.", before, after, command, run.Code, run.Output, run.Error)
                 { ToolArtifactHashes = tools };
         }
         catch (Exception error)
@@ -148,6 +180,7 @@ internal static class ToolReplay
             WorkingDirectory = workingDirectory, UseShellExecute = false,
             RedirectStandardOutput = true, RedirectStandardError = true
         };
+        FilterEnvironment(start);
         foreach (var argument in command.Arguments)
             start.ArgumentList.Add(argument.Replace("{input}", input).Replace("{output}", output));
         using var process = Process.Start(start) ?? throw new InvalidOperationException("CLI did not start.");
@@ -166,16 +199,31 @@ internal static class ToolReplay
         }
         return (process.ExitCode, await stdout, await stderr);
     }
+    internal static void FilterEnvironment(ProcessStartInfo start)
+    {
+        var allowed = new HashSet<string>(["PATH", "SystemRoot", "WINDIR", "COMSPEC", "PATHEXT",
+            "DOTNET_ROOT", "DOTNET_ROOT_X64", "DOTNET_MULTILEVEL_LOOKUP"], StringComparer.OrdinalIgnoreCase);
+        foreach (var key in start.Environment.Keys.ToArray())
+            if (!allowed.Contains(key)) start.Environment.Remove(key);
+    }
 
     private static SortedDictionary<string, string> Files(string directory)
     {
         if (!Directory.Exists(directory)) throw new InvalidDataException("Missing replay directory: " + directory);
         var result = new SortedDictionary<string, string>(StringComparer.Ordinal);
-        foreach (var entry in Directory.EnumerateFileSystemEntries(directory, "*", SearchOption.AllDirectories))
+        var pending = new Stack<string>([directory]);
+        while (pending.TryPop(out var current))
         {
-            if ((File.GetAttributes(entry) & FileAttributes.ReparsePoint) != 0)
+            if ((File.GetAttributes(current) & FileAttributes.ReparsePoint) != 0)
                 throw new InvalidDataException("Replay trees cannot contain reparse points.");
-            if (File.Exists(entry)) result.Add(Path.GetRelativePath(directory, entry), entry);
+            foreach (var entry in Directory.EnumerateFileSystemEntries(current))
+            {
+                var attributes = File.GetAttributes(entry);
+                if ((attributes & FileAttributes.ReparsePoint) != 0)
+                    throw new InvalidDataException("Replay trees cannot contain reparse points.");
+                if ((attributes & FileAttributes.Directory) != 0) pending.Push(entry);
+                else result.Add(Path.GetRelativePath(directory, entry), entry);
+            }
         }
         if (result.Count == 0) throw new InvalidDataException("Empty replay tree.");
         return result;
@@ -194,17 +242,23 @@ internal static class ToolReplay
             Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f.Value))))))));
     internal static void CompareTrees(string expected, string actual)
     {
-        var a = Files(expected); var b = Files(actual);
+        CompareSnapshot(Snapshot(expected), actual);
+    }
+    private static SortedDictionary<string, byte[]> Snapshot(string directory) =>
+        new(Files(directory).ToDictionary(f => f.Key, f => File.ReadAllBytes(f.Value)), StringComparer.Ordinal);
+    private static void CompareSnapshot(SortedDictionary<string, byte[]> a, string actual)
+    {
+        var b = Files(actual);
         if (!a.Keys.SequenceEqual(b.Keys)) throw new InvalidDataException("Emitted file set differs from trusted checkpoint.");
         foreach (var key in a.Keys)
         {
             if (Path.GetExtension(key) == ".cs")
             {
-                var left = CSharpSyntaxTree.ParseText(File.ReadAllText(a[key])).GetRoot().NormalizeWhitespace().ToFullString();
+                var left = CSharpSyntaxTree.ParseText(Encoding.UTF8.GetString(a[key])).GetRoot().NormalizeWhitespace().ToFullString();
                 var right = CSharpSyntaxTree.ParseText(File.ReadAllText(b[key])).GetRoot().NormalizeWhitespace().ToFullString();
                 if (left != right) throw new InvalidDataException("Emitted content differs from trusted checkpoint: " + key);
             }
-            else if (!File.ReadAllBytes(a[key]).SequenceEqual(File.ReadAllBytes(b[key])))
+            else if (!a[key].SequenceEqual(File.ReadAllBytes(b[key])))
                 throw new InvalidDataException("Emitted content differs from trusted checkpoint: " + key);
         }
     }
