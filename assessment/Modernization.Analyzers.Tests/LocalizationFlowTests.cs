@@ -45,6 +45,14 @@ public sealed class LocalizationFlowTests
           public sealed class PreferencesModel {
             public string CultureName { get; set; }
             public void Commit() => Words.Current.Change(CultureName);
+            public System.Windows.Input.ICommand ApplyCommand => new ActionCommand(Commit);
+          }
+          public sealed class ActionCommand : System.Windows.Input.ICommand {
+            private readonly Action execute;
+            public ActionCommand(Action execute) { this.execute = execute; }
+            public event EventHandler CanExecuteChanged;
+            public bool CanExecute(object parameter) => true;
+            public void Execute(object parameter) => execute();
           }
           public sealed class Authenticate : System.Windows.Window { }
           public sealed class Dashboard : System.Windows.Window { }
@@ -103,7 +111,7 @@ public sealed class LocalizationFlowTests
                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                 xmlns:loc="clr-namespace:Example" x:Class="Example.{{surface}}" Title="{{title}}">
                 <StackPanel><TextBlock Text="{Binding Heading}"/><TextBlock Text="{Binding Message}"/>
-                  <ComboBox SelectedValue="{Binding CultureName}"/></StackPanel>
+                  <ComboBox SelectedValue="{Binding CultureName}"/><Button Command="{Binding ApplyCommand}"/></StackPanel>
               </Window>
               """));
         }
@@ -143,6 +151,12 @@ public sealed class LocalizationFlowTests
     [InlineData("wrong-manifest")]
     [InlineData("missing-culture")]
     [InlineData("wrong-binding-path")]
+    [InlineData("overwritten-provider")]
+    [InlineData("dead-culture-call")]
+    [InlineData("unbound-command")]
+    [InlineData("inert-command")]
+    [InlineData("overwritten-command")]
+    [InlineData("overwritten-factory")]
     public async Task Factory_lambda_facade_and_live_markup_flow_requires_real_consumption_and_connected_options(string mutation)
     {
         var source = Source;
@@ -152,7 +166,48 @@ public sealed class LocalizationFlowTests
             "\"Unused resource binding\"");
         if (mutation == "disconnected-options") source = source.Replace("Words.Current.Change(CultureName)", "Words.Current.Change(\"en\")");
         if (mutation == "wrong-binding-path") source = source.Replace("\"[\" + Key + \"]\"", "\"NotTheIndexer\"");
+        if (mutation is "overwritten-provider" or "overwritten-factory")
+        {
+            source = source.Replace("strings = factory.Create(\"Captions\", typeof(Words).Assembly.GetName().Name);",
+                mutation == "overwritten-provider" ?
+                    "strings = factory.Create(\"Captions\", typeof(Words).Assembly.GetName().Name); strings = new KeyOnlyLocalizer();" :
+                    "factory = new KeyOnlyFactory(); strings = factory.Create(\"Captions\", typeof(Words).Assembly.GetName().Name);") + """
+                namespace Example {
+                  public sealed class KeyOnlyLocalizer : Microsoft.Extensions.Localization.IStringLocalizer {
+                    public Microsoft.Extensions.Localization.LocalizedString this[string name] => new(name, name, true);
+                    public Microsoft.Extensions.Localization.LocalizedString this[string name, params object[] args] => new(name, name, true);
+                    public System.Collections.Generic.IEnumerable<Microsoft.Extensions.Localization.LocalizedString> GetAllStrings(bool parents) =>
+                      System.Array.Empty<Microsoft.Extensions.Localization.LocalizedString>();
+                  }
+                  public sealed class KeyOnlyFactory : Microsoft.Extensions.Localization.IStringLocalizerFactory {
+                    public Microsoft.Extensions.Localization.IStringLocalizer Create(Type type) => new KeyOnlyLocalizer();
+                    public Microsoft.Extensions.Localization.IStringLocalizer Create(string name, string location) => new KeyOnlyLocalizer();
+                  }
+                }
+                """;
+            if (mutation == "overwritten-factory") source = source.Replace("var factory =", "IStringLocalizerFactory factory =");
+        }
+        if (mutation == "dead-culture-call") source = source.Replace(
+            "public void Commit() => Words.Current.Change(CultureName);",
+            "public void Commit() {} private void NeverCalled() => Words.Current.Change(CultureName);");
+        if (mutation == "inert-command") source = source.Replace("public void Execute(object parameter) => execute();",
+            "public void Execute(object parameter) {}");
+        if (mutation == "overwritten-command") source = source.Replace(
+            "public System.Windows.Input.ICommand ApplyCommand => new ActionCommand(Commit);", """
+              public System.Windows.Input.ICommand ApplyCommand { get; }
+              public PreferencesModel() { ApplyCommand = new ActionCommand(Commit); ApplyCommand = new EmptyCommand(); }
+              """) + """
+              namespace Example {
+                public sealed class EmptyCommand : System.Windows.Input.ICommand {
+                  public event EventHandler CanExecuteChanged;
+                  public bool CanExecute(object parameter) => true;
+                  public void Execute(object parameter) {}
+                }
+              }
+              """;
         var files = Files(mutation);
+        if (mutation == "unbound-command") files = files.Select(f => File(Path.GetFileName(f.Path),
+            f.GetText()!.ToString().Replace("{Binding ApplyCommand}", "{Binding UnresolvedCommand}"))).ToArray();
         if (mutation == "wrong-manifest") files = files.Select(f => f.Path.EndsWith("Project.assessment")
             ? File("Project.assessment", f.GetText()!.ToString().Replace("Fixture.Translations.Captions", "Fixture.Other.Captions")) : f).ToArray();
         if (mutation == "missing-culture") files = files.Where(f => !f.Path.EndsWith(".es.resx")).ToArray();
@@ -163,6 +218,46 @@ public sealed class LocalizationFlowTests
             d.GetMessage().Contains("Unrequired maintenance"));
         if (mutation == "literal") Assert.Contains(found, d => d.Id == "LOC002" && d.GetMessage().Contains("Literal override"));
         if (mutation == "disconnected-options") Assert.Contains(found, d => d.GetMessage().Contains("Options must"));
+    }
+
+    [Fact]
+    public async Task Bound_selection_setter_can_apply_culture_without_a_commit_command()
+    {
+        var source = Source.Replace("public string CultureName { get; set; }",
+            "private string choice; public string CultureName { get => choice; set { choice = value; Words.Current.Change(value); } }")
+            .Replace("public void Commit() => Words.Current.Change(CultureName);", "public void Commit() {}");
+        Assert.DoesNotContain(await Analyze(source, Files()), d => d.Id == "LOC001");
+    }
+
+    [Fact]
+    public async Task Bound_command_event_and_installed_view_handler_reach_culture_commit()
+    {
+        var source = Source.Replace("public System.Windows.Input.ICommand ApplyCommand => new ActionCommand(Commit);", """
+            public event EventHandler ApplyRequested;
+            private void RequestApply() => ApplyRequested?.Invoke(this, EventArgs.Empty);
+            public System.Windows.Input.ICommand ApplyCommand => new ActionCommand(RequestApply);
+            """).Replace("public sealed class Preferences : System.Windows.Window { }", """
+            public sealed class Preferences : System.Windows.Window {
+              private readonly PreferencesModel model;
+              public Preferences(PreferencesModel model) {
+                this.model = model;
+                model.ApplyRequested += OnApply;
+              }
+              private void OnApply(object sender, EventArgs args) => model.Commit();
+            }
+            """);
+        Assert.DoesNotContain(await Analyze(source, Files()), d => d.Id == "LOC001");
+    }
+
+    [Fact]
+    public async Task Bound_command_constructor_forwarding_keeps_callback_arguments_at_the_call_site()
+    {
+        var source = Source.Replace("private readonly Action execute;", "private readonly Action<object> execute;")
+            .Replace("public ActionCommand(Action execute) { this.execute = execute; }", """
+              public ActionCommand(Action execute) : this(_ => execute()) {}
+              private ActionCommand(Action<object> execute) { this.execute = execute; }
+              """).Replace("public void Execute(object parameter) => execute();", "public void Execute(object parameter) => execute(parameter);");
+        Assert.DoesNotContain(await Analyze(source, Files()), d => d.Id == "LOC001");
     }
 
     [Fact]

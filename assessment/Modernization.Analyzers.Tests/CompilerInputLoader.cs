@@ -38,6 +38,15 @@ internal sealed record FixtureDataRole(string Owner, string Root)
             throw new InvalidDataException("Fixture-data role lacks evaluated source data or overlaps its owner's compiled source: " + Root);
     }
 }
+internal sealed record TestSupportRole(string Owner, string Project)
+{
+    internal static TestSupportRole[] Read(XDocument policy, string sourceRoot) =>
+        (policy.Root?.Element("Discovery")?.Elements("TestSupport") ?? []).Select(element =>
+            new TestSupportRole(Path.GetFullPath(element.Attribute("Owner")?.Value ??
+                throw new InvalidDataException("Test-support role is missing Owner."), sourceRoot),
+                Path.GetFullPath(element.Attribute("Project")?.Value ??
+                throw new InvalidDataException("Test-support role is missing Project."), sourceRoot))).ToArray();
+}
 internal sealed record EvaluatedAssemblyReference(string[] AssemblyPaths, string[] SourceProjects);
 internal sealed class SourceCompilationException(string project, IEnumerable<Diagnostic> diagnostics)
     : Exception("Source compilation failed for " + project)
@@ -241,20 +250,32 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             Value("TargetPlatformIdentifier"), Value("Configuration"), Value("Configurations"));
     }
 
-    internal static LoadedProject[] ClassifyTestSupport(IEnumerable<LoadedProject> projects, string sourceRoot)
+    internal static LoadedProject[] ClassifyTestSupport(IEnumerable<LoadedProject> projects, string sourceRoot,
+        IEnumerable<TestSupportRole>? supportRoles = null, IEnumerable<string>? productionRoots = null)
     {
         var all = projects.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
         bool InTestDirectory(string path) => Path.GetRelativePath(sourceRoot, path).Split(Path.DirectorySeparatorChar)
             .SkipLast(1).Any(s => s.EndsWith("Tests", StringComparison.Ordinal));
         XElement[] References(LoadedProject p) => p.AdditionalFiles.Where(f => f.Path == p.Path + ".assessment")
             .SelectMany(f => Evidence.Xml(f).Descendants("ProjectReference")).ToArray();
-        // Build-only executable dependencies of tests are harnesses, not shipped assemblies.
-        // A production consumer always takes precedence over this test role.
-        var helpers = all.Values.Where(p => p.IsTest).SelectMany(References)
-            .Where(e => string.Equals(e.Attribute("ReferenceOutputAssembly")?.Value, "false", StringComparison.OrdinalIgnoreCase))
-            .Select(e => e.Attribute("Path")?.Value).OfType<string>().ToHashSet(StringComparer.OrdinalIgnoreCase);
+        // Integration tests also launch real products. A build-only edge is not a
+        // helper declaration; executable helpers need an affirmative trusted role.
+        var roots = (productionRoots ?? []).Select(Path.GetFullPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var helpers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var role in supportRoles ?? [])
+        {
+            if (!all.TryGetValue(role.Project, out _) || !all.TryGetValue(role.Owner, out var owner)) continue;
+            if (!owner.IsTest || !References(owner).Any(e =>
+                string.Equals(e.Attribute("Path")?.Value, role.Project, StringComparison.OrdinalIgnoreCase) &&
+                string.Equals(e.Attribute("ReferenceOutputAssembly")?.Value, "false", StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidDataException("Trusted test-support role lacks an evaluated build-only test owner: " + role.Project);
+            if (!roots.Contains(role.Project)) helpers.Add(role.Project);
+        }
+        static bool Executable(LoadedProject p) => p.Compilation.Options.OutputKind is
+            OutputKind.ConsoleApplication or OutputKind.WindowsApplication or OutputKind.WindowsRuntimeApplication;
         var production = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var pending = new Stack<LoadedProject>(all.Values.Where(p => !p.IsTest && !InTestDirectory(p.Path) && !helpers.Contains(p.Path)));
+        var pending = new Stack<LoadedProject>(all.Values.Where(p => roots.Contains(p.Path) ||
+            !p.IsTest && (!InTestDirectory(p.Path) || Executable(p)) && !helpers.Contains(p.Path)));
         while (pending.TryPop(out var current))
         {
             if (!production.Add(current.Path)) continue;
@@ -262,8 +283,11 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
                 if (reference.Attribute("Path")?.Value is { } path && all.TryGetValue(path, out var dependency))
                     pending.Push(dependency);
         }
-        return all.Values.Select(p => !p.IsTest && (InTestDirectory(p.Path) || helpers.Contains(p.Path)) && !production.Contains(p.Path)
-            ? p with { IsTest = true, State = p.State == null ? null : p.State with { Test = true } } : p).ToArray();
+        return all.Values.Select(p =>
+        {
+            var test = !production.Contains(p.Path) && (p.IsTest || helpers.Contains(p.Path) || !Executable(p) && InTestDirectory(p.Path));
+            return p with { IsTest = test, State = p.State == null ? null : p.State with { Test = test } };
+        }).ToArray();
     }
 
     internal static EvaluatedAssemblyReference[] ReadEvaluatedReferences(JsonElement items, string directory)

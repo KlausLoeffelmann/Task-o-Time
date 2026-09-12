@@ -10,7 +10,7 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
     (AdditionalText File, XDocument Document)[] documents,
     Func<INamedTypeSymbol, bool> selection, Func<string, bool> sourceSelection, Recorder r, bool contracts)
 {
-    private sealed record Value(string Text, XElement Context);
+    private sealed record Value(string Text, XElement Context, XElement? Consumer = null);
     private sealed record Color(double Luminance, bool Shared, double? Opacity = 1);
     private static readonly XNamespace X = "http://schemas.microsoft.com/winfx/2006/xaml";
     private readonly HashSet<string> examined = new(StringComparer.Ordinal);
@@ -50,7 +50,7 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
                 var property = Effective(calendar, button + "Style", [], inherit: false);
                 var style = property == null ? Lookup(calendar, "@" + button, []) :
                     property.Context.Name.LocalName == "Style" ? property.Context :
-                    Lookup(property.Context, Key(property.Text) ?? "", []);
+                    LookupResource(property);
                 if (style == null)
                 {
                     Missing(calendar, button + " has no resolvable style/template.");
@@ -58,14 +58,14 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
                 }
                 var chain = StyleChain(style);
                 if (chain == null) continue;
-                var setters = Setters(chain);
+                var setters = Setters(chain, calendar);
                 var background = setters.GetValueOrDefault("Background");
                 var foreground = setters.GetValueOrDefault("Foreground");
                 Pair(style, background, foreground, button + " normal", true);
                 var templateValue = setters.GetValueOrDefault("Template");
                 var template = templateValue?.Context.Name.LocalName == "ControlTemplate" ? templateValue.Context :
                     templateValue != null && Key(templateValue.Text) is { } templateKey
-                        ? Lookup(templateValue.Context, templateKey, []) : null;
+                        ? LookupResource(templateValue) : null;
                 if (template?.Name.LocalName != "ControlTemplate") template = null;
                 if (template == null) Missing(style, button + " has no inspectable template; default theme states are unverified.");
                 var stateElements = chain.SelectMany(s => s.Elements().Where(e => e.Name.LocalName == "Style.Triggers"))
@@ -78,7 +78,7 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
                     foreach (var trigger in triggers)
                     {
                         var stateValues = trigger.Descendants().Where(e => e.Name.LocalName == "Setter")
-                            .Select(e => (Property: e.Attribute("Property")?.Value.Split('.').Last(), Value: SetterValue(e)))
+                            .Select(e => (Property: e.Attribute("Property")?.Value.Split('.').Last(), Value: SetterValue(e) is { } value ? value with { Consumer = calendar } : null))
                             .Where(a => a.Property != null && a.Value != null).ToArray();
                         var bg = stateValues.LastOrDefault(a => a.Property == "Background").Value ?? background;
                         var fg = stateValues.LastOrDefault(a => a.Property == "Foreground").Value ?? foreground;
@@ -92,8 +92,8 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
                             var target = animation.Attributes().FirstOrDefault(a => a.Name.LocalName == "TargetProperty")?.Value ?? "";
                             var to = animation.Attribute("To");
                             if (to == null) { Missing(animation, button + " " + state + " animation target value is unresolved."); continue; }
-                            if (target.Contains("Background", StringComparison.Ordinal)) bg = new(to.Value, animation);
-                            else if (target.Contains("Foreground", StringComparison.Ordinal)) fg = new(to.Value, animation);
+                            if (target.Contains("Background", StringComparison.Ordinal)) bg = new(to.Value, animation, calendar);
+                            else if (target.Contains("Foreground", StringComparison.Ordinal)) fg = new(to.Value, animation, calendar);
                             else if (target != "Opacity") Missing(animation, button + " " + state + " animation cannot be mapped to foreground/background.");
                         }
                         Pair(trigger, bg, fg, button + " " + state, false, state == "disabled" ? 3 : 4.5);
@@ -106,7 +106,7 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
                         Value? Attr(string name, Value? fallback)
                         {
                             var a = element.Attributes().FirstOrDefault(a => a.Name.LocalName.Split('.').Last() == name);
-                            return a == null || a.Value == "{TemplateBinding " + name + "}" ? fallback : new(a.Value, element);
+                            return a == null || a.Value == "{TemplateBinding " + name + "}" ? fallback : new(a.Value, element, calendar);
                         }
                         Pair(element, Attr("Background", background), Attr("Foreground", foreground), button + " template surface", false);
                     }
@@ -146,6 +146,8 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
     private void Pair(XElement at, Value? background, Value? foreground, string role, bool requireShared, double minimum = 4.5)
     {
         var key = Input(at).File.Path + "|" + Evidence.At(Input(at).File, at).GetLineSpan() + "|" + role;
+        if ((background?.Consumer ?? foreground?.Consumer) is { } consumer)
+            key += "|" + Input(consumer).File.Path + "|" + Evidence.At(Input(consumer).File, consumer).GetLineSpan();
         if (!examined.Add(key)) return;
         var bg = Resolve(background, [], false);
         var fg = Resolve(foreground, [], false);
@@ -169,10 +171,10 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
         var key = Key(value.Text);
         if (key != null)
         {
-            var resource = Lookup(value.Context, key, []);
+            var resource = LookupResource(value);
             if (resource == null || !seen.Add(Input(resource).File.Path + "|" + key)) return null;
             var color = resource.Attribute("Color")?.Value ?? resource.Value.Trim();
-            var resolved = Resolve(new(color, resource), seen, true);
+            var resolved = Resolve(new(color, resource, value.Consumer), seen, true);
             return resolved == null ? null : resolved with { Opacity = opacity * resolved.Opacity };
         }
         return ParseColor(value.Text) is { } literal ? literal with { Shared = shared, Opacity = opacity * literal.Opacity } : null;
@@ -218,13 +220,13 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
     {
         if (!seen.Add(element)) return null;
         var attribute = element.Attributes().FirstOrDefault(a => a.Name.LocalName.Split('.').Last() == property);
-        if (attribute != null && attribute.Value != "Transparent") return new(attribute.Value, element);
+        if (attribute != null && attribute.Value != "Transparent") return new(attribute.Value, element, element);
         var inline = element.Elements().FirstOrDefault(e => e.Name.LocalName == element.Name.LocalName + "." + property)?.Elements().FirstOrDefault();
         if (inline != null) return new(inline.Value, inline);
         var explicitStyle = element.Attribute("Style");
         var style = Lookup(element, explicitStyle == null ? "@" + element.Name.LocalName : Key(explicitStyle.Value) ?? "", []);
         var chain = style == null ? null : StyleChain(style);
-        var value = chain == null ? null : Setters(chain).GetValueOrDefault(property);
+        var value = chain == null ? null : Setters(chain, element).GetValueOrDefault(property);
         if (value != null) return value;
         return !inherit || element.Parent == null ? null : Effective(element.Parent, property, seen);
     }
@@ -261,14 +263,17 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
         chain.Reverse();
         return styleChains[style] = chain.ToArray();
     }
-    private static Dictionary<string, Value> Setters(IEnumerable<XElement> chain)
+    private static Dictionary<string, Value> Setters(IEnumerable<XElement> chain, XElement? consumer = null)
     {
         var values = new Dictionary<string, Value>(StringComparer.Ordinal);
         foreach (var setter in chain.SelectMany(style => style.Elements().Where(e => e.Name.LocalName == "Setter")))
             if (setter.Attribute("Property") is { } property && SetterValue(setter) is { } value)
-                values[property.Value.Split('.').Last()] = value;
+                values[property.Value.Split('.').Last()] = value with { Consumer = consumer };
         return values;
     }
+    private XElement? LookupResource(Value value) => Key(value.Text) is { } key
+        ? Lookup(value.Text.StartsWith("{DynamicResource", StringComparison.Ordinal) && value.Consumer != null
+            ? value.Consumer : value.Context, key, []) : null;
     private XElement? Lookup(XElement context, string key, HashSet<XElement> seen)
     {
         foreach (var ancestor in context.AncestorsAndSelf())

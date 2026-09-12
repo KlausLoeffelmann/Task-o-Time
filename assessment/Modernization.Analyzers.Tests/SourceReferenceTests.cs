@@ -19,6 +19,26 @@ public sealed class SourceReferenceTests
         false, true, [], [], IsolatedRefPath);
 
     [Theory]
+    [InlineData(OutputKind.ConsoleApplication, false)]
+    [InlineData(OutputKind.WindowsApplication, false)]
+    [InlineData(OutputKind.ConsoleApplication, true)]
+    [InlineData(OutputKind.WindowsApplication, true)]
+    public void Integration_test_build_edge_does_not_reclassify_standalone_product(OutputKind kind, bool testDirectory)
+    {
+        var product = Library() with {
+            IsTooling = false,
+            Path = testDirectory ? @"C:\fixture\Integration.Tests\Product\Product.csproj" : ProjectPath,
+            Compilation = ((CSharpCompilation)AnalyzerTests.Compile(LanguageNames.CSharp,
+                "public static class Program { public static void Main() {} }")).WithOptions(new CSharpCompilationOptions(kind))
+        };
+        var testPath = @"C:\fixture\Integration.csproj";
+        var test = new LoadedProject(testPath, "Assertions", "", product.Compilation, true, false, [],
+            [new InputFile(testPath + ".assessment",
+                $"""<Project><ProjectReference Path="{product.Path}" ReferenceOutputAssembly="false"/></Project>""")]);
+        Assert.False(CompilerInputLoader.ClassifyTestSupport([product, test], @"C:\fixture").Single(p => p.Path == product.Path).IsTest);
+    }
+
+    [Theory]
     [InlineData("{}", true)]
     [InlineData("{\"ReferenceOutputAssembly\":\"\"}", true)]
     [InlineData("{\"ReferenceOutputAssembly\":\"true\"}", true)]
@@ -158,7 +178,10 @@ public sealed class SourceReferenceTests
                     $"""<Project><ProjectReference Path="{helper.Path}" ReferenceOutputAssembly="{outputAssembly.ToString().ToLowerInvariant()}"/></Project>""")]);
         var test = Consumer("Assertions", true, false);
         var projects = productionConsumer ? new[] { helper, test, Consumer("Product", false, true) } : [helper, test];
-        Assert.Equal(!productionConsumer, CompilerInputLoader.ClassifyTestSupport(projects, root).Single(p => p.Path == helper.Path).IsTest);
+        Assert.Equal(!productionConsumer, CompilerInputLoader.ClassifyTestSupport(projects, root,
+            [new(test.Path, helper.Path)]).Single(p => p.Path == helper.Path).IsTest);
+        Assert.False(CompilerInputLoader.ClassifyTestSupport(projects, root, [new(test.Path, helper.Path)],
+            [helper.Path]).Single(p => p.Path == helper.Path).IsTest);
         // A suggestive name alone does not confer a helper role.
         var standalone = helper with { Path = root + @"\CaptureHost\CaptureHost.csproj" };
         Assert.False(CompilerInputLoader.ClassifyTestSupport([standalone], root)[0].IsTest);

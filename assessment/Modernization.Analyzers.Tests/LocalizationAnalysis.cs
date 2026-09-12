@@ -32,6 +32,8 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
     private LocalizationFlow flow = null!;
     private readonly HashSet<Resource> usedProviders = [];
     private readonly HashSet<string> selectedProperties = [];
+    private readonly HashSet<string> boundCommands = [];
+    private readonly HashSet<string> uiHandlers = [];
     private readonly Dictionary<string, string> presentationTypes = [];
     private readonly Dictionary<string, string> presentationFiles = new(StringComparer.OrdinalIgnoreCase);
     private static string Identity(IPropertySymbol property) => property.ContainingAssembly.Name + "|" + property.GetDocumentationCommentId();
@@ -46,7 +48,7 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
         BuildPresentationScope();
         AnalyzeXaml();
         foreach (var p in projects) AnalyzeOperations(p);
-        optionsCultureBehavior = flow.CultureFromSelection(selectedProperties);
+        optionsCultureBehavior = flow.CultureFromSelection(selectedProperties, boundCommands, uiHandlers, presentationTypes.Keys.ToHashSet());
         CheckResources();
         CheckExtensionLocalization();
         var complete = used.Count(a => policyValid && a.Neutral.Valid && HasRequiredCultures(a.Neutral)) +
@@ -280,6 +282,7 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
         {
         var surface = presentationFiles.GetValueOrDefault(input.File.Path);
         if (strictExtensionsPolicy && surface == null) continue;
+        ReadUiEntrypoints(input.Document);
         if (surface == "$options" &&
             input.Document.Descendants().Any(e => (e.Name.LocalName is "ComboBox" or "ListBox") &&
                 e.Attributes().Any(a => a.Name.LocalName is "SelectedValue" or "SelectedItem" && a.Value.StartsWith("{Binding", StringComparison.Ordinal))))
@@ -448,6 +451,44 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
     }
 
     private AdditionalText Input(XElement element) => xml.First(x => ReferenceEquals(x.Document, element.Document)).File;
+    private void ReadUiEntrypoints(XDocument document)
+    {
+        var classes = projects.SelectMany(p => Evidence.Types(p.Compilation)).ToArray();
+        var cls = document.Root?.Attribute(XName.Get("Class", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value;
+        var rootType = classes.FirstOrDefault(t => t.ToDisplayString() == cls);
+        foreach (var element in document.Descendants())
+        foreach (var attribute in element.Attributes().Where(a => !a.IsNamespaceDeclaration))
+        {
+            if (attribute.Name.LocalName.Split('.').Last() == "Command")
+            {
+                var binding = Regex.Match(attribute.Value, @"^\{Binding\s+(?:Path\s*=\s*)?([\w.]+)");
+                if (!binding.Success) continue;
+                var name = binding.Groups[1].Value.Split('.').Last();
+                foreach (var property in classes.Where(t => presentationTypes.ContainsKey(LocalizationFlow.Id(t)))
+                    .SelectMany(t => t.GetMembers(name).OfType<IPropertySymbol>()).Where(p => p.Type is INamedTypeSymbol type &&
+                        (type.ToDisplayString() == "System.Windows.Input.ICommand" || Evidence.Implements(type, "System.Windows.Input.ICommand"))))
+                    boundCommands.Add(LocalizationFlow.Id(property));
+                continue;
+            }
+            if (rootType == null || !Regex.IsMatch(attribute.Value, @"^[A-Za-z_]\w*$")) continue;
+            INamedTypeSymbol? elementType = null;
+            if (ReferenceEquals(element, document.Root)) elementType = rootType;
+            else
+            {
+                var clr = Regex.Match(element.Name.NamespaceName, @"^clr-namespace:([^;]*)(?:;assembly=([^;]+))?");
+                var names = clr.Success ? new[] { clr.Groups[1].Value + "." + element.Name.LocalName } :
+                    new[] { "System.Windows.Controls." + element.Name.LocalName, "System.Windows." + element.Name.LocalName };
+                elementType = projects.SelectMany(p => names.Select(p.Compilation.GetTypeByMetadataName)).OfType<INamedTypeSymbol>().FirstOrDefault();
+            }
+            IEventSymbol? eventSymbol = null;
+            for (var type = elementType; type != null && eventSymbol == null; type = type.BaseType)
+                eventSymbol = type.GetMembers(attribute.Name.LocalName.Split('.').Last()).OfType<IEventSymbol>().FirstOrDefault();
+            if (eventSymbol?.Type is not INamedTypeSymbol { DelegateInvokeMethod: { } signature }) continue;
+            foreach (var method in rootType.GetMembers(attribute.Value).OfType<IMethodSymbol>().Where(m => m.Parameters.Length == signature.Parameters.Length))
+                uiHandlers.Add(LocalizationFlow.Id(method));
+        }
+    }
+
     private bool ConsumeLookup(LocalizationFlow.Lookup lookup, Location location)
     {
         var project = projects.FirstOrDefault(p => p.Compilation.Assembly.Name == lookup.Assembly);

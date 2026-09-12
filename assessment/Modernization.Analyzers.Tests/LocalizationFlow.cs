@@ -12,6 +12,8 @@ internal sealed class LocalizationFlow
     private readonly Dictionary<string, List<IOperation>> definitions = [];
     private readonly List<IOperation> operations = [];
     private readonly Dictionary<string, List<IOperation>> members = [];
+    private readonly Dictionary<string, ISymbol> symbols = [];
+    private readonly Dictionary<IOperation, string> operationMembers = new(ReferenceEqualityComparer.Instance);
     internal static string Id(ISymbol symbol) => symbol.ContainingAssembly?.Name + "|" +
         (symbol.GetDocumentationCommentId() ?? symbol.ContainingSymbol?.GetDocumentationCommentId() + "|" +
             symbol.ToDisplayString() + "|" + symbol.Locations.FirstOrDefault()?.SourceSpan.Start);
@@ -21,16 +23,22 @@ internal sealed class LocalizationFlow
         void Add(Dictionary<string, List<IOperation>> index, ISymbol symbol, IOperation value)
         {
             var id = Id(symbol);
+            symbols[id] = symbol;
             if (!index.TryGetValue(id, out var values)) index[id] = values = [];
             values.Add(value);
         }
         foreach (var p in projects)
         {
+            foreach (var property in Evidence.Types(p.Compilation).SelectMany(t => t.GetMembers().OfType<IPropertySymbol>()))
+                symbols[Id(property)] = property;
             foreach (var op in Evidence.Operations(p.Compilation, generated: true))
             {
                 operations.Add(op);
-                if (Producers.ReturnOwner(p.Compilation, op) is { } member)
+                if (Evidence.Model(p.Compilation, op.Syntax.SyntaxTree).GetEnclosingSymbol(op.Syntax.SpanStart) is { } member)
+                {
                     Add(members, member, op);
+                    operationMembers[op] = Id(member);
+                }
                 if (op is IReturnOperation { ReturnedValue: { } result } &&
                     Producers.ReturnOwner(p.Compilation, op) is { } owner) Add(returns, owner, result);
                 if (op is ISimpleAssignmentOperation assignment && Target(assignment.Target) is { } target)
@@ -198,9 +206,10 @@ internal sealed class LocalizationFlow
             var type = call.Arguments.SelectMany(a => Evidence.Descendants(a.Value)).OfType<ITypeOfOperation>().FirstOrDefault()?.TypeOperand;
             owner ??= type?.ContainingAssembly.Name;
             if (baseName == null && call.Arguments.Length == 1 && type != null) baseName = type.ToDisplayString();
-            var factories = call.Instance == null ? [] : Origins(call.Instance, env, [], 0)
-                .OfType<IObjectCreationOperation>().Where(c => External(c.Type!, "Microsoft.Extensions.Localization.ResourceManagerStringLocalizerFactory")).ToArray();
-            foreach (var factory in factories)
+            var factories = call.Instance == null ? [] : AssignedValues(call.Instance, env, [], 0).ToArray();
+            if (factories.Length == 0 || factories.Any(value => value is not IObjectCreationOperation creation ||
+                !External(creation.Type!, "Microsoft.Extensions.Localization.ResourceManagerStringLocalizerFactory"))) yield break;
+            foreach (var factory in factories.OfType<IObjectCreationOperation>())
             {
                 var path = factory.Arguments.SelectMany(a => Origins(a.Value, env, [], 0)).SelectMany(Evidence.Descendants)
                     .OfType<ISimpleAssignmentOperation>().Where(a => a.Target is IPropertyReferenceOperation p &&
@@ -213,8 +222,31 @@ internal sealed class LocalizationFlow
             yield break;
         }
         if (Target(op) is { } symbol && seen.Add(Id(symbol)))
-            foreach (var value in Bodies(symbol).Concat(Definitions(symbol)))
-                foreach (var provider in Providers(value, env, seen, depth + 1)) yield return provider;
+        {
+            var alternatives = Bodies(symbol).Concat(Definitions(symbol))
+                .Select(value => Providers(value, env, new(seen), depth + 1).Distinct().ToArray()).ToArray();
+            // Without a proven reaching definition, every possible write must agree.
+            // An earlier real factory cannot authenticate a later replacement/stub.
+            if (alternatives.Length == 0 || alternatives.Any(values => values.Length == 0)) yield break;
+            var providers = alternatives.SelectMany(values => values).Distinct().ToArray();
+            if (providers.Length == 1) yield return providers[0];
+        }
+    }
+
+    private IEnumerable<IOperation> AssignedValues(IOperation original, Dictionary<string, IOperation> env,
+        HashSet<string> seen, int depth)
+    {
+        if (depth > 24) yield break;
+        var op = Substitute(original, env);
+        if (op is IParameterReferenceOperation) { yield return op; yield break; }
+        var symbol = Target(op) ?? (op as IInvocationOperation)?.TargetMethod;
+        if (symbol == null) { yield return op; yield break; }
+        if (!seen.Add(Id(symbol))) yield break;
+        var values = Bodies(symbol).Concat(Definitions(symbol)).ToArray();
+        if (values.Length == 0) { yield return op; yield break; }
+        var next = op is IInvocationOperation call ? Arguments(call.Arguments, env) : env;
+        foreach (var value in values)
+            foreach (var result in AssignedValues(value, next, new(seen), depth + 1)) yield return result;
     }
 
     private IEnumerable<IOperation> Origins(IOperation original, Dictionary<string, IOperation> env, HashSet<string> seen, int depth)
@@ -257,10 +289,14 @@ internal sealed class LocalizationFlow
         return null;
     }
 
-    internal bool CultureFromSelection(HashSet<string> selectedProperties)
+    internal bool CultureFromSelection(HashSet<string> selectedProperties, HashSet<string> boundCommands,
+        HashSet<string> uiHandlers, HashSet<string> presentationTypes)
     {
+        var selectedParameters = selectedProperties.Select(id => symbols.GetValueOrDefault(id)).OfType<IPropertySymbol>()
+            .Select(p => p.SetMethod?.Parameters.LastOrDefault()).OfType<IParameterSymbol>().Select(ParameterId).ToHashSet();
         bool Selected(IOperation value, Dictionary<string, IOperation> env) => Origins(value, env, [], 0)
-            .OfType<IPropertyReferenceOperation>().Any(p => selectedProperties.Contains(Id(p.Property)));
+            .Any(o => o is IPropertyReferenceOperation p && selectedProperties.Contains(Id(p.Property)) ||
+                o is IParameterReferenceOperation parameter && selectedParameters.Contains(ParameterId(parameter.Parameter)));
         bool Check(IMethodSymbol method, Dictionary<string, IOperation> env, HashSet<string> seen, int depth)
         {
             if (depth > 12 || !seen.Add(Id(method))) return false;
@@ -275,8 +311,123 @@ internal sealed class LocalizationFlow
             }
             return false;
         }
-        return operations.OfType<IInvocationOperation>().Where(c => c.Arguments.Any(a => Selected(a.Value, [])))
-            .Any(c => Check(c.TargetMethod, Arguments(c.Arguments, []), [], 0));
+        var reachable = UiReachable(selectedProperties, boundCommands, uiHandlers, presentationTypes);
+        return selectedProperties.Select(id => symbols.GetValueOrDefault(id)).OfType<IPropertySymbol>()
+            .Any(p => p.SetMethod != null && Check(p.SetMethod, [], [], 0)) ||
+            operations.OfType<IInvocationOperation>().Where(c =>
+                operationMembers.TryGetValue(c, out var owner) && reachable.Contains(owner) &&
+                c.Arguments.Any(a => Selected(a.Value, [])))
+                .Any(c => Check(c.TargetMethod, Arguments(c.Arguments, []), [], 0));
+    }
+
+    private HashSet<string> UiReachable(HashSet<string> selectedProperties, HashSet<string> boundCommands,
+        HashSet<string> uiHandlers, HashSet<string> presentationTypes)
+    {
+        var pending = new Queue<string>(uiHandlers);
+        var reached = new HashSet<string>();
+        var eventHandlers = new Dictionary<string, HashSet<string>>();
+        IEnumerable<IMethodSymbol> Callbacks(IOperation value, Dictionary<string, IOperation> env, int depth = 0)
+        {
+            if (depth > 12) yield break;
+            foreach (var origin in AssignedValues(value, env, [], 0))
+            {
+                var target = origin is IDelegateCreationOperation creation ? creation.Target : origin;
+                if (target is IMethodReferenceOperation method) yield return method.Method;
+                if (target is IAnonymousFunctionOperation lambda)
+                {
+                    yield return lambda.Symbol;
+                    foreach (var call in (members.GetValueOrDefault(Id(lambda.Symbol)) ?? []).OfType<IInvocationOperation>()
+                        .Where(c => c.TargetMethod.MethodKind == MethodKind.DelegateInvoke && c.Instance != null))
+                        foreach (var callback in Callbacks(call.Instance!, env, depth + 1)) yield return callback;
+                }
+            }
+        }
+        void Register(IEventAssignmentOperation assignment)
+        {
+            if (!assignment.Adds || assignment.EventReference is not IEventReferenceOperation reference) return;
+            var id = Id(reference.Event);
+            if (!eventHandlers.TryGetValue(id, out var handlers)) eventHandlers[id] = handlers = [];
+            foreach (var callback in Callbacks(assignment.HandlerValue, [])) handlers.Add(Id(callback));
+        }
+        foreach (var assignment in operations.OfType<IEventAssignmentOperation>().Where(a =>
+            operationMembers.TryGetValue(a, out var owner) && symbols.GetValueOrDefault(owner) is IMethodSymbol method &&
+            method.MethodKind is MethodKind.Constructor or MethodKind.StaticConstructor &&
+            presentationTypes.Contains(Id(method.ContainingType)))) Register(assignment);
+        foreach (var property in selectedProperties.Select(id => symbols.GetValueOrDefault(id)).OfType<IPropertySymbol>())
+            if (property.SetMethod != null) pending.Enqueue(Id(property.SetMethod));
+        void CommandExecution(IMethodSymbol method, Dictionary<string, IOperation> env, HashSet<string> seen, HashSet<string> callbacks, int depth)
+        {
+            if (depth > 12 || !seen.Add(Id(method))) return;
+            foreach (var call in (members.GetValueOrDefault(Id(method)) ?? []).OfType<IInvocationOperation>())
+            {
+                if (call.TargetMethod.MethodKind == MethodKind.DelegateInvoke && call.Instance != null)
+                    foreach (var callback in Callbacks(call.Instance, env)) callbacks.Add(Id(callback));
+                else CommandExecution(call.TargetMethod, Arguments(call.Arguments, env), seen, callbacks, depth + 1);
+            }
+        }
+        Dictionary<string, IOperation> ConstructionEnvironment(IObjectCreationOperation creation)
+        {
+            var env = Arguments(creation.Arguments, []);
+            var constructor = creation.Constructor;
+            var seen = new HashSet<string>();
+            while (constructor != null && seen.Add(Id(constructor)))
+            {
+                var initializer = (members.GetValueOrDefault(Id(constructor)) ?? []).OfType<IInvocationOperation>()
+                    .FirstOrDefault(c => c.TargetMethod.MethodKind == MethodKind.Constructor);
+                if (initializer == null) break;
+                env = Arguments(initializer.Arguments, env);
+                constructor = initializer.TargetMethod;
+            }
+            return env;
+        }
+        foreach (var property in boundCommands.Select(id => symbols.GetValueOrDefault(id)).OfType<IPropertySymbol>())
+        {
+            var values = Bodies(property).Concat(Definitions(property)).SelectMany(value => AssignedValues(value, [], [], 0)).ToArray();
+            if (values.Length == 0 || values.Any(value => value is not IObjectCreationOperation { Type: INamedTypeSymbol type } ||
+                !Evidence.Implements(type, "System.Windows.Input.ICommand"))) continue;
+            var alternatives = new List<HashSet<string>>();
+            foreach (var creation in values.OfType<IObjectCreationOperation>())
+            {
+                var callbacks = new HashSet<string>();
+                for (var type = creation.Type as INamedTypeSymbol; type != null; type = type.BaseType)
+                    foreach (var execute in type.GetMembers().OfType<IMethodSymbol>().Where(m =>
+                        m.Name == "Execute" || m.ExplicitInterfaceImplementations.Any(i => i.Name == "Execute" &&
+                            i.ContainingType.ToDisplayString() == "System.Windows.Input.ICommand")))
+                        CommandExecution(execute, ConstructionEnvironment(creation), [], callbacks, 0);
+                alternatives.Add(callbacks);
+            }
+            if (alternatives.Any(callbacks => callbacks.Count == 0 || !callbacks.SetEquals(alternatives[0]))) continue;
+            foreach (var callback in alternatives[0]) pending.Enqueue(callback);
+        }
+        while (pending.TryDequeue(out var owner))
+        {
+            if (!reached.Add(owner)) continue;
+            foreach (var op in members.GetValueOrDefault(owner) ?? [])
+            {
+                if (op is IInvocationOperation call)
+                {
+                    pending.Enqueue(Id(call.TargetMethod));
+                    if (call.TargetMethod.MethodKind == MethodKind.DelegateInvoke)
+                    {
+                        IOperation context = call;
+                        while (context.Parent != null && context is not IConditionalAccessOperation) context = context.Parent;
+                        var events = Evidence.Descendants(context is IConditionalAccessOperation conditional ? conditional.Operation : call)
+                            .OfType<IEventReferenceOperation>();
+                        foreach (var reference in events)
+                            foreach (var handler in eventHandlers.GetValueOrDefault(Id(reference.Event)) ?? []) pending.Enqueue(handler);
+                    }
+                }
+                if (op is IPropertyReferenceOperation property)
+                {
+                    var method = property.Parent is ISimpleAssignmentOperation assignment && ReferenceEquals(assignment.Target, property)
+                        ? property.Property.SetMethod : property.Property.GetMethod;
+                    if (method != null) pending.Enqueue(Id(method));
+                }
+                if (op is IObjectCreationOperation { Constructor: { } constructor }) pending.Enqueue(Id(constructor));
+                if (op is IEventAssignmentOperation subscription) Register(subscription);
+            }
+        }
+        return reached;
     }
 
     internal IEnumerable<Lookup> Indexer(INamedTypeSymbol type, string key)
