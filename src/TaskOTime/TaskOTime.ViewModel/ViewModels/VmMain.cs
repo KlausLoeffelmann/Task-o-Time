@@ -49,7 +49,7 @@ namespace TaskOTime.ViewModel.ViewModels
         public event EventHandler<AppOptionsViewModel> OptionsRequested;
         public event EventHandler<TaskListEditRequestEventArgs> TaskListEditRequested;
         public event EventHandler<TimeEntryEditRequestEventArgs> TimeEntryEditRequested;
-        public event EventHandler<int> MasterDataRequested;
+        public event EventHandler<int> MainDataRequested;
 
         public DateTime SelectedDate
         {
@@ -270,22 +270,22 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void ShowProjectsDialog()
         {
-            MasterDataRequested?.Invoke(this, 1);
+            MainDataRequested?.Invoke(this, 1);
         }
 
         private void ShowTaskListsDialog()
         {
-            MasterDataRequested?.Invoke(this, 2);
+            MainDataRequested?.Invoke(this, 2);
         }
 
         private void ShowTasksDialog()
         {
-            MasterDataRequested?.Invoke(this, 2);
+            MainDataRequested?.Invoke(this, 2);
         }
 
         private void ShowUsersAdminDialog()
         {
-            MasterDataRequested?.Invoke(this, 0);
+            MainDataRequested?.Invoke(this, 0);
         }
 
         private void ShowDailyStatementDialog()

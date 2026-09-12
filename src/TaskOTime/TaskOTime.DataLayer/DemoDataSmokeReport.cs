@@ -125,7 +125,7 @@ namespace TaskOTime.DataLayer
                 MultiBookingUserProjectDateGroupCount == 0 ||
                 AnalysisBookedHours <= 0)
             {
-                throw new InvalidOperationException("Demo data smoke validation failed because analysis-relevant master data or bookings are missing.");
+                throw new InvalidOperationException("Demo data smoke validation failed because analysis-relevant main data or bookings are missing.");
             }
 
             if (CrossTenantProjectAssignmentCount != 0)

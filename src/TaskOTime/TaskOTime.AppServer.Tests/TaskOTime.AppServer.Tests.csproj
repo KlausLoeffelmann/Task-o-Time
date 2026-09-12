@@ -28,10 +28,10 @@
 
   <ItemGroup>
     <Compile Include="..\TaskOTime.AppServer\Models\*.cs" LinkBase="AppServer\Models" />
-    <Compile Include="..\TaskOTime.AppServer\Services\AdminMasterDataService.cs" Link="AppServer\Services\AdminMasterDataService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\AdminMainDataService.cs" Link="AppServer\Services\AdminMainDataService.cs" />
     <Compile Include="..\TaskOTime.AppServer\Services\AnalysisService.cs" Link="AppServer\Services\AnalysisService.cs" />
     <Compile Include="..\TaskOTime.AppServer\Services\ApplicationServiceBase.cs" Link="AppServer\Services\ApplicationServiceBase.cs" />
-    <Compile Include="..\TaskOTime.AppServer\Services\IAdminMasterDataService.cs" Link="AppServer\Services\IAdminMasterDataService.cs" />
+    <Compile Include="..\TaskOTime.AppServer\Services\IAdminMainDataService.cs" Link="AppServer\Services\IAdminMainDataService.cs" />
     <Compile Include="..\TaskOTime.AppServer\Services\IAnalysisService.cs" Link="AppServer\Services\IAnalysisService.cs" />
     <Compile Include="..\TaskOTime.AppServer\Services\ITimeBookingService.cs" Link="AppServer\Services\ITimeBookingService.cs" />
     <Compile Include="..\TaskOTime.AppServer\Services\TimeBookingService.cs" Link="AppServer\Services\TimeBookingService.cs" />

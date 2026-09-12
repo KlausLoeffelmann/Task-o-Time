@@ -3,7 +3,7 @@
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
     <sys:String x:Key="AppTitle">Task-o-Time</sys:String>
     <sys:String x:Key="FileMenuHeader">_Bestand</sys:String>
-    <sys:String x:Key="MasterDataMenuHeader">_Main Data</sys:String>
+    <sys:String x:Key="MainDataMenuHeader">_Main Data</sys:String>
     <sys:String x:Key="AnalysisMenuHeader">_Analyse</sys:String>
     <sys:String x:Key="ExportDayMenuHeader">Export selected day as CSV</sys:String>
     <sys:String x:Key="ExportPeriodMenuHeader">Periode als CSV exporteren</sys:String>

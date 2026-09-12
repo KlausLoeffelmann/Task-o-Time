@@ -7,12 +7,14 @@ using TaskOTime.AppServer.Services;
 using TaskOTime.AppServer.TimeBooking;
 using TaskOTime.DataLayer;
 using TaskOTime.DTOs;
+using TaskOTime.ViewModel;
+using TaskOTime.ViewModel.ViewModels;
 
 namespace TaskOTime.AppServer.IntegrationTests
 {
     [TestClass]
     [TestCategory("IsolatedSql")]
-    public sealed class AppServerPersistenceIntegrationTests
+    public sealed partial class AppServerPersistenceIntegrationTests
     {
         private LocalDbPersistenceTestDatabase database;
         private static readonly Guid TenantId = GuidFromSuffix(101);
@@ -111,12 +113,256 @@ namespace TaskOTime.AppServer.IntegrationTests
         }
 
         [TestMethod]
-        public void MasterDataTimeBookingAndAnalysis_RoundTripThroughEf6LocalDb()
+        public void TenantEditor_SaveAndReactivate_ReloadsAuthoritativeTenantFromSql()
+        {
+            var hasher = new Pbkdf2PasswordHasher();
+            var admin = new AdminMainDataService(database.CreateContext, hasher);
+            var users = new UserAdministrationService(database.CreateContext, hasher);
+            var bookings = new TimeBookingService(database.CreateContext, hasher);
+            var query = new GetTenantRequest { IdTenant = TenantId, IdActingUser = AdminUserId };
+            using (var context = database.CreateContext())
+            {
+                var entity = context.Tenant.Single();
+                entity.Description = "Keep description";
+                entity.ExternalId = "Keep external id";
+                context.SaveChanges();
+            }
+            var original = AssertSucceeded(admin.GetTenant(query));
+            var workspace = new ServiceWorkspace(original, AdminUserId, admin, users, bookings);
+            var interaction = new TenantTestInteraction();
+            var vm = new TenantUserViewModel(workspace, interaction)
+            {
+                TenantName = "  Saved tenant  ", TenantActive = false
+            };
+            vm.SaveTenantCommand.Execute(null);
+            Assert.AreEqual("Tenant saved.", interaction.Message);
+            Assert.AreEqual("Integration tenant", original.TenantName, "The edit must not mutate the original DTO.");
+            Assert.AreSame(vm.SelectedTenant, workspace.Tenant);
+            Assert.AreEqual("Saved tenant", vm.TenantName);
+            Assert.IsFalse(workspace.Tenant.IsActive);
+
+            using (var context = database.CreateContext())
+            {
+                var persisted = context.Tenant.Single();
+                Assert.AreEqual("Saved tenant", persisted.TenantName);
+                Assert.IsFalse(persisted.IsActive);
+                Assert.AreEqual("integration", persisted.TenantIdentifier);
+                Assert.AreEqual("Keep description", persisted.Description);
+                Assert.AreEqual("Keep external id", persisted.ExternalId);
+                Assert.AreEqual(original.DateCreated, persisted.DateCreated);
+                Assert.IsTrue(persisted.DateModified >= original.DateModified);
+                Assert.IsFalse(persisted.IsDeleted);
+            }
+            Assert.IsFalse(AssertSucceeded(admin.GetTenant(query)).IsActive);
+            Assert.IsTrue(vm.SaveTenantCommand.CanExecute(null), "The same active admin can reactivate the tenant.");
+            vm.TenantActive = true;
+            vm.SaveTenantCommand.Execute(null);
+            var reloaded = new ServiceWorkspace(AssertSucceeded(admin.GetTenant(query)), AdminUserId, admin, users, bookings);
+            var reopenedEditor = new TenantUserViewModel(reloaded, interaction);
+            Assert.AreEqual("Saved tenant", reopenedEditor.TenantName);
+            Assert.IsTrue(reopenedEditor.TenantActive);
+            Assert.AreEqual(TenantId, reopenedEditor.SelectedTenant.IdTenant);
+        }
+
+        [DataTestMethod]
+        [DataRow("missing-user", "NotAuthorized")]
+        [DataRow("regular-user", "NotAuthorized")]
+        [DataRow("inactive-user", "NotAuthorized")]
+        [DataRow("deleted-user", "NotAuthorized")]
+        [DataRow("foreign-tenant", "NotAuthorized")]
+        [DataRow("deleted-tenant", "TenantNotFound")]
+        [DataRow("empty-user", "InvalidRequest")]
+        [DataRow("missing-tenant", "TenantNotFound")]
+        public void TenantUpdate_RejectsUnauthorizedRequestsWithoutChangingSql(string scenario, string expectedError)
+        {
+            var request = new UpdateTenantRequest
+            {
+                IdTenant = TenantId, IdActingUser = AdminUserId, TenantName = "Forbidden update", IsActive = false
+            };
+            using (var context = database.CreateContext())
+            {
+                var user = context.User.Single();
+                switch (scenario)
+                {
+                    case "missing-user": request.IdActingUser = Guid.NewGuid(); break;
+                    case "regular-user": user.IsAdmin = false; break;
+                    case "inactive-user": user.IsActive = false; break;
+                    case "deleted-user": user.IsDeleted = true; break;
+                    case "deleted-tenant": context.Tenant.Single().IsDeleted = true; break;
+                    case "empty-user": request.IdActingUser = Guid.Empty; break;
+                    case "missing-tenant": request.IdTenant = Guid.NewGuid(); break;
+                    case "foreign-tenant":
+                        request.IdTenant = Guid.NewGuid();
+                        context.Tenant.Add(new Tenant
+                        {
+                            IdTenant = request.IdTenant, TenantName = "Other tenant", IsActive = true,
+                            DateCreated = WorkDayStart, DateModified = WorkDayStart
+                        });
+                        break;
+                }
+                context.SaveChanges();
+            }
+            var service = new AdminMainDataService(database.CreateContext, new Pbkdf2PasswordHasher());
+            var result = service.UpdateTenant(request);
+            Assert.IsFalse(result.Success);
+            Assert.AreEqual(expectedError, result.ErrorCode);
+            var readResult = service.GetTenant(new GetTenantRequest
+            {
+                IdTenant = request.IdTenant, IdActingUser = request.IdActingUser
+            });
+            Assert.IsFalse(readResult.Success);
+            Assert.AreEqual(expectedError, readResult.ErrorCode);
+            using (var context = database.CreateContext())
+            {
+                Assert.AreEqual("Integration tenant", context.Tenant.Single(t => t.IdTenant == TenantId).TenantName);
+                Assert.IsTrue(context.Tenant.All(t => t.IsActive));
+                Assert.IsFalse(context.Tenant.Any(t => t.TenantName == "Forbidden update"));
+            }
+        }
+
+        [TestMethod]
+        public void InactiveTenant_RecreatedMaintenanceModel_ReactivatesAndLoadsAllCollections()
+        {
+            var hasher = new Pbkdf2PasswordHasher();
+            var admin = new AdminMainDataService(database.CreateContext, hasher);
+            var users = new UserAdministrationService(database.CreateContext, hasher);
+            var bookings = new TimeBookingService(database.CreateContext, hasher);
+            SeedProjectCategoryTaskForBookings(hasher);
+            AssertSucceeded(admin.CreateTag(new SaveTagRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new TagMainDataDto { IdUser = AdminUserId, Tag = "Reload tag" }
+            }));
+            AssertSucceeded(admin.CreateNote(new SaveNoteRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new NoteMainDataDto { IdUser = AdminUserId, NoteMnemonic = "Reload", NoteText = "Reload note" }
+            }));
+            AssertSucceeded(admin.CreateWebLink(new SaveWebLinkRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new WebLinkMainDataDto { IdUser = AdminUserId, Title = "Reload link", Link = "https://example.invalid/reload", Domain = "example.invalid" }
+            }));
+            var tenantQuery = new GetTenantRequest { IdTenant = TenantId, IdActingUser = AdminUserId };
+            var staleActiveTenant = AssertSucceeded(admin.GetTenant(tenantQuery));
+            var interaction = new TenantTestInteraction();
+            var firstModel = new MainDataViewModel(staleActiveTenant, AdminUserId, admin, users, bookings, 1, interaction);
+            firstModel.TenantUsers.TenantActive = false;
+            firstModel.TenantUsers.SaveTenantCommand.Execute(null);
+            Assert.IsFalse(firstModel.Tenant.IsActive);
+            Assert.AreEqual(0, firstModel.Projects.Projects.Count);
+            firstModel = null;
+
+            // Recreate through the service constructor, not through the old workspace or its cached DTO.
+            var reopened = new MainDataViewModel(staleActiveTenant, AdminUserId, admin, users, bookings, 1, interaction);
+            Assert.AreEqual(0, reopened.SelectedTab);
+            Assert.IsFalse(reopened.Tenant.IsActive);
+            Assert.AreEqual(0, reopened.Projects.Projects.Count);
+            Assert.AreEqual(0, reopened.Tasks.TaskLists.Count);
+            Assert.AreEqual(0, reopened.Tasks.Tasks.Count);
+            Assert.AreEqual(0, reopened.Collaboration.Categories.Count);
+            Assert.AreEqual(0, reopened.Collaboration.Tags.Count);
+            Assert.AreEqual(0, reopened.Collaboration.Notes.Count);
+            Assert.AreEqual(0, reopened.Collaboration.WebLinks.Count);
+            Assert.IsFalse(reopened.Projects.NewCommand.CanExecute(null));
+            Assert.IsFalse(reopened.Tasks.AddListCommand.CanExecute(null));
+            Assert.IsFalse(reopened.Collaboration.AddCommand.CanExecute(null));
+            Assert.IsTrue(reopened.TenantUsers.SaveTenantCommand.CanExecute(null));
+            Assert.AreEqual("TenantNotFound", admin.GetProjects(Query()).ErrorCode);
+            Assert.IsFalse(admin.CreateProject(new SaveProjectRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new ProjectMainDataDto { ProjectName = "Forbidden while inactive", IsActive = true }
+            }).Success);
+
+            reopened.TenantUsers.TenantActive = true;
+            reopened.TenantUsers.SaveTenantCommand.Execute(null);
+            Assert.AreEqual("Tenant saved.", interaction.Message);
+            Assert.IsTrue(AssertSucceeded(admin.GetTenant(tenantQuery)).IsActive);
+            Assert.AreEqual(ProjectId, reopened.Projects.SelectedProject.IdProject);
+            Assert.AreEqual(TaskListId, reopened.Tasks.SelectedList.IdTaskList);
+            Assert.AreEqual(TaskItemId, reopened.Tasks.SelectedTask.IdTaskItem);
+            Assert.AreEqual(1, reopened.Projects.Projects.Count);
+            Assert.AreEqual(1, reopened.Tasks.TaskLists.Count);
+            Assert.AreEqual(1, reopened.Tasks.Tasks.Count);
+            Assert.AreEqual(1, reopened.Collaboration.Categories.Count);
+            Assert.AreEqual(1, reopened.Collaboration.Tags.Count);
+            Assert.AreEqual(1, reopened.Collaboration.Notes.Count);
+            Assert.AreEqual(1, reopened.Collaboration.WebLinks.Count);
+            Assert.IsTrue(reopened.Tasks.AddListCommand.CanExecute(null));
+            reopened.Tasks.AddListCommand.Execute(null);
+            using (var context = database.CreateContext())
+            {
+                Assert.AreEqual(1, context.Project.Count());
+                Assert.AreEqual(2, context.TaskList.Count());
+            }
+        }
+
+        [TestMethod]
+        public void TenantUpdate_ValidatesNameAndPreservesDatabaseOnFailure()
+        {
+            var service = new AdminMainDataService(database.CreateContext, new Pbkdf2PasswordHasher());
+            Assert.AreEqual("InvalidRequest", service.UpdateTenant(null).ErrorCode);
+            Assert.AreEqual("InvalidRequest", service.GetTenant(null).ErrorCode);
+            foreach (var name in new[] { null, "", "   ", new string('x', 201) })
+            {
+                var result = service.UpdateTenant(new UpdateTenantRequest
+                {
+                    IdTenant = TenantId, IdActingUser = AdminUserId, TenantName = name, IsActive = false
+                });
+                Assert.IsFalse(result.Success);
+                Assert.AreEqual("InvalidRequest", result.ErrorCode);
+            }
+            using (var context = database.CreateContext())
+            {
+                context.Tenant.Add(new Tenant
+                {
+                    IdTenant = Guid.NewGuid(), TenantName = "Already exists", IsActive = true,
+                    DateCreated = WorkDayStart, DateModified = WorkDayStart
+                });
+                context.SaveChanges();
+            }
+            Assert.AreEqual("TenantExists", service.UpdateTenant(new UpdateTenantRequest
+            {
+                IdTenant = TenantId, IdActingUser = AdminUserId, TenantName = " Already exists ", IsActive = false
+            }).ErrorCode);
+            using (var context = database.CreateContext())
+            {
+                var tenant = context.Tenant.Single(t => t.IdTenant == TenantId);
+                Assert.AreEqual("Integration tenant", tenant.TenantName);
+                Assert.IsTrue(tenant.IsActive);
+            }
+            var boundaryName = new string('x', 200);
+            Assert.AreEqual(boundaryName, AssertSucceeded(service.UpdateTenant(new UpdateTenantRequest
+            {
+                IdTenant = TenantId, IdActingUser = AdminUserId, TenantName = boundaryName, IsActive = true
+            })).TenantName);
+        }
+
+        private sealed class TenantTestInteraction : IMaintenanceInteraction
+        {
+            public string Message { get; private set; }
+            public string Confirmation { get; private set; }
+            public bool ConfirmResult { get; set; } = true;
+            public void Notify(string message, string title) => Message = message;
+            public bool Confirm(string message, string title)
+            {
+                Confirmation = message;
+                return ConfirmResult;
+            }
+        }
+
+        [TestMethod]
+        public void MainDataTimeBookingAndAnalysis_RoundTripThroughEf6LocalDb()
         {
             var passwordHasher = new Pbkdf2PasswordHasher();
-            var masterData = new AdminMasterDataService(database.CreateContext, passwordHasher);
+            var mainData = new AdminMainDataService(database.CreateContext, passwordHasher);
 
-            var project = AssertSucceeded(masterData.CreateProject(new SaveProjectRequest
+            var project = AssertSucceeded(mainData.CreateProject(new SaveProjectRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
@@ -131,11 +377,11 @@ namespace TaskOTime.AppServer.IntegrationTests
             Assert.AreEqual("Persistence Portal", project.ProjectName);
             Assert.AreEqual("PERSIST", project.ProjectIdentifier);
 
-            var category = AssertSucceeded(masterData.CreateCategory(new SaveCategoryRequest
+            var category = AssertSucceeded(mainData.CreateCategory(new SaveCategoryRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new CategoryMasterDataDto
+                Item = new CategoryMainDataDto
                 {
                     IdCategory = CategoryId,
                     IdUser = AdminUserId,
@@ -146,11 +392,11 @@ namespace TaskOTime.AppServer.IntegrationTests
             }));
             Assert.AreEqual(CategoryId, category.IdCategory);
 
-            var taskList = AssertSucceeded(masterData.CreateTaskList(new SaveTaskListRequest
+            var taskList = AssertSucceeded(mainData.CreateTaskList(new SaveTaskListRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new TaskListMasterDataDto
+                Item = new TaskListMainDataDto
                 {
                     IdTaskList = TaskListId,
                     IdProject = ProjectId,
@@ -162,11 +408,11 @@ namespace TaskOTime.AppServer.IntegrationTests
             }));
             Assert.AreEqual(TaskListId, taskList.IdTaskList);
 
-            var taskItem = AssertSucceeded(masterData.CreateTaskItem(new SaveTaskItemRequest
+            var taskItem = AssertSucceeded(mainData.CreateTaskItem(new SaveTaskItemRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new TaskItemMasterDataDto
+                Item = new TaskItemMainDataDto
                 {
                     IdTaskItem = TaskItemId,
                     IdProject = ProjectId,
@@ -179,9 +425,9 @@ namespace TaskOTime.AppServer.IntegrationTests
             }));
             Assert.AreEqual(TaskItemId, taskItem.IdTaskItem);
 
-            CollectionAssert.AreEqual(new[] { ProjectId }, AssertSucceeded(masterData.GetProjects(Query())).Select(item => item.IdProject).ToArray());
-            CollectionAssert.AreEqual(new[] { TaskListId }, AssertSucceeded(masterData.GetTaskLists(Query())).Select(item => item.IdTaskList).ToArray());
-            CollectionAssert.AreEqual(new[] { TaskItemId }, AssertSucceeded(masterData.GetTaskItems(Query())).Select(item => item.IdTaskItem).ToArray());
+            CollectionAssert.AreEqual(new[] { ProjectId }, AssertSucceeded(mainData.GetProjects(Query())).Select(item => item.IdProject).ToArray());
+            CollectionAssert.AreEqual(new[] { TaskListId }, AssertSucceeded(mainData.GetTaskLists(Query())).Select(item => item.IdTaskList).ToArray());
+            CollectionAssert.AreEqual(new[] { TaskItemId }, AssertSucceeded(mainData.GetTaskItems(Query())).Select(item => item.IdTaskItem).ToArray());
 
             using (var context = database.CreateContext())
             {
@@ -326,9 +572,9 @@ namespace TaskOTime.AppServer.IntegrationTests
             }
         }
 
-        private static MasterDataQueryRequest Query()
+        private static MainDataQueryRequest Query()
         {
-            return new MasterDataQueryRequest
+            return new MainDataQueryRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId
@@ -337,9 +583,9 @@ namespace TaskOTime.AppServer.IntegrationTests
 
         private void SeedProjectCategoryTaskForBookings(Pbkdf2PasswordHasher passwordHasher)
         {
-            var masterData = new AdminMasterDataService(database.CreateContext, passwordHasher);
+            var mainData = new AdminMainDataService(database.CreateContext, passwordHasher);
 
-            AssertSucceeded(masterData.CreateProject(new SaveProjectRequest
+            AssertSucceeded(mainData.CreateProject(new SaveProjectRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
@@ -352,11 +598,11 @@ namespace TaskOTime.AppServer.IntegrationTests
                 }
             }));
 
-            AssertSucceeded(masterData.CreateCategory(new SaveCategoryRequest
+            AssertSucceeded(mainData.CreateCategory(new SaveCategoryRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new CategoryMasterDataDto
+                Item = new CategoryMainDataDto
                 {
                     IdCategory = CategoryId,
                     IdUser = AdminUserId,
@@ -365,11 +611,11 @@ namespace TaskOTime.AppServer.IntegrationTests
                 }
             }));
 
-            AssertSucceeded(masterData.CreateTaskList(new SaveTaskListRequest
+            AssertSucceeded(mainData.CreateTaskList(new SaveTaskListRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new TaskListMasterDataDto
+                Item = new TaskListMainDataDto
                 {
                     IdTaskList = TaskListId,
                     IdProject = ProjectId,
@@ -379,11 +625,11 @@ namespace TaskOTime.AppServer.IntegrationTests
                 }
             }));
 
-            AssertSucceeded(masterData.CreateTaskItem(new SaveTaskItemRequest
+            AssertSucceeded(mainData.CreateTaskItem(new SaveTaskItemRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = AdminUserId,
-                Item = new TaskItemMasterDataDto
+                Item = new TaskItemMainDataDto
                 {
                     IdTaskItem = TaskItemId,
                     IdProject = ProjectId,

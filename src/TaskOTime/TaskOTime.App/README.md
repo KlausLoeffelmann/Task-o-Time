@@ -1,7 +1,7 @@
 # Task-o-Time desktop
 
 The Windows desktop application provides time bookings, task recording, and
-master-data maintenance through the **Stammdaten** menu.
+main-data maintenance through the **Stammdaten** menu.
 
 ## Local demo
 
@@ -22,7 +22,7 @@ and `DaanNL`. Use the configured preliminary password. Generated accounts must
 replace it on first login before the main window opens. Incorrect credentials
 are rejected, and five failed attempts lock an account for 15 minutes.
 
-Bookings, tasks, master-data edits, and password changes use the SQL services
+Bookings, tasks, tenant/project/collaboration edits, user operations, and password changes use the SQL services
 and remain in the database after the application closes. Startup and service
 errors are reported; there is no in-memory fallback.
 
@@ -53,14 +53,14 @@ connection credentials. Failed production connections or authentication do not
 fall back to the local database.
 
 Use an active administrator account and a tenant with projects and categories;
-the current master-data API requires administrative authorization. Database
+the current main-data API requires administrative authorization. Database
 provisioning and system-marker categories must already be configured. The
 desktop does not create the database or seed production users.
 
 ## Recording time
 
 Choose a date to view bookings. The booking editor accepts a time, description,
-project, and a category selected from SQL master data. The toolbar provides
+project, and a category selected from SQL main data. The toolbar provides
 pause, downtime, errand, stop, and checkout actions. Tasks can be started and
 completed; manual completion uses the start and duration fields. Creating a new
 activity or interruption ends the current task interval at that booking's
@@ -70,8 +70,70 @@ Downtime is represented by `EventInfo=DownTime` with the non-working stop
 category. It survives timeline normalization and is excluded from booked work.
 Errands use `EventInfo=Errand` and the same non-working category while remaining
 continuous timeline markers rather than stop marks. Edits select their existing
-category, and refreshed master data updates the category list. Service-returned
+category, and refreshed main data updates the category list. Service-returned
 booking days are authoritative.
+
+## Main Data maintenance
+
+Maintenance screens bind observable properties, selections, and `DelegateCommand`
+instances. `MainDataViewModel` composes the child view models using a shared
+`ServiceWorkspace`; it never creates or retains controls. The desktop supplies
+`IMaintenanceInteraction` for notifications and confirmations. Views own visual
+behavior, including transfer and clearing of the create-user password box.
+
+Project and task editors keep drafts separate from service objects. Successful
+saves replace the collection item with the authoritative service result; failed
+operations retain the draft and selection. Archiving a project uses soft deletion.
+Task lists use the explicitly selected project. Category, tag, note, web-link,
+and task deletion retain their existing hard-delete behavior. Activity log edits
+remain local to the workspace.
+
+Collaboration quick-create validates the existing SQL field limits: category names
+up to 50 characters, tags up to 30, and note text up to 4,000. A note's required
+mnemonic is derived from its first line, limited to 100 UTF-16 code units without
+splitting a surrogate pair; its full text is preserved. Web links must be absolute,
+well-formed HTTP/HTTPS URLs without embedded credentials. Their normalized URL is
+limited to 2,000 characters and host to 200; the required domain comes from the URL
+host, and a display title is derived from the first 100 code units. Invalid input
+is reported without clearing the draft or invoking a mutation.
+
+Maintenance mutation commands require an active, non-deleted administrator.
+Server-side Main Data authorization remains authoritative. Create-user fields
+include a temporary password, which is cleared after successful creation; the
+existing service still enforces initial-password replacement on login.
+
+Tenant name/active edits use `IAdminMainDataService.UpdateTenant` and persist in
+the existing EF6 Tenant entity. The dedicated request contains only the tenant
+and acting-user IDs, name, and active flag; metadata and other fields are preserved.
+The service requires an active, non-deleted administrator of that tenant, rejects
+deleted tenants, and validates required names, the 200-character schema limit, and
+duplicate names. The workspace adopts the service result, and reopening it reads
+the tenant through the authorized `GetTenant` API rather than a cached DTO.
+
+An active administrator may reactivate an inactive tenant using this dedicated
+operation. Recreating the maintenance model for an existing administrator first
+reads the authorized tenant state, even if its caller supplies a stale active DTO.
+An inactive tenant opens on the tenant tab with no normal Main Data collections
+loaded; users remain readable, but only tenant updates are enabled. Normal Main
+Data authorization is not relaxed. Reactivation reloads all collections before
+enabling normal mutations. If reload fails, the saved tenant remains visible,
+the error is reported, and another tenant save retries the load.
+
+Closing maintenance with the tenant still inactive ends the desktop session
+instead of attempting further project/booking queries for that tenant.
+Deactivation requires confirmation explaining that the change is persistent,
+blocks sign-in, and ends the session when maintenance closes. Reactivation remains
+available to authorized administrators before closing or through the tenant
+administration API; ordinary inactive-tenant login is not a recovery path.
+Authentication and both password-change operations return `TenantInactive` for
+inactive, deleted, or unavailable tenants without changing user login/password
+state. Active-tenant login and forced initial-password replacement remain intact.
+This branch
+composes maintenance in `MainWindow.OnMainDataRequested` using `TenantFor` and the
+`MainDataViewModel` service constructor; it has no separate desktop factory helper.
+
+Application API types use `MainData` (for example `IAdminMainDataService`).
+SQL table names, EF mappings, and persisted identifiers are unchanged.
 
 ## Development checks
 
@@ -86,4 +148,8 @@ The desktop smoke uses the generated local SQL credentials, rolls back its
 authentication and booking probes, loads service-backed categories, constructs
 the windows and resources, and verifies the time list's collection source.
 The STA desktop test also inventories menu, command-strip, time-panel, and
-direct master-data handlers at runtime.
+bound Main Data commands at runtime. `MaintenanceViewModelTests` also exercise
+create/save/archive/delete, selection, service failures, request scope,
+administrator gating, and temporary-password handling without creating views.
+The owned-GUID SQL suite also executes the tenant editor against EF6, verifies
+deactivation/reactivation and reload, and rejects unauthorized or invalid updates.
