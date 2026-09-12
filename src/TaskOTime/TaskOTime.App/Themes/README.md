@@ -147,3 +147,8 @@ existing package versions; actual .NET 10 retargeting remains on its separate
 branch. The build copies the host's own output directory, including satellite
 resources and (after retargeting) apphost/runtime files, without assuming that
 runner and host framework folder names match.
+
+For opt-in Calendar and Project screenshots from an explicitly selected build,
+see `TaskOTime.Theme.CaptureHost\README.md` under the solution directory. This
+standalone viewer supports a .NET 10 target override without rebuilding the
+production projects and writes only to a supplied new output directory.

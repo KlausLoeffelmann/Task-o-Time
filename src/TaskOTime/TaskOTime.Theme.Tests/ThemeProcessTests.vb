@@ -59,7 +59,11 @@ Namespace TaskOTime.Theme.Tests
 
         Private Shared Function RunHost(arguments As String) As HostResult
             Dim executable = Path.Combine(AppContext.BaseDirectory, "ThemeHost", "TaskOTime.Theme.TestHost.exe")
-            Assert.IsTrue(File.Exists(executable), "Build the theme host before running these tests: " & executable)
+            Return RunProcess(executable, arguments)
+        End Function
+
+        Friend Shared Function RunProcess(executable As String, arguments As String) As HostResult
+            Assert.IsTrue(File.Exists(executable), "Build the requested host before running these tests: " & executable)
             Dim start As New ProcessStartInfo(executable, arguments) With {
                 .UseShellExecute = False,
                 .CreateNoWindow = True,
@@ -80,7 +84,7 @@ Namespace TaskOTime.Theme.Tests
             End Using
         End Function
 
-        Private NotInheritable Class HostResult
+        Friend NotInheritable Class HostResult
             Public Property ExitCode As Integer
             Public Property Output As String
             Public Property ErrorText As String

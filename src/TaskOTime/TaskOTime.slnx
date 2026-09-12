@@ -21,5 +21,6 @@
     <Project Path="TaskOTime.TimeTrackingServices.Tests/TaskOTime.TimeTrackingServices.Tests.vbproj" />
     <Project Path="TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj" />
     <Project Path="TaskOTime.Theme.TestHost\TaskOTime.Theme.TestHost.vbproj" />
+    <Project Path="TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj" />
   </Folder>
 </Solution>
