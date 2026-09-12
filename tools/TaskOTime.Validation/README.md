@@ -94,6 +94,12 @@ The fixture calls production `UserAdministrationService.CreateTenantAdmin`,
 explicit EF context factory. The administrator has a random per-run identifier
 and password, a one-hour temporary-password expiration, and required initial
 password change. Seeding and authentication are checked through real EF6 queries.
+It also calls `SystemTimeMarkerSeed.EnsureCategories` with the owned administrator
+before any booking smoke. Fresh-context and child-process queries verify the
+reserved work-break/stop category IDs, owner, public flags, names and lookup IDs.
+The fixture check corrupts marker metadata only in its owned database, requires
+rejection, then verifies idempotent reseeding. Pause/stop foreign-key targets
+therefore exist without relying on shared demo data.
 No demo config or shared database is read or reset.
 
 `fixture-check` launches a real child which verifies the ownership marker,
@@ -159,6 +165,21 @@ Its own config registers the existing EF6 SQL provider but contains no default
 connection or database initializer; EF assemblies resolve from the application
 output rather than an unrelated host EF6 dependency.
 
+Maintenance composition supports exactly two layouts:
+
+- Legacy S3 candidate: `MasterDataWindow` plus
+  `MasterDataViewModel(window, tenant, userId, admin, users, bookings, tab)`.
+- Ideal MVVM: `MainDataWindow`, `MaintenanceInteraction(Window)` and
+  `MainDataViewModel(tenant, userId, admin, users, bookings, tab, IMaintenanceInteraction)`.
+
+The host validates exact constructor parameter types, requires the interaction
+interface to belong to the loaded ViewModel assembly, assigns `window.DataContext`
+explicitly, and tracks the window for cleanup before composing its viewmodel.
+Incomplete/mixed layouts, incompatible services and unexpected signatures fail;
+it never silently falls back from a broken new layout to the old one. Its
+self-test exercises both compositions using isolated synthetic windows and
+negative contracts, not real application acceptance.
+
 Real smoke **may write to the owned fixture**, especially authentication and
 password state; it does not promise rollback. `FixtureRunner` owns creation,
 seeding and disposal; the host itself cannot create/adopt/drop a database.
@@ -172,6 +193,10 @@ Never reuse demo credentials/data.
 - Run the implemented fixture-owner/host orchestration against S3, including the
   real forced-password-change UI flow. Framework `fixture-check` proves the
   SQL/service/process lifecycle, not migrated desktop behavior.
+- Exercise localization/theme through real application startup once their
+  integration interfaces are stable. Generic-Application construction smoke
+  does not prove provider startup, live language/theme changes or OS contrast
+  behavior. This tooling does not change registry or machine-wide contrast state.
 - Port additional booking/command-strip SQL probes and theme/localization visual
   checks as those application interfaces stabilize. The host currently covers
   login, collection identity, categories and construction, not full UI acceptance.

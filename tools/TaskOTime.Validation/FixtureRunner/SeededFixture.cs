@@ -10,6 +10,7 @@ using TaskOTime.AppServer.Models;
 using TaskOTime.AppServer.Security;
 using TaskOTime.AppServer.Services;
 using TaskOTime.DataLayer;
+using TaskOTime.DTOs;
 
 namespace TaskOTime.Validation
 {
@@ -37,6 +38,12 @@ namespace TaskOTime.Validation
                 PreliminaryPasswordExpiresAt = DateTimeOffset.UtcNow.AddHours(1)
             }));
             var authentication = new AuthenticationService(Database.CreateContext, hasher);
+            using (var context = Database.CreateContext())
+            {
+                SystemTimeMarkerSeed.EnsureCategories(context, created.AdminUser.IdUser);
+                context.SaveChanges();
+            }
+            VerifyMarkerCategories(Database.CreateContext, created.AdminUser.IdUser);
             var login = Require(authentication.Authenticate(new AuthenticateUserRequest
             {
                 IdTenant = created.Tenant.IdTenant, UserIdentOrEmail = UserName, Password = Password
@@ -69,8 +76,25 @@ namespace TaskOTime.Validation
             {
                 IdTenant = created.Tenant.IdTenant, IdActingUser = created.AdminUser.IdUser
             };
-            if (Require(admin.GetProjects(query)).Count != 2 || Require(admin.GetCategories(query)).Count == 0)
+            var categories = Require(admin.GetCategories(query));
+            if (Require(admin.GetProjects(query)).Count != 2 ||
+                !categories.Any(category => category.IdCategory == SystemTimeMarkerIds.WorkBreakCategoryId) ||
+                !categories.Any(category => category.IdCategory == SystemTimeMarkerIds.StopMarkCategoryId))
                 throw new InvalidOperationException("Real service seed round-trip did not return projects/categories.");
+        }
+
+        internal static void VerifyMarkerCategories(Func<TaskOTimeContext> factory, Guid ownerUserId)
+        {
+            using (var context = factory())
+            {
+                var ids = new[] { SystemTimeMarkerIds.WorkBreakCategoryId, SystemTimeMarkerIds.StopMarkCategoryId };
+                var categories = context.Category.Where(category => ids.Contains(category.IdCategory)).ToList();
+                if (categories.Count != 2 || categories.Any(category => category.IdUser != ownerUserId || !category.IsPublic) ||
+                    categories.Single(category => category.IdCategory == ids[0]).CategoryName != SystemTimeMarkerIds.WorkBreakCategoryName ||
+                    categories.Single(category => category.IdCategory == ids[1]).CategoryName != SystemTimeMarkerIds.StopMarkCategoryName ||
+                    !SystemTimeMarkerSeed.HasSeededLookupItems(context))
+                    throw new InvalidOperationException("Owned fixture marker categories/lookup IDs did not round-trip correctly.");
+            }
         }
 
         internal static void PrepareMetadata()
