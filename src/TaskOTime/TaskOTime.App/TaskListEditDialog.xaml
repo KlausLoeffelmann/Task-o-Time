@@ -5,20 +5,20 @@
         MinWidth="420"
         SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource WindowBackgroundBrush}">
+        Background="{DynamicResource WindowBackgroundBrush}">
     <Border Style="{StaticResource PanelBorderStyle}" Margin="12">
         <StackPanel>
             <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Aufgabenliste" />
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Name" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Name" />
             <TextBox Margin="0,2,0,8" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Beschreibung" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="Beschreibung" />
             <TextBox Margin="0,2,0,16" Text="{Binding Subtitle, UpdateSourceTrigger=PropertyChanged}" />
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                 <Button MinWidth="42" ToolTip="OK" IsDefault="True" Click="OnOkClick">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button MinWidth="42" ToolTip="Abbrechen" IsCancel="True">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
             </StackPanel>
         </StackPanel>

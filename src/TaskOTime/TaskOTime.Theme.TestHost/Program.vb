@@ -16,6 +16,11 @@ Namespace TaskOTime.Theme.TestHost
                 {"runtime-preferences", AddressOf scenarios.ThemeService_ObservesProcessPreferencesOnDispatcherAndHighContrastAlwaysWins},
                 {"maintenance-views", AddressOf scenarios.MainDataWindow_RealViewsKeepReadableContentBindingsAndEditingAcrossPalettes},
                 {"main-window", AddressOf scenarios.MainWindow_UsesLiveCalendarAndPaletteResources},
+                {"dialog-options", Sub() scenarios.DialogPalettes_KeepOpenSurfacesLive("options")},
+                {"dialog-time-entry", Sub() scenarios.DialogPalettes_KeepOpenSurfacesLive("time-entry")},
+                {"dialog-login", Sub() scenarios.DialogPalettes_KeepOpenSurfacesLive("login")},
+                {"dialog-shell", Sub() scenarios.DialogPalettes_KeepOpenSurfacesLive("shell")},
+                {"dialog-task-list", Sub() scenarios.DialogPalettes_KeepOpenSurfacesLive("task-list")},
                 {"application-lifetime", AddressOf scenarios.ApplicationTheme_StartSwitchAndDispose},
                 {"self-test-failure", Sub() Microsoft.VisualStudio.TestTools.UnitTesting.Assert.Fail("Intentional host failure probe.")}
             }

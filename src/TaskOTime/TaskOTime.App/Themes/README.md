@@ -41,11 +41,15 @@ Use **DynamicResource** references, not copied brushes or literal colors.
 | Disabled | `DisabledForegroundBrush` | `DisabledBackgroundBrush` |
 | Inactive dates/secondary text | `MutedForegroundBrush` | `ContentBackgroundBrush` |
 | Menus/tooltips | `MenuForegroundBrush` | `MenuPopupBackgroundBrush` |
+| Error messages | `ErrorForegroundBrush` | `WindowBackgroundBrush`, `PanelBackgroundBrush`, or `ContentBackgroundBrush` |
 
 Other public brushes: `PanelBorderBrush`, `ListItemSelectedBorderBrush`,
 `AccentBrush`, `FocusBrush`, `RecordingForegroundBrush`, and `CommandBackgroundBrush`.
 The legacy `*Color` entries remain palette implementation details; consume the
 brush keys above to obtain high-contrast system overrides.
+`ErrorForegroundBrush` uses a light red in Dark, a dark red in Light, and the
+dynamic system window-text color in HighContrast. Error meaning must remain in
+the message text rather than relying on red alone.
 
 ## Public styles and integration
 
@@ -117,6 +121,17 @@ The application-lifetime scenario calls `ThemeService.Start`, switches palettes,
 and disposes the service on an application resource scope. These tests do not
 connect to SQL or automate production authentication.
 
+The five `dialog-*` scenarios keep the real Options, Time Entry, Login, Dialog
+Shell, and Task List windows open while switching Dark/Light/HighContrast and
+back. They verify window backgrounds plus existing label/icon/content brush
+references, including simulated preference notifications for black/white and
+white/black schemes while high contrast remains selected.
+Login uses a failing in-memory authentication double to display a real bound
+error and checks at least 4.5:1 contrast on window/panel/content backgrounds.
+These scenarios neither read/write shared settings nor save dialog drafts.
+Dialog palette brushes use dynamic lookup; static style/template/string
+references, localization, commands, and control bindings remain unchanged.
+
 ## Strict process test protocol
 
 `TaskOTime.Theme.Tests` starts a fresh executable for each UI scenario:
@@ -129,7 +144,8 @@ dotnet test .\TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj
 Accepted cases are `calendar-states`, `calendar-weekday-headers`,
 `calendar-range-preview`, `control-states`, `list-tab-states`,
 `runtime-preferences`, `maintenance-views`, `main-window`, and
-`application-lifetime`. `self-test-failure` deliberately fails an assertion for
+`application-lifetime`, plus `dialog-options`, `dialog-time-entry`, `dialog-login`,
+`dialog-shell`, and `dialog-task-list`. `self-test-failure` deliberately fails an assertion for
 the runner's error-path check. Missing, unknown, or additional arguments return
 exit code 64. Failed scenarios return 1.
 

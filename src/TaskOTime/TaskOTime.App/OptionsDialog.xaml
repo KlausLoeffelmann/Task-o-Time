@@ -7,7 +7,7 @@
         MinWidth="520"
         SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource WindowBackgroundBrush}">
+        Background="{DynamicResource WindowBackgroundBrush}">
     <Border Style="{StaticResource PanelBorderStyle}" Margin="12">
         <StackPanel>
             <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="{loc:Loc Options_Title}" />
@@ -16,17 +16,17 @@
                       DisplayMemberPath="NativeName" SelectedValuePath="Name"
                       SelectedValue="{Binding CultureName}" />
             <CheckBox Margin="0,4,0,10"
-                      Foreground="{StaticResource MutedForegroundBrush}"
+                      Foreground="{DynamicResource MutedForegroundBrush}"
                       Content="{loc:Loc Options_RestorePlacement}"
                       IsChecked="{Binding RestoreMainWindowPlacement}" />
 
             <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="{loc:Loc Options_Workdays}" />
             <CheckBox Margin="0,0,0,4"
-                      Foreground="{StaticResource MutedForegroundBrush}"
+                      Foreground="{DynamicResource MutedForegroundBrush}"
                       Content="{loc:Loc Options_Saturday}"
                       IsChecked="{Binding SaturdayIsWorkday}" />
             <CheckBox Margin="0,0,0,12"
-                      Foreground="{StaticResource MutedForegroundBrush}"
+                      Foreground="{DynamicResource MutedForegroundBrush}"
                       Content="{loc:Loc Options_Sunday}"
                       IsChecked="{Binding SundayIsWorkday}" />
 
@@ -41,16 +41,16 @@
                          Margin="0,0,8,0"
                          Text="{Binding BookedDateRangeCount, UpdateSourceTrigger=PropertyChanged}" />
             </DockPanel>
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}"
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}"
                        Margin="0,0,0,16"
                        Text="{Binding BookedDateRangeDescription}" />
 
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
                 <Button MinWidth="42" ToolTip="{loc:Loc Common_OK}" IsDefault="True" Click="OnOkClick">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button MinWidth="42" ToolTip="{loc:Loc Common_Cancel}" IsCancel="True">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
             </StackPanel>
         </StackPanel>

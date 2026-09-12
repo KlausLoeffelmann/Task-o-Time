@@ -16,6 +16,11 @@ Namespace TaskOTime.Theme.Tests
         <DataRow("runtime-preferences")>
         <DataRow("maintenance-views")>
         <DataRow("main-window")>
+        <DataRow("dialog-options")>
+        <DataRow("dialog-time-entry")>
+        <DataRow("dialog-login")>
+        <DataRow("dialog-shell")>
+        <DataRow("dialog-task-list")>
         <DataRow("application-lifetime")>
         Public Sub ThemeCase_MustFinishCleanlyInItsOwnStaProcess(caseName As String)
             Dim result = RunHost("--case " & caseName)

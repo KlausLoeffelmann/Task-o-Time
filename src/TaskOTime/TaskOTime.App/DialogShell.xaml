@@ -6,7 +6,7 @@
         MaxWidth="620"
         SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource WindowBackgroundBrush}">
+        Background="{DynamicResource WindowBackgroundBrush}">
     <Border Style="{StaticResource PanelBorderStyle}" Margin="12">
         <Grid>
             <Grid.RowDefinitions>
@@ -20,8 +20,8 @@
                        Style="{StaticResource SectionHeaderTextStyle}"
                        Text="{Binding Heading}" />
             <TextBlock Grid.Row="1"
-                       Foreground="{StaticResource ContentForegroundBrush}"
-                       Background="{StaticResource ContentBackgroundBrush}"
+                       Foreground="{DynamicResource ContentForegroundBrush}"
+                       Background="{DynamicResource ContentBackgroundBrush}"
                        Padding="8"
                        TextWrapping="Wrap"
                        Text="{Binding LeadText}" />
@@ -33,11 +33,11 @@
                     <DataTemplate>
                         <DockPanel Margin="0,0,0,6">
                             <TextBlock DockPanel.Dock="Left"
-                                       Foreground="{StaticResource AccentBrush}"
+                                       Foreground="{DynamicResource AccentBrush}"
                                        FontWeight="Bold"
                                        Margin="0,0,8,0"
                                        Text="•" />
-                            <TextBlock Foreground="{StaticResource MutedForegroundBrush}"
+                            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}"
                                        TextWrapping="Wrap"
                                        Text="{Binding}" />
                         </DockPanel>
@@ -52,7 +52,7 @@
                     ToolTip="{StaticResource DialogCloseButtonText}"
                     IsDefault="True">
                 <Button.Content>
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button.Content>
             </Button>
         </Grid>
