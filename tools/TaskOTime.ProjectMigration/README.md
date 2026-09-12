@@ -84,6 +84,10 @@ workspace concern. There are no third-party package dependencies for this CLI.
 - Modern retargeting requires an SDK checkpoint, removes obsolete reference-
   assembly packages and simple implicit Framework references, and propagates
   `net10.0-windows` from WPF/WinForms projects through project references.
+  Simple explicit desktop assembly references establish `UseWPF` or
+  `UseWindowsForms` before their removal, ensuring the WindowsDesktop reference
+  pack is actually selected. Conflicting/conditional flags or imported desktop
+  reference shapes require explicit review instead of a silent flag override.
   Known incompatible serialization, EntityDeploy, hardcoded metadata copy,
   Framework assembly hint paths, and missing ConfigurationManager packages are
   **errors**, not silently waived warnings. Correct these seams with behavior
@@ -91,6 +95,12 @@ workspace concern. There are no third-party package dependencies for this CLI.
 - Before publishing a mutation, the tool evaluates the emitted project graph
   for every selected configuration and checks frameworks, assembly identity,
   source/resource/link/content/None/reference items and non-retarget output paths.
+  Evaluated `Reference` and `PackageReference` dependencies retain **all custom
+  metadata**, including dependency conditions' evaluated effects. Only intended
+  framework-package renames, recorded explicit removals, and SDK/reference-pack
+  generated framework references are allowed to differ. A dependency or metadata
+  value disappearing because its old-framework condition became false is an
+  error; conditions are not guessed or text-rewritten.
   It does not automatically build or execute application/tests.
 - Output is prepared in an owned sibling staging directory. Normally it is
   renamed into place after validation. Windows long-path rename failures use a
@@ -135,4 +145,8 @@ The runner creates synthetic fixtures under this directory's ignored
 builds and assembly/resource behavior for emitted net472/net10 projects, VB
 retention, WPF and transitive consumers, deterministic replay, idempotence,
 custom-target/condition/link preservation, and fail-closed/rollback behavior.
+Additional regressions reject disappearing framework-conditioned assembly and
+package dependencies/custom metadata, and compile retargeted WPF and WinForms
+projects that originally used explicit desktop assembly references without SDK
+desktop flags.
 It never accesses a database. See [repository execution evidence](docs\Execution-Evidence.md).

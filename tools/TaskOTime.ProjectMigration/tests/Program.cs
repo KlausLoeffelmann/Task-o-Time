@@ -197,6 +197,58 @@ try
         Check(!Directory.Exists(output), "failed verification published output");
         Check(!Directory.GetDirectories(workspace, "*.projectmigration-*").Any(), "failed verification left staging output");
     });
+    Test("framework-conditioned dependencies and metadata cannot silently disappear", () =>
+    {
+        foreach (var kind in new[] { "Reference", "PackageReference" })
+            foreach (var metadataOnly in new[] { false, true })
+            {
+                var source = Path.Combine(workspace, $"conditioned-{kind}-{metadataOnly}");
+                var output = source + "-out";
+                var item = new XElement(kind, new XAttribute("Include", "Independent.Dependency"));
+                if (kind == "PackageReference") item.Add(new XAttribute("Version", "1.2.3"));
+                var condition = new XAttribute("Condition", "'$(TargetFramework)' == 'net461'");
+                if (metadataOnly) item.Add(new XElement("IndependentCustomMetadata", condition, "must-survive"));
+                else item.Add(condition);
+                var xml = new XElement("Project", new XAttribute("Sdk", "Microsoft.NET.Sdk"),
+                    new XElement("PropertyGroup", new XElement("TargetFramework", "net461")),
+                    new XElement("ItemGroup", item));
+                Write(source, "Conditioned.csproj", xml.ToString());
+                var result = Run(2, "normalize-framework", "--target", "net472", "--source", source, "--output", output);
+                Check(result.RootElement.GetProperty("Diagnostics").EnumerateArray().Any(d =>
+                    d.GetProperty("Code").GetString() == "output-dependency-mismatch" &&
+                    d.GetProperty("Message").GetString()!.Contains(kind)), $"missing {kind} mismatch diagnostic");
+                Check(!Directory.Exists(output), "conditioned dependency loss published output");
+            }
+    });
+    Test("explicit desktop assembly references establish SDK flags and compile after retargeting", () =>
+    {
+        foreach (var wpf in new[] { true, false })
+        {
+            var source = Path.Combine(workspace, wpf ? "explicit-wpf" : "explicit-forms");
+            var output = source + "-modern";
+            var assembly = wpf ? "PresentationFramework" : "System.Windows.Forms";
+            var flag = wpf ? "UseWPF" : "UseWindowsForms";
+            Write(source, "Desktop.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+                <ItemGroup><Reference Include="{assembly}" /></ItemGroup></Project>
+                """);
+            Write(source, "Desktop.cs", wpf
+                ? "public class DesktopCanary : System.Windows.Window { public System.Windows.Controls.Button Value = new System.Windows.Controls.Button(); }"
+                : "public class DesktopCanary : System.Windows.Forms.Form { public System.Windows.Forms.Button Value = new System.Windows.Forms.Button(); }");
+            Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", source, "--output", output);
+            var xml = XDocument.Load(Path.Combine(output, "Desktop.csproj"));
+            Check(xml.Descendants(flag).Single().Value == "true", $"{flag} not established");
+            Check(xml.Descendants("TargetFramework").Single().Value == "net10.0-windows", "desktop framework not selected");
+            Check(!xml.Descendants("Reference").Any(), "obsolete desktop assembly reference retained");
+            Build(Path.Combine(output, "Desktop.csproj"));
+            var again = Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", output, "--output", output + "-again");
+            Check(again.RootElement.GetProperty("ChangedFiles").GetArrayLength() == 0, "desktop retarget not idempotent");
+            var originalXml = XDocument.Load(Path.Combine(source, "Desktop.csproj"));
+            originalXml.Root!.Element("PropertyGroup")!.Add(new XElement(flag, "false"));
+            Write(source, "Desktop.csproj", originalXml.ToString());
+            Run(2, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", source, "--output", output + "-conflict");
+        }
+    });
     Console.WriteLine($"PASS: {passed} regression scenarios; artifacts: {workspace}");
     return 0;
 }

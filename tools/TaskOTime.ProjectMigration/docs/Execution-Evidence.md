@@ -9,7 +9,7 @@ source files, candidate refs or databases were modified.
 
 | Check | Result |
 | --- | --- |
-| Independent regression runner | 10 scenarios pass; emitted net472, net10 and WPF/VB consumers build |
+| Independent regression runner | 12 scenarios pass; emitted net472, net10, explicit-reference WPF/WinForms and VB consumers build |
 | Repository inspection | 11 application/test projects, including all remaining VB tests |
 | Framework normalization | 8 project files changed; all 11 evaluate to net472 in Debug and Release |
 | SDK conversion | 3 classic projects changed; all 11 retain net472 and evaluate as SDK-style |
@@ -58,3 +58,24 @@ ignored evidence, not committed application changes.
 No EF package upgrades, serializer replacements, EDMX rewriting or business
 logic changes are hidden inside project conversion. Real runtime/SQL/WPF
 workflow acceptance remains the subsequent compatibility workstream.
+
+## Dependency and desktop-reference hardening
+
+Independent review identified two generic omissions in the initial tool.
+The follow-up tests reproduce and cover both:
+
+- Framework-conditioned `Reference`/`PackageReference` items, and conditional
+  custom metadata on otherwise retained dependencies, now fail output validation
+  instead of disappearing silently. Four negative fixture variants confirm
+  exit 2 and no published workspace.
+- Explicit PresentationFramework/System.Windows.Forms projects without SDK
+  desktop flags now gain the matching `UseWPF`/`UseWindowsForms` setting.
+  Both emitted projects compile actual desktop types under net10.0-windows;
+  second invocations are no-ops, and conflicting false flags fail closed.
+
+The complete real normalization and SDK stages were repeated with the stricter
+dependency checks (`artifacts\dependency-net472` and `artifacts\dependency-sdk`).
+Both passed input/output evaluation for all 11 projects, with the same 8/3
+changed-project counts. The earlier manifest hashes above remain evidence for
+the initial run; the expanded dependency inventories intentionally change
+manifest content in this follow-up.

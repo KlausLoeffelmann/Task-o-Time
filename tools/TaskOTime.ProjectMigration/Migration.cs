@@ -22,6 +22,16 @@ public sealed class Migration(Options options)
     private readonly List<ProjectReport> outputProjects = [];
     private readonly Dictionary<string, XDocument> documents = new(StringComparer.Ordinal);
     private readonly HashSet<string> windows = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, HashSet<string>> removedDependencies = new(StringComparer.Ordinal);
+    private static readonly HashSet<string> ModernImplicitReferences = new(StringComparer.Ordinal)
+    {
+        "System", "System.Core", "System.Data", "System.Xml", "System.Xml.Linq", "Microsoft.CSharp", "System.Net.Http",
+        "WindowsBase", "PresentationCore", "PresentationFramework", "System.Xaml", "System.Windows.Forms"
+    };
+    private static readonly HashSet<string> WpfReferences = new(StringComparer.Ordinal)
+    {
+        "WindowsBase", "PresentationCore", "PresentationFramework", "System.Xaml"
+    };
     private SortedDictionary<string, byte[]> inputs = new(StringComparer.Ordinal);
     private SortedDictionary<string, byte[]> outputs = new(StringComparer.Ordinal);
 
@@ -55,7 +65,7 @@ public sealed class Migration(Options options)
             projects.Add(new(path, IsSdk(root), evaluated));
             if (evaluated.Any(e => IsTrue(e, "UseWPF") || IsTrue(e, "UseWindowsForms")) ||
                 Elements(root, "Reference").Any(e => ((string?)e.Attribute("Include"))?.Split(',')[0]
-                    is "PresentationFramework" or "System.Windows.Forms") ||
+                    is "WindowsBase" or "PresentationCore" or "PresentationFramework" or "System.Xaml" or "System.Windows.Forms") ||
                 Elements(root, "ProjectTypeGuids").Any(e => e.Value.Contains("60dc8134", StringComparison.OrdinalIgnoreCase)))
                 windows.Add(path);
             Inspect(path, root, evaluated);
@@ -317,6 +327,7 @@ public sealed class Migration(Options options)
         foreach (var hint in Elements(root, "HintPath"))
             if (Regex.IsMatch(hint.Value, @"[\\/]net4\d{1,2}[\\/]", RegexOptions.IgnoreCase))
                 Add("error", "retarget-framework-hintpath", report.Path, "Replace Framework-specific assembly HintPath with a compatible PackageReference before retargeting: " + hint.Value);
+        EstablishDesktopFlags(report, root, rules);
         var target = windows.Contains(report.Path) ? "net10.0-windows" : "net10.0";
         foreach (var element in FrameworkElements(root))
             if (element.Name.LocalName == "TargetFramework" && FrameworkLiteral(element.Value))
@@ -324,25 +335,64 @@ public sealed class Migration(Options options)
         foreach (var package in Elements(root, "PackageReference").ToArray())
             if (PackageId(package).StartsWith("Microsoft.NETFramework.ReferenceAssemblies", StringComparison.OrdinalIgnoreCase))
             {
+                RecordRemoval(report.Path, "PackageReference", PackageId(package));
                 package.Remove();
                 rules.Add("remove-framework-reference-assemblies");
             }
         foreach (var reference in Elements(root, "Reference").ToArray())
         {
             var name = ((string?)reference.Attribute("Include"))?.Split(',')[0];
-            if (name is "System" or "System.Core" or "System.Data" or "System.Xml" or "System.Xml.Linq" or
-                "Microsoft.CSharp" or "System.Net.Http" or "WindowsBase" or "PresentationCore" or "PresentationFramework" or "System.Xaml")
+            if (name != null && ModernImplicitReferences.Contains(name))
             {
-                if (reference.HasElements || reference.Attributes().Any(a => a.Name.LocalName != "Include"))
+                if (reference.HasElements || reference.Attributes().Any(a => a.Name.LocalName != "Include") ||
+                    report.Evaluations.SelectMany(e => e.Items["Reference"]).Where(r => r["Identity"] == name)
+                        .Any(r => r.Keys.Any(k => k is not ("Identity" or "DefiningProjectFullPath")) && !AutomaticFrameworkReference(r)))
                     Add("error", "retarget-reference-metadata", report.Path, $"Framework reference '{name}' has custom semantics; review before removal.");
                 else
                 {
+                    RecordRemoval(report.Path, "Reference", name);
                     reference.Remove();
                     rules.Add("remove-implicit-framework-reference");
                 }
             }
             if (name == "System.Configuration" && !Elements(root, "PackageReference").Any(p => PackageId(p) == "System.Configuration.ConfigurationManager"))
                 Add("error", "retarget-configuration-manager", report.Path, "Add a reviewed compatible System.Configuration.ConfigurationManager PackageReference before retargeting.");
+        }
+    }
+
+    private void EstablishDesktopFlags(ProjectReport report, XElement root, List<string> rules)
+    {
+        foreach (var flag in new[] { "UseWPF", "UseWindowsForms" })
+        {
+            bool NeedsFlag(string identity) => flag == "UseWPF"
+                ? WpfReferences.Contains(identity.Split(',')[0]) : identity.Split(',')[0] == "System.Windows.Forms";
+            var references = Elements(root, "Reference")
+                .Where(e => NeedsFlag((string?)e.Attribute("Include") ?? "")).ToArray();
+            var active = report.Evaluations.Any(e => e.Items["Reference"].Any(r => NeedsFlag(r["Identity"])));
+            if (references.Length == 0 && !active) continue;
+            if (Elements(root, flag).Any() || report.Evaluations.Any(e => e.Properties[flag].Length > 0))
+            {
+                if (report.Evaluations.Any(e => e.Items["Reference"].Any(r => NeedsFlag(r["Identity"])) && !IsTrue(e, flag)))
+                    Add("error", "retarget-desktop-flag", report.Path, $"{flag} is false or conditional while desktop references are active. Set an explicit compatible flag before retargeting.");
+                continue;
+            }
+            if (references.Length == 0)
+            {
+                Add("error", "retarget-desktop-flag", report.Path, $"Imported desktop references require an explicitly reviewed {flag} property and compatible references.");
+                continue;
+            }
+            if (references.Any(e => e.AncestorsAndSelf().Any(a => a.Attribute("Condition") != null)))
+            {
+                Add("error", "retarget-desktop-flag", report.Path, $"Conditional desktop references require an explicitly reviewed {flag} property.");
+                continue;
+            }
+            var group = new XElement(root.Name.Namespace + "PropertyGroup",
+                new XElement(root.Name.Namespace + flag, "true"));
+            var props = root.Elements().FirstOrDefault(e => e.Name.LocalName == "Import" &&
+                (string?)e.Attribute("Project") == "Sdk.props");
+            if (props == null) root.AddFirst(group);
+            else props.AddAfterSelf(group);
+            rules.Add("establish-" + flag.ToLowerInvariant());
         }
     }
 
@@ -386,6 +436,9 @@ public sealed class Migration(Options options)
                 foreach (var kind in new[] { "Compile", "EmbeddedResource", "Resource", "Page", "ApplicationDefinition", "EntityDeploy", "Content", "None", "ProjectReference" })
                     if (ComparableItems(before.Items[kind]) != ComparableItems(after.Items[kind]))
                         Add("error", "output-item-mismatch", report.Path, $"{before.Configuration}: evaluated {kind} items/metadata changed; output was not published.");
+                foreach (var kind in new[] { "Reference", "PackageReference" })
+                    if (ComparableDependencies(report.Path, before.Items[kind], kind, true) != ComparableDependencies(report.Path, after.Items[kind], kind, false))
+                        Add("error", "output-dependency-mismatch", report.Path, $"{before.Configuration}: evaluated {kind} dependencies/metadata changed beyond the stage's explicit rename/removal rules. Review framework-dependent conditions and imports; output was not published.");
             }
             outputProjects.Add(new(report.Path, IsSdk(documents[report.Path].Root!), outputEvaluations.ToArray()));
         }
@@ -397,6 +450,46 @@ public sealed class Migration(Options options)
         name == "SignAssembly" && value.Length == 0 ? "false" : value;
     private static string ComparableItems(List<SortedDictionary<string, string>> items) =>
         JsonSerializer.Serialize(items.Where(i => Path.GetFileName(i["Identity"]) != "migration-manifest.json"));
+    private void RecordRemoval(string path, string kind, string identity)
+    {
+        if (!removedDependencies.TryGetValue(path, out var removed))
+            removedDependencies.Add(path, removed = new(StringComparer.Ordinal));
+        removed.Add(kind + "\0" + identity);
+    }
+
+    private string ComparableDependencies(string path, List<SortedDictionary<string, string>> items, string kind, bool input)
+    {
+        var expected = new List<SortedDictionary<string, string>>();
+        foreach (var item in items)
+        {
+            if (kind == "Reference" && AutomaticFrameworkReference(item)) continue;
+            var row = new SortedDictionary<string, string>(item, StringComparer.Ordinal);
+            var identity = row["Identity"];
+            if (input && options.Command == "normalize-framework" && kind == "PackageReference" &&
+                Regex.IsMatch(identity, @"^Microsoft\.NETFramework\.ReferenceAssemblies\.net4\d{1,2}$", RegexOptions.IgnoreCase))
+                row["Identity"] = "Microsoft.NETFramework.ReferenceAssemblies.net472";
+            if (input && options.Command == "retarget" &&
+                row.GetValueOrDefault("DefiningProjectFullPath") == "{workspace}\\" + path &&
+                removedDependencies.TryGetValue(path, out var removed) && removed.Contains(kind + "\0" + identity))
+                continue;
+            expected.Add(row);
+        }
+        return JsonSerializer.Serialize(expected.OrderBy(r => r["Identity"], StringComparer.Ordinal)
+            .ThenBy(r => JsonSerializer.Serialize(r), StringComparer.Ordinal));
+    }
+
+    private static bool AutomaticFrameworkReference(SortedDictionary<string, string> item)
+    {
+        if (item.Keys.Any(k => k is not ("Identity" or "Pack" or "IsImplicitlyDefined" or "DefiningProjectFullPath" or "RequiredTargetFramework"))) return false;
+        if (item.TryGetValue("Pack", out var pack) && pack != "false") return false;
+        if (item.TryGetValue("RequiredTargetFramework", out var required) && (item["Identity"] != "System.Xaml" || required != "4.0")) return false;
+        var origin = item.GetValueOrDefault("DefiningProjectFullPath", "");
+        return origin == "{sdk}\\Sdks\\Microsoft.NET.Sdk\\targets\\Microsoft.NET.Sdk.BeforeCommon.targets" &&
+               item.GetValueOrDefault("IsImplicitlyDefined") == "true" ||
+               item["Identity"] == "mscorlib" && Regex.IsMatch(origin,
+                   @"^\{nuget\}\\microsoft\.netframework\.referenceassemblies\.net4\d{1,2}\\[^\\]+\\build\\Microsoft\.NETFramework\.ReferenceAssemblies\.net4\d{1,2}\.targets$",
+                   RegexOptions.IgnoreCase);
+    }
     private static bool IsTrue(EvaluatedProject e, string name) => e.Properties[name].Equals("true", StringComparison.OrdinalIgnoreCase);
     private static string EffectiveFramework(EvaluatedProject e) => e.Properties["TargetFramework"].Length > 0 ?
         e.Properties["TargetFramework"] : FrameworkMoniker(e.Properties["TargetFrameworkVersion"]);
