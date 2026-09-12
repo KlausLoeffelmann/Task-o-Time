@@ -1,7 +1,9 @@
 [CmdletBinding()]
 param(
     [switch] $IncludeSql,
-    [switch] $IncludeIdeal
+    [switch] $IncludeIdeal,
+    [string] $ApplicationRoot = '..\..\src\TaskOTime',
+    [string] $ValidationFramework = 'net472'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -18,14 +20,14 @@ try {
         Write-Host "$name : exit $code"
     }
 
-    $source = '..\..\src\TaskOTime'
+    $source = (Resolve-Path $ApplicationRoot).Path
+    $stageArguments = @("-p:ApplicationRoot=$source", "-p:ValidationFramework=$ValidationFramework")
     Invoke-Validation 'appserver' @(
         'test', "$source\TaskOTime.AppServer.Tests\TaskOTime.AppServer.Tests.csproj",
         '--logger', 'trx;LogFileName=appserver.trx', '--results-directory', $run
     )
     Invoke-Validation 'core-workflows' @(
         'test', "$source\TaskOTime.TimeTrackingServices.Tests\TaskOTime.TimeTrackingServices.Tests.vbproj",
-        '--filter', 'FullyQualifiedName~TimeItemsBaseTests|FullyQualifiedName~TimeItemsViewModelTests|FullyQualifiedName~RestoredWorkflowTests',
         '--logger', 'trx;LogFileName=core-workflows.trx', '--results-directory', $run
     )
     $filter = if ($IncludeSql) { 'FullyQualifiedName~TaskOTime.AppServer.IntegrationTests' } else { 'FullyQualifiedName~LocalDbGuardrailTests' }
@@ -34,10 +36,14 @@ try {
         '--filter', $filter, '--logger', 'trx;LogFileName=integration.trx', '--results-directory', $run
     )
     Invoke-Validation 'sta-host' @('run', '--project', 'StaSmoke', '--', '--self-test')
+    Invoke-Validation 'fixture-guardrails' (@('run', '--project', 'FixtureRunner') + $stageArguments + @('--', 'self-test'))
+    if ($IncludeSql) {
+        Invoke-Validation 'fixture-setup' (@('run', '--project', 'FixtureRunner', '--no-build') + $stageArguments + @('--', 'fixture-check'))
+    }
     if ($IncludeIdeal) {
-        Invoke-Validation 'ideal-correctness' @(
+        Invoke-Validation 'ideal-correctness' (@(
             'test', 'IdealRegression.Tests', '--logger', 'trx;LogFileName=ideal-correctness.trx', '--results-directory', $run
-        )
+        ) + $stageArguments)
     }
     [pscustomobject]@{
         timestampUtc = [DateTime]::UtcNow.ToString('o')
@@ -47,6 +53,8 @@ try {
         localDb = if (Get-Command SqlLocalDB -ErrorAction SilentlyContinue) { @(& SqlLocalDB info MSSQLLocalDB) } else { @('LocalDB tool is unavailable') }
         includeSql = [bool] $IncludeSql
         includeIdeal = [bool] $IncludeIdeal
+        applicationRoot = $source
+        validationFramework = $ValidationFramework
         results = $results
     } | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $run 'manifest.json')
     Write-Host "Private evidence: $run"
