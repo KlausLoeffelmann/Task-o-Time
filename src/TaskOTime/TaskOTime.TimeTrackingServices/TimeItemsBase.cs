@@ -15,6 +15,8 @@ namespace ActiveDevelop.TimeTrackingServices
     /// Items are ordered by <see cref="ITimeItem{IndexType}.EventTime"/>, not by insertion order.
     /// Sorting and reloading can retain the same collection instance. Neighbor links and their
     /// associated notifications are maintained separately by this collection.
+    /// Timestamp comparisons, not identifiers, determine lookup and uniqueness. Positional insertion
+    /// is unsupported even though the collection is mutable. Notifications are synchronous, not transactional.
     /// </remarks>
     public class TimeItemsBase<IndexType, TimeItemType> : IEnumerable<TimeItemType>, ICollection<TimeItemType>, IList<TimeItemType>, IList, INotifyCollectionChanged, INotifyPropertyChanged where IndexType : struct, IComparable<IndexType> where TimeItemType : class, ITimeItem<IndexType>, INotifyPropertyChanged, new()
     {
@@ -23,8 +25,17 @@ namespace ActiveDevelop.TimeTrackingServices
         private readonly PropertyChangedEventArgs _itemPropertyChangedEventArgs = new PropertyChangedEventArgs("Item[]");
         private readonly List<TimeItemType> _sortedList = new List<TimeItemType>();
         private readonly TimeItemByEventTimeComparer<IndexType, TimeItemType> _comparer = new TimeItemByEventTimeComparer<IndexType, TimeItemType>();
+        /// <summary>
+        /// Reports additions, removals, replacements, moves and resets of the sorted collection.
+        /// </summary>
         public event NotifyCollectionChangedEventHandler CollectionChanged;
+        /// <summary>
+        /// Reports count and indexer changes separately from the collection-change event.
+        /// </summary>
         public event PropertyChangedEventHandler PropertyChanged;
+        /// <summary>
+        /// Creates an empty collection that retains its own list and reusable notification arguments.
+        /// </summary>
         public TimeItemsBase()
         {
             _countPropertyChangedEventArgs = new PropertyChangedEventArgs(nameof(Count));
@@ -36,6 +47,12 @@ namespace ActiveDevelop.TimeTrackingServices
                 Add(timeItem);
         }
 
+        /// <summary>
+        /// Creates an item with the supplied timestamp and identifier, stamps its audit times, and inserts it in sorted order.
+        /// </summary>
+        /// <remarks>
+        /// The date value's kind determines its offset. Insertion uses the same duplicate-timestamp checks as existing items.
+        /// </remarks>
         public void Add(DateTime eventTime, IndexType newID)
         {
             var timeItem = new TimeItemType()
@@ -109,6 +126,12 @@ namespace ActiveDevelop.TimeTrackingServices
             return insertionIndex;
         }
 
+        /// <summary>
+        /// Adds the supplied instance in timestamp order, updating neighbor links and notifying subscribers.
+        /// </summary>
+        /// <remarks>
+        /// The item is not cloned. Null items and duplicate timestamps are rejected by <see cref="AddWithPositionInfo"/>.
+        /// </remarks>
         public void Add(TimeItemType item)
         {
             AddWithPositionInfo(item);
@@ -287,6 +310,14 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
+        /// <summary>
+        /// Removes the entry matching the supplied item's timestamp and reconnects the remaining neighbors.
+        /// </summary>
+        /// <returns>True when a matching entry was removed; false when the timestamp search found no entry.</returns>
+        /// <remarks>
+        /// Matching uses the timestamp comparer, not reference equality. Count and indexer notifications
+        /// precede the removal event, whose item argument is the supplied instance.
+        /// </remarks>
         public bool Remove(TimeItemType item)
         {
             int index = _sortedList.BinarySearch(item, _comparer);
@@ -302,11 +333,17 @@ namespace ActiveDevelop.TimeTrackingServices
             return true;
         }
 
+        /// <summary>
+        /// Forwards a collection change synchronously; subscriber exceptions propagate to the caller.
+        /// </summary>
         protected virtual void OnNotifyCollectionChanged(NotifyCollectionChangedEventArgs e)
         {
             CollectionChanged?.Invoke(this, e);
         }
 
+        /// <summary>
+        /// Forwards the supplied property notification without batching changes or restoring prior collection state.
+        /// </summary>
         protected virtual void OnPropertyChanged(PropertyChangedEventArgs e)
         {
             PropertyChanged?.Invoke(this, e);
@@ -336,6 +373,10 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
+        /// <summary>
+        /// Enumerates the stored item instances in timestamp order without creating a snapshot.
+        /// </summary>
+        /// <remarks>Changing the backing list invalidates its active enumerators.</remarks>
         public IEnumerator<TimeItemType> GetEnumerator()
         {
             return _sortedList.GetEnumerator();
@@ -347,6 +388,9 @@ namespace ActiveDevelop.TimeTrackingServices
         }
 
         IEnumerator IEnumerable.GetEnumerator() => GetUntypedEnumerator();
+        /// <summary>
+        /// Gets the number of entries currently stored, including an entry whose timestamp is missing.
+        /// </summary>
         public int Count
         {
             get
@@ -380,11 +424,20 @@ namespace ActiveDevelop.TimeTrackingServices
             return item is not null && _sortedList.BinarySearch(item, _comparer) >= 0;
         }
 
+        /// <summary>
+        /// Copies item references in sorted order into the destination array without cloning or removing entries.
+        /// </summary>
         public void CopyTo(TimeItemType[] array, int arrayIndex)
         {
             _sortedList.CopyTo(array, arrayIndex);
         }
 
+        /// <summary>
+        /// Locates an item by timestamp comparison; the supplied instance need not be the stored instance.
+        /// </summary>
+        /// <returns>
+        /// The matching index, -1 for a null item, or the bitwise complement of the insertion index for another miss.
+        /// </returns>
         public int IndexOf(TimeItemType item)
         {
             // A null item returns -1. Other misses retain the negative binary-search result.
@@ -396,6 +449,10 @@ namespace ActiveDevelop.TimeTrackingServices
             return _sortedList.BinarySearch(item, _comparer);
         }
 
+        /// <summary>
+        /// Searches for a timestamp without requiring the caller to supply a time-item instance.
+        /// </summary>
+        /// <returns>The matching index, or the bitwise complement of the insertion index when absent.</returns>
         public int IndexOf(DateTimeOffset dateOfTimeItem)
         {
             var tmpTimeItem = new TimeItemType()
@@ -405,11 +462,19 @@ namespace ActiveDevelop.TimeTrackingServices
             return _sortedList.BinarySearch(tmpTimeItem, _comparer);
         }
 
+        /// <summary>
+        /// Rejects positional insertion because timestamp order, rather than a caller-selected index, governs the list.
+        /// </summary>
+        /// <exception cref="NotImplementedException">Always thrown; use an Add overload for sorted insertion.</exception>
         public void Insert(int index, TimeItemType item)
         {
             throw new NotImplementedException("Inserting TimeItems at a certain position does not apply, since the order is determined by the TimeItem's UtcEventTime value. ");
         }
 
+        /// <summary>
+        /// Removes the item at the sorted index, clears its links and durations, and reconnects its former neighbors.
+        /// </summary>
+        /// <remarks>Count and indexer notifications precede the collection-removal event.</remarks>
         public void RemoveAt(int index)
         {
             var item = _sortedList[index];
@@ -440,6 +505,12 @@ namespace ActiveDevelop.TimeTrackingServices
             _sortedList.RemoveAt(index);
         }
 
+        /// <summary>
+        /// Validates an untyped item and inserts its existing instance in timestamp order.
+        /// </summary>
+        /// <returns>The item's sorted insertion index, not necessarily the previous count.</returns>
+        /// <exception cref="NullReferenceException">The supplied value is null.</exception>
+        /// <exception cref="ArgumentException">The value has the wrong item type or conflicts with an existing timestamp.</exception>
         public int Add(object value)
         {
             if (value is null)
@@ -455,11 +526,18 @@ namespace ActiveDevelop.TimeTrackingServices
             return AddWithPositionInfo((TimeItemType)value);
         }
 
+        /// <summary>
+        /// Checks a correctly typed value by timestamp; null and incompatible values are not contained.
+        /// </summary>
         public bool Contains(object value)
         {
             return value is TimeItemType && Contains((TimeItemType)value);
         }
 
+        /// <summary>
+        /// Searches a correctly typed value by timestamp, returning -1 for null or incompatible values.
+        /// </summary>
+        /// <remarks>Other unsuccessful searches retain the negative binary-search insertion result.</remarks>
         public int IndexOf(object value)
         {
             if (!(value is TimeItemType))
@@ -470,6 +548,12 @@ namespace ActiveDevelop.TimeTrackingServices
             return IndexOf((TimeItemType)value);
         }
 
+        /// <summary>
+        /// Validates the untyped value before rejecting caller-selected insertion positions.
+        /// </summary>
+        /// <exception cref="NullReferenceException">The supplied value is null.</exception>
+        /// <exception cref="ArgumentException">The supplied value is not the collection's item type.</exception>
+        /// <exception cref="NotImplementedException">The value is valid, but positional insertion is unsupported.</exception>
         public void Insert(int index, object value)
         {
             if (value is null)
@@ -485,6 +569,9 @@ namespace ActiveDevelop.TimeTrackingServices
             Insert(index, (TimeItemType)value);
         }
 
+        /// <summary>
+        /// Removes a correctly typed value by timestamp; null and incompatible values leave the collection unchanged.
+        /// </summary>
         public void Remove(object value)
         {
             if (value is TimeItemType)
@@ -493,11 +580,18 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
+        /// <summary>
+        /// Copies sorted item references through the backing list's untyped collection contract.
+        /// </summary>
+        /// <remarks>The backing list validates destination rank, element compatibility and available capacity.</remarks>
         public void CopyTo(Array array, int index)
         {
             ((ICollection)_sortedList).CopyTo(array, index);
         }
 
+        /// <summary>
+        /// Returns false because items can be added, replaced and removed; positional insertion remains unsupported.
+        /// </summary>
         public bool IsReadOnly
         {
             get
@@ -506,6 +600,9 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
+        /// <summary>
+        /// Returns false because sorted additions and removals can change the collection's size.
+        /// </summary>
         public bool IsFixedSize
         {
             get
@@ -514,6 +611,9 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
+        /// <summary>
+        /// Returns false; the collection does not automatically synchronize access between threads.
+        /// </summary>
         public bool IsSynchronized
         {
             get
@@ -522,6 +622,10 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
+        /// <summary>
+        /// Exposes the backing list's synchronization object for caller-managed locking.
+        /// </summary>
+        /// <remarks>Reading this property does not acquire a lock or make notifications thread-safe.</remarks>
         public object SyncRoot
         {
             get
@@ -530,6 +634,13 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
+        /// <summary>
+        /// Gets the stored instance at a sorted index, or replaces it while maintaining timestamp uniqueness and links.
+        /// </summary>
+        /// <remarks>
+        /// Replacement can move to a different index when its timestamp changes. Null replacements are rejected;
+        /// the operation updates property subscriptions and sends the corresponding collection notifications.
+        /// </remarks>
         public TimeItemType this[int index]
         {
             get
@@ -590,6 +701,9 @@ namespace ActiveDevelop.TimeTrackingServices
             this[index] = (TimeItemType)value;
         }
 
+        /// <summary>
+        /// Exposes the sorted indexer through IList, rejecting null and incompatible replacement values.
+        /// </summary>
         object IList.this[int index] { get => get_UntypedItem(index); set => set_UntypedItem(index, value); }
     }
 }
