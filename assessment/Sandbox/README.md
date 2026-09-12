@@ -260,6 +260,66 @@ exceptions, output compilation and checkpoint reconciliation remain unaccepted.
 The preserved S0/S1/S2/S2a/S3 refs are not replaced with synthetic savings or
 reference-reviewed credit. TOOL002 and Golden promotion remain blocked.
 
+## Exact remaining work and selective reruns
+
+The private machine-readable inventory is `Artifacts\replay-inventory.json`;
+`Artifacts\replay-baselines\snapshots.json` binds application-only exports of
+the six existing immutable source trees. Exporting them did not rebuild, rerun,
+replace or modify any modernization stage/ref. Session SQL table
+`replay_case_inventory` carries the same eight work items.
+
+| Case | Actual status | Remaining |
+| --- | --- | --- |
+| Project held-out normalization | Initial, repeat, idempotent and JSON/source comparisons passed | Output compilation and formal evidence import |
+| Project unsupported downgrade | Diagnostic nonzero exit/no output passed | Formal evidence import |
+| Language held-out behavior | Arithmetic diagnostic failed at named MMF creation | Portable capability, **predeclared frozen oracle and observational behavior fixture**, initial/repeat, compilation and behavior |
+| Language unsupported/no VB | Diagnostic nonzero exit/no output passed | Import, or rerun if language artifact/policy changes |
+| Prepared S0 → S1 normalization | Not run in this executor | Initial/repeat, compilation, checkpoint reconciliation |
+| S1 → S2 language conversion | Not run in this executor | Portable capability, initial/repeat, compilation, reconciliation |
+| S2 → S2a SDK conversion | Not run in this executor | Initial/repeat, compilation, reconciliation |
+| S2a → S3 prepare + retarget | Not run in this executor | Explicit ordered-pipeline protocol, both operations for initial/repeat, final compilation/reconciliation |
+
+The Arithmetic input is a diagnostic fixture, **not** an already-frozen full
+behavior case. Its actual output must not become its own oracle. Full request
+construction/signing is premature while that oracle/probe or other required
+checks are missing.
+
+Exact source identities:
+
+- Original S0: `280795ea0e532e66070a22e579e65cadd7f66dfc`.
+- Prepared normalization input: `c6b6a8592dd91990eabcf45bb128bc3a5037192a`.
+  These are **not the same tree**: three SQL-integration-test files changed for
+  GUID-owned database isolation. The inventory records every before/after hash;
+  this safety preparation is not credited as migration-tool output.
+- S1: `6ca206f932105243e654db3e3888394ca50d4cd6`.
+- S2: `d4d514e2ed6436b6a661061e0347257b25173af4`.
+- S2a: `307ecf3acbf38910b73f0e19caf665810b4ccc2a`.
+- S3: `073d1c4483ffec987937f8f4c865958d82bb10e3`.
+
+`S2aWithRecordedApiExceptions` is a separate private input copy, not a replacement
+ref. It overlays only the three previously recorded S3 compatibility files:
+`TaskOTime.Cli\DemoDataConfigLoader.cs`,
+`TaskOTime.App\Properties\AssemblyInfo.cs`, and
+`TaskOTime.AppServer.Tests\DemoDataJsonCompatibilityTests.cs`.
+Their before/after hashes are recorded. Preparation remains an intermediate
+evaluated tree; compilation belongs after retargeting, not at an invented
+independently accepted preparation checkpoint.
+
+Do not repeat successful project transformation runs merely because language
+portability changes. Preserve their exact runtime/input/oracle/contract bindings
+and add missing verification. Conversely, if portability changes the language
+source, dependency bytes, runtime configuration or execution policy, its prior
+unsupported result cannot attest the new artifact: re-produce it through protected
+compilation and rerun the relevant language cases. Importing old observations into
+a formal request still needs explicit integrity/contract checks; no observation
+is silently renamed as a fresh challenged execution.
+
+The portable-storage feasibility spike remains actionable and read-only. The
+operational task stays **in progress**, without relaxing token restrictions or
+claiming the current MMF incompatibility proves that every safe adaptation is
+impossible. The verifier's shared requirement checklist is now wired independently
+of that capability work; incomplete output/behavior/checkpoint evidence cannot pass.
+
 ## Commands
 
 Run from the assessor worktree. An already-running Sandbox causes refusal rather

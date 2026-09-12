@@ -45,7 +45,7 @@ public sealed class ExternalReplayTests : IDisposable
                 "", c.Unsupported ? "Unsupported" : ""),
             ["isolated-process", "tool-source-build", "input-immutable", "unsupported-diagnostic",
                 "no-partial-output", "frozen-expectation-comparison", "deterministic-rerun",
-                "output-compilation", "behavior", "idempotent-rerun"])).ToArray());
+                "output-compilation", "behavior", "idempotent-rerun", "baseline-checkpoint"])).ToArray());
     private static string Sign(ReplayAttestation receipt, RSA key)
     {
         var payload = JsonSerializer.SerializeToUtf8Bytes(receipt);
@@ -84,6 +84,7 @@ public sealed class ExternalReplayTests : IDisposable
     [InlineData("missing-source-roots")]
     [InlineData("missing-artifact-roots")]
     [InlineData("producer-only-policy")]
+    [InlineData("missing-checkpoint-check")]
     public void Unbound_or_candidate_controlled_receipts_fail_closed(string variant)
     {
         var plan = Plan(); var challenge = Guid.NewGuid().ToString("N");
@@ -91,6 +92,9 @@ public sealed class ExternalReplayTests : IDisposable
         var attestation = Attestation(plan, challenge);
         if (variant == "missing-check")
             attestation = attestation with { Cases = attestation.Cases.Select(c => c with { Checks = [] }).ToArray() };
+        if (variant == "missing-checkpoint-check")
+            attestation = attestation with { Cases = attestation.Cases.Select(c => c with
+                { Checks = c.Checks.Where(check => check != "baseline-checkpoint").ToArray() }).ToArray() };
         if (variant == "expired") attestation = attestation with { ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1) };
         if (variant == "overlong-expiry") attestation = attestation with { ExpiresAt = DateTimeOffset.UtcNow.AddDays(1) };
         if (variant == "producer-only-policy") attestation = attestation with { Policy = "taskotime-sandbox-producer-v1" };
@@ -211,6 +215,41 @@ public sealed class ExternalReplayTests : IDisposable
             Task.FromResult(new LoadedProject(path, "Utility", "", compilation, false, true, [], [])));
         if (missing) await Assert.ThrowsAsync<InvalidDataException>(Load);
         else await Assert.ThrowsAsync<SourceCompilationException>(Load);
+    }
+
+    [Fact]
+    public void Request_carries_the_same_runs_and_checks_that_the_verifier_requires()
+    {
+        var plan = Plan();
+        var request = ExternalReplay.BuildRequest(plan, policy, Guid.NewGuid().ToString("N"));
+        Assert.Equal(plan.Cases.Length, request.Requirements.Length);
+        var language = Assert.Single(request.Requirements, r => r.Name == "language-positive");
+        Assert.Equal(["initial", "repeat", "idempotent"], language.Runs);
+        Assert.Contains("behavior", language.Checks);
+        Assert.Contains("output-compilation", language.Checks);
+        var checkpoint = Assert.Single(request.Requirements, r => r.Name == "project-checkpoint");
+        Assert.Contains("baseline-checkpoint", checkpoint.Checks);
+        var unsupported = Assert.Single(request.Requirements, r => r.Name == "project-unsupported");
+        Assert.Equal(["unsupported"], unsupported.Runs);
+        Assert.DoesNotContain("output-compilation", unsupported.Checks);
+    }
+
+    [Fact]
+    public void Output_checks_alone_never_complete_a_positive_case_or_checkpoint()
+    {
+        var plan = Plan();
+        var attestation = Attestation(plan, Guid.NewGuid().ToString("N"));
+        foreach (var fixture in plan.Cases.Where(c => !c.Unsupported))
+        {
+            var evidence = attestation.Cases.Single(c => c.Evidence.Name == fixture.Name);
+            evidence = evidence with { Checks = evidence.Checks.Where(c => c is not ("output-compilation" or "behavior" or "baseline-checkpoint")).ToArray() };
+            var readiness = ExternalReplay.Readiness(fixture, evidence);
+            Assert.False(readiness.Complete);
+            Assert.Contains("output-compilation", readiness.MissingChecks);
+            if (fixture.Checkpoint) Assert.Contains("baseline-checkpoint", readiness.MissingChecks);
+            if (fixture.BehaviorFile != null) Assert.Contains("behavior", readiness.MissingChecks);
+        }
+        Assert.Contains("case-evidence", ExternalReplay.Readiness(plan.Cases[0], null).MissingChecks);
     }
     public void Dispose()
     {

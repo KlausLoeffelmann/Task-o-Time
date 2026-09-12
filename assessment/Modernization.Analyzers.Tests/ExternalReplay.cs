@@ -9,7 +9,10 @@ internal sealed record ExternalCaseEvidence(ReplayEvidence Evidence, string[] Ch
 internal sealed record ReplayAttestation(string Policy, string Challenge, string RequestHash,
     string Executor, DateTimeOffset ExpiresAt, ExternalCaseEvidence[] Cases);
 internal sealed record ReplayRequest(string Protocol, string Profile, string Challenge, ReplayPlan Plan,
-    SortedDictionary<string, string> Hashes);
+    SortedDictionary<string, string> Hashes, ReplayCaseRequirements[] Requirements);
+internal sealed record ReplayCaseRequirements(string Name, string Kind, string[] Runs, string[] Checks,
+    string OutputHashBasis);
+internal sealed record ReplayCaseReadiness(string Name, bool Complete, string[] MissingChecks);
 
 // A verifier, NOT an isolation implementation. Only the separately provisioned,
 // trusted executor owns the private signing key and attests the execution boundary.
@@ -41,7 +44,8 @@ internal static class ExternalReplay
 
     internal static string WriteRequest(ReplayPlan plan, StagePolicy policy, string challenge)
     {
-        var payload = JsonSerializer.SerializeToUtf8Bytes(BuildRequest(plan, policy, challenge));
+        var request = BuildRequest(plan, policy, challenge);
+        var payload = JsonSerializer.SerializeToUtf8Bytes(request);
         var output = Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports", policy.Identity);
         Directory.CreateDirectory(output);
         var path = Path.Combine(output, "external-replay-request.json");
@@ -49,6 +53,13 @@ internal static class ExternalReplay
         {
             PayloadBase64 = Convert.ToBase64String(payload),
             Sha256 = Convert.ToHexString(SHA256.HashData(payload))
+        }, new JsonSerializerOptions { WriteIndented = true }));
+        File.WriteAllText(Path.Combine(output, "external-replay-checklist.json"), JsonSerializer.Serialize(new
+        {
+            request.Protocol, request.Profile, request.Challenge,
+            RequestHash = Convert.ToHexString(SHA256.HashData(payload)),
+            CoverageComplete = ToolReplay.HasRequiredCoverage(plan, policy),
+            Executed = false, FormalVerified = false, request.Requirements
         }, new JsonSerializerOptions { WriteIndented = true }));
         return path;
     }
@@ -97,7 +108,35 @@ internal static class ExternalReplay
             foreach (var artifact in artifacts)
                 hashes["tool:" + Path.GetFullPath(artifact)] = HashFile(artifact);
         }
-        return new(Policy, policy.Identity, challenge, plan, hashes);
+        return new(Policy, policy.Identity, challenge, plan, hashes, plan.Cases.Select(Requirements).ToArray());
+    }
+
+    internal static ReplayCaseRequirements Requirements(ReplayCase fixture)
+    {
+        var checks = new List<string> { "isolated-process", "tool-source-build", "input-immutable" };
+        if (fixture.Unsupported) checks.AddRange(["unsupported-diagnostic", "no-partial-output"]);
+        else
+        {
+            checks.AddRange(["frozen-expectation-comparison", "deterministic-rerun", "output-compilation"]);
+            if (fixture.BehaviorFile != null) checks.Add("behavior");
+            if (fixture.Idempotent) checks.Add("idempotent-rerun");
+            if (fixture.EvidenceFile != null) checks.Add("declared-evidence-schema");
+            if (fixture.Checkpoint) checks.Add("baseline-checkpoint");
+        }
+        var runs = fixture.Unsupported ? new[] { "unsupported" } :
+            fixture.Idempotent ? ["initial", "repeat", "idempotent"] : ["initial", "repeat"];
+        return new(fixture.Name, fixture.Kind, runs, checks.ToArray(), ToolReplay.OutputBasis(fixture.EvidenceFile));
+    }
+
+    // A completeness checklist only. Neither supplied check labels nor Complete=true
+    // authenticate execution; signature/request/data verification remains mandatory.
+    internal static ReplayCaseReadiness Readiness(ReplayCase fixture, ExternalCaseEvidence? evidence)
+    {
+        var missing = Requirements(fixture).Checks.Except(evidence?.Checks ?? [], StringComparer.Ordinal).ToList();
+        if (evidence == null) missing.Insert(0, "case-evidence");
+        else if (evidence.Evidence.Name != fixture.Name || !evidence.Evidence.Passed)
+            missing.Insert(0, "successful-matching-case");
+        return new(fixture.Name, missing.Count == 0, missing.ToArray());
     }
 
     internal static ReplayResult Verify(ReplayPlan plan, StagePolicy policy, string challenge,
@@ -128,16 +167,7 @@ internal static class ExternalReplay
             foreach (var fixture in plan.Cases)
             {
                 var result = attestation.Cases.Single(c => c.Evidence.Name == fixture.Name);
-                var required = new List<string> { "isolated-process", "tool-source-build", "input-immutable" };
-                if (fixture.Unsupported) required.AddRange(["unsupported-diagnostic", "no-partial-output"]);
-                else
-                {
-                    required.AddRange(["frozen-expectation-comparison", "deterministic-rerun", "output-compilation"]);
-                    if (fixture.BehaviorFile != null) required.Add("behavior");
-                    if (fixture.Idempotent) required.Add("idempotent-rerun");
-                    if (fixture.EvidenceFile != null) required.Add("declared-evidence-schema");
-                }
-                if (!result.Evidence.Passed || required.Except(result.Checks, StringComparer.Ordinal).Any() ||
+                if (!Readiness(fixture, result).Complete ||
                     result.Evidence.InputHash != ToolReplay.HashTree(ToolReplay.TrustedPath(fixture.InputDirectory)) ||
                     fixture.Unsupported && (result.Evidence.ExitCode == 0 ||
                         string.IsNullOrWhiteSpace(result.Evidence.StandardError + result.Evidence.StandardOutput) ||
@@ -147,7 +177,7 @@ internal static class ExternalReplay
                     throw new InvalidDataException("Executor checks failed or missing for " + fixture.Name);
                 if (!fixture.Unsupported && fixture.EvidenceFile is { } contract)
                 {
-                    var runs = fixture.Idempotent ? new[] { "initial", "repeat", "idempotent" } : ["initial", "repeat"];
+                    var runs = Requirements(fixture).Runs;
                     var artifacts = result.Evidence.ExecutionArtifacts;
                     if (result.Evidence.OutputHashBasis != ToolReplay.OutputBasis(contract) ||
                         artifacts.Length != runs.Length || artifacts.Select(a => a.Run).Distinct(StringComparer.Ordinal).Count() != runs.Length ||

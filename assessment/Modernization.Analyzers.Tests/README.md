@@ -607,6 +607,11 @@ With a private plan and challenge, it writes
 `Artifacts\Reports\<profile>\external-replay-request.json`. Its `PayloadBase64`
 decodes to a `ReplayRequest`; `Sha256` is the uppercase SHA256 of those exact
 decoded bytes, avoiding cross-platform JSON canonicalization ambiguity.
+The request also contains per-case `Requirements` (required runs, check labels,
+and output hash basis). The exporter writes a companion
+`external-replay-checklist.json` bound to that request hash. This checklist has
+`Executed=false` and `FormalVerified=false`; it is a work specification, not
+evidence. Exporter and receipt verifier use the same requirements function.
 The request binds policy/profile/configuration, challenge, the complete declared
 plan, input/expected-tree/behavior hashes, project-file hashes, complete reviewed
 source-root and binary/dependency-root snapshots, and explicit
@@ -641,6 +646,11 @@ positive cases additionally require `frozen-expectation-comparison`,
 `deterministic-rerun`, `output-compilation`, plus `behavior` and
 `idempotent-rerun` when applicable. Unsupported cases require
 `unsupported-diagnostic` and `no-partial-output`, a nonzero exit and diagnostics.
+Every positive `Checkpoint=true` case additionally requires the signed
+`baseline-checkpoint` check; merely marking a fixture as a checkpoint no longer
+satisfies its verification obligation. A readiness calculation rejects missing
+compilation, behavior or checkpoint checks even when all available output checks
+passed. Readiness itself is not authentication and never issues a signature.
 Declared evidence additionally requires `declared-evidence-schema`, the exact
 `OutputHashBasis`, and signed `ExecutionArtifacts` entries for `initial`, `repeat`,
 and (when applicable) `idempotent`, each with the declared filename/status and
@@ -650,8 +660,8 @@ fresh challenge per evaluation and retain its signed receipt in private custody.
 Unsigned `sandbox=true`/`isolated=true`, wrong keys, stale challenges, mutated
 inputs/expectations/tools and incomplete checks all fail closed.
 
-No production signing key, signed acceptance fixture, live runner, account
-creation or untrusted submission execution is included. Tests sign contract-only
+No production signing key, signed acceptance fixture, full-policy signing service,
+or account creation is included. Tests sign contract-only
 receipts with ephemeral in-memory test keys and never execute their dummy tool
 artifacts. Provisioning and independently validating the executor remains an
 explicit integration prerequisite for formal TOOL002 acceptance.
@@ -667,6 +677,14 @@ artifact hash alone is not source-to-binary provenance. Reconcile generated/manu
 ordered commit/input/output identities separately; do not infer counterfactual
 token savings from code or logs. `Verified=false`/TOOL002 must remain until real
 submission replay plans and held-out fixtures have been run.
+
+The current concrete S4 work inventory is documented in `..\Sandbox\README.md`.
+Previously completed observations may be reused only with explicit immutable
+artifact/input/oracle/contract bindings; they must not be relabelled as newly
+executed for another binary or execution policy. A producer adaptation invalidates
+its artifact-bound cases, not unrelated project-tool cases. A two-command
+prepare/retarget pipeline must be represented explicitly before full-policy
+attestation; the current single-command case must not silently stand for it.
 
 JSON `Diagnostics` retains every static outcome and mandatory replay/stage
 failure. `AcceptanceDiagnostics` differs only by excluding static TOOL001.
