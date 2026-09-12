@@ -527,4 +527,204 @@
   <data name="Login_TenantInactive" xml:space="preserve">
     <value>De tenant is inactief, verwijderd of niet beschikbaar.</value>
   </data>
+  <data name="Sample_MyDay" xml:space="preserve">
+    <value>Mijn dag</value>
+  </data>
+  <data name="Sample_TodayFocus" xml:space="preserve">
+    <value>Focus voor vandaag</value>
+  </data>
+  <data name="Sample_CheckBookings" xml:space="preserve">
+    <value>Tijdboekingen controleren</value>
+  </data>
+  <data name="Sample_CheckBookingsDescription" xml:space="preserve">
+    <value>Tijden van vandaag met de kalender vergelijken.</value>
+  </data>
+  <data name="Sample_ClarifyQuestions" xml:space="preserve">
+    <value>Vragen verduidelijken</value>
+  </data>
+  <data name="Sample_ClarifyQuestionsDescription" xml:space="preserve">
+    <value>Open punten uit het ochtendoverleg opvolgen.</value>
+  </data>
+  <data name="Sample_PrepareDayEnd" xml:space="preserve">
+    <value>Dagafsluiting voorbereiden</value>
+  </data>
+  <data name="Sample_PrepareDayEndDescription" xml:space="preserve">
+    <value>Notities en onafgewerkt werk verzamelen voor het einde van de dag.</value>
+  </data>
+  <data name="Sample_ProjectWork" xml:space="preserve">
+    <value>Projectwerk</value>
+  </data>
+  <data name="Sample_Deliverables" xml:space="preserve">
+    <value>Actieve op te leveren resultaten</value>
+  </data>
+  <data name="Sample_CoordinateUi" xml:space="preserve">
+    <value>Gebruikersinterface afstemmen</value>
+  </data>
+  <data name="Sample_CoordinateUiDescription" xml:space="preserve">
+    <value>Het takenpaneel met de tijdregistratie verbinden.</value>
+  </data>
+  <data name="Sample_ServiceContract" xml:space="preserve">
+    <value>Servicecontract schetsen</value>
+  </data>
+  <data name="Sample_ServiceContractDescription" xml:space="preserve">
+    <value>Velden voor toekomstige applicatieservertaken vastleggen.</value>
+  </data>
+  <data name="Sample_Later" xml:space="preserve">
+    <value>Later</value>
+  </data>
+  <data name="Sample_FollowUp" xml:space="preserve">
+    <value>Opvolging</value>
+  </data>
+  <data name="Sample_Waiting" xml:space="preserve">
+    <value>Wacht op antwoord</value>
+  </data>
+  <data name="Sample_GetApproval" xml:space="preserve">
+    <value>Goedkeuring verkrijgen</value>
+  </data>
+  <data name="Sample_GetApprovalDescription" xml:space="preserve">
+    <value>De betrokken afdeling om een statusupdate vragen.</value>
+  </data>
+  <data name="Sample_Tomorrow" xml:space="preserve">
+    <value>Morgen</value>
+  </data>
+  <data name="Sample_UpdateDocumentation" xml:space="preserve">
+    <value>Documentatie bijwerken</value>
+  </data>
+  <data name="Sample_UpdateDocumentationDescription" xml:space="preserve">
+    <value>Een korte gebruiksnotitie over de taakstatus voorbereiden.</value>
+  </data>
+  <data name="Task_EditedTitle" xml:space="preserve">
+    <value>Bewerkt: {0}</value>
+  </data>
+  <data name="Task_EditDescription" xml:space="preserve">
+    <value>De taak is gewijzigd met de voorbereide bewerkingsactie.</value>
+  </data>
+  <data name="Sample_DayPlanning" xml:space="preserve">
+    <value>Dagplanning</value>
+  </data>
+  <data name="Sample_DayPlanningDescription" xml:space="preserve">
+    <value>Prioriteiten en taken voor de dag ordenen.</value>
+  </data>
+  <data name="Sample_BookingChainEnd" xml:space="preserve">
+    <value>Einde van de huidige boekingsreeks.</value>
+  </data>
+  <data name="Sample_Lunch" xml:space="preserve">
+    <value>Lunchpauze</value>
+  </data>
+  <data name="Sample_WorkBreak" xml:space="preserve">
+    <value>Werkonderbreking.</value>
+  </data>
+  <data name="Sample_TimeCollectionImplementation" xml:space="preserve">
+    <value>De tijdregistratieweergave implementeren.</value>
+  </data>
+  <data name="Sample_UiVerification" xml:space="preserve">
+    <value>De gebruikersinterface afronden en controleren.</value>
+  </data>
+  <data name="Sample_Support" xml:space="preserve">
+    <value>Ondersteuning</value>
+  </data>
+  <data name="Sample_CustomerQuestion" xml:space="preserve">
+    <value>Een klantvraag beantwoorden.</value>
+  </data>
+  <data name="Sample_UnbookedActivity" xml:space="preserve">
+    <value>Overschakelen naar een niet-geboekte activiteit.</value>
+  </data>
+  <data name="Report_ExportDay_Title" xml:space="preserve">
+    <value>Dag exporteren</value>
+  </data>
+  <data name="Report_ExportDay_Heading" xml:space="preserve">
+    <value>CSV-export voor de geselecteerde dag</value>
+  </data>
+  <data name="Report_ExportDay_Lead" xml:space="preserve">
+    <value>De dag {0:d} is geselecteerd voor CSV-export.</value>
+  </data>
+  <data name="Report_ExportDay_Detail1" xml:space="preserve">
+    <value>Tijdelijke weergave voor bestandskeuze, kolomkeuze en exportstatus.</value>
+  </data>
+  <data name="Report_ExportDay_Detail2" xml:space="preserve">
+    <value>Een toekomstige implementatie kan hier de export starten.</value>
+  </data>
+  <data name="Report_ExportPeriod_Title" xml:space="preserve">
+    <value>Periode exporteren</value>
+  </data>
+  <data name="Report_ExportPeriod_Heading" xml:space="preserve">
+    <value>CSV-export voor een periode</value>
+  </data>
+  <data name="Report_ExportPeriod_Lead" xml:space="preserve">
+    <value>Tijdelijk dialoogvenster voor begin- en einddatum en exportopties.</value>
+  </data>
+  <data name="Report_ExportPeriod_Detail1" xml:space="preserve">
+    <value>Tijdelijke weergave voor periodekeuze, validatie en exportstatus.</value>
+  </data>
+  <data name="Report_ExportPeriod_Detail2" xml:space="preserve">
+    <value>De opdracht is al gekoppeld aan het menu.</value>
+  </data>
+  <data name="Report_Day_Title" xml:space="preserve">
+    <value>Daganalyse</value>
+  </data>
+  <data name="Report_Day_Heading" xml:space="preserve">
+    <value>Analyse: dagoverzicht</value>
+  </data>
+  <data name="Report_Day_Lead" xml:space="preserve">
+    <value>Tijdelijk dialoogvenster voor het dagoverzicht van {0:d}.</value>
+  </data>
+  <data name="Report_Day_Detail1" xml:space="preserve">
+    <value>Geplande inhoud: boekingen, pauzes en vergelijking van geplande en werkelijke tijd.</value>
+  </data>
+  <data name="Report_Day_Detail2" xml:space="preserve">
+    <value>Exporteren of afdrukken kan later worden toegevoegd.</value>
+  </data>
+  <data name="Report_Week_Title" xml:space="preserve">
+    <value>Weekanalyse</value>
+  </data>
+  <data name="Report_Week_Heading" xml:space="preserve">
+    <value>Analyse: weekoverzicht</value>
+  </data>
+  <data name="Report_Week_Lead" xml:space="preserve">
+    <value>Tijdelijk dialoogvenster voor het weekoverzicht en de vergelijking van geplande en werkelijke tijd.</value>
+  </data>
+  <data name="Report_Week_Detail1" xml:space="preserve">
+    <value>Geplande inhoud: dagen, totalen en afwijkingen.</value>
+  </data>
+  <data name="Report_Week_Detail2" xml:space="preserve">
+    <value>De selectie zal de momenteel geselecteerde datum volgen.</value>
+  </data>
+  <data name="Report_Month_Title" xml:space="preserve">
+    <value>Maandanalyse</value>
+  </data>
+  <data name="Report_Month_Heading" xml:space="preserve">
+    <value>Analyse: maandoverzicht</value>
+  </data>
+  <data name="Report_Month_Lead" xml:space="preserve">
+    <value>Tijdelijk dialoogvenster voor het maandoverzicht, saldi en goedkeuringen.</value>
+  </data>
+  <data name="Report_Month_Detail1" xml:space="preserve">
+    <value>Geplande inhoud: maandkalender, totale tijden en open dagen.</value>
+  </data>
+  <data name="Report_Month_Detail2" xml:space="preserve">
+    <value>Functies voor de maandafsluiting kunnen later worden toegevoegd.</value>
+  </data>
+  <data name="Report_Tenant_Title" xml:space="preserve">
+    <value>Tenantstatistieken</value>
+  </data>
+  <data name="Report_Tenant_Heading" xml:space="preserve">
+    <value>Analyse: tenantbeheer</value>
+  </data>
+  <data name="Report_Tenant_Lead" xml:space="preserve">
+    <value>Tijdelijk dialoogvenster voor beheerstatistieken over gebruikers en projecten.</value>
+  </data>
+  <data name="Report_Tenant_Detail1" xml:space="preserve">
+    <value>Geplande inhoud: bezetting, boekingskwaliteit en openstaande goedkeuringen.</value>
+  </data>
+  <data name="Report_Tenant_Detail2" xml:space="preserve">
+    <value>Deze weergave is voorbereid als startpunt voor beheeranalyses.</value>
+  </data>
+  <data name="TaskList_Title" xml:space="preserve"><value>Takenlijst</value></data>
+  <data name="Login_ConnectionRequired" xml:space="preserve"><value>Production vereist TASKOTIME_CONNECTION_STRING voor een geconfigureerde Task-o-Time-database.</value></data>
+  <data name="Login_InvalidMode" xml:space="preserve"><value>TASKOTIME_MODE moet Demo, LocalDemo of Production zijn.</value></data>
+  <data name="Login_ModeConfigured" xml:space="preserve"><value>Geconfigureerde testdiensten</value></data>
+  <data name="Login_TenantMismatch" xml:space="preserve"><value>De geconfigureerde tenant komt niet overeen met het aangemelde account.</value></data>
+  <data name="Login_ModelConnectionMissing" xml:space="preserve"><value>De EF6-verbinding TaskOTimeContext ontbreekt in App.config.</value></data>
+  <data name="Login_NoTenants" xml:space="preserve"><value>De geconfigureerde Task-o-Time-database bevat geen tenants.</value></data>
+  <data name="Login_DatabaseFailed" xml:space="preserve"><value>De geconfigureerde Task-o-Time-SQL-database kon niet worden geladen. {0}</value></data>
 </root>

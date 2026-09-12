@@ -1,6 +1,8 @@
 ﻿<Window x:Class="TaskOTime.App.DialogShell"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:loc="clr-namespace:TaskOTime.ViewModel.Localization;assembly=TaskOTime.ViewModel"
+        Language="{loc:Culture}"
         Title="{Binding Title}"
         MinWidth="460"
         MaxWidth="620"
@@ -49,7 +51,7 @@
                     HorizontalAlignment="Right"
                     MinWidth="96"
                     Command="{Binding CloseCommand}"
-                    ToolTip="{StaticResource DialogCloseButtonText}"
+                    ToolTip="{loc:Loc DialogCloseButtonText}"
                     IsDefault="True">
                 <Button.Content>
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />

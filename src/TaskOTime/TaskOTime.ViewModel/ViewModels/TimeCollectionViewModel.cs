@@ -666,14 +666,14 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
 
         private void SeedSampleData()
         {
-            AddSeed(DateTime.Today, 8, 30, "Tagesplanung", "Prioritäten und Aufgaben für den Tag sortieren.", TimeEntryMarkerKind.Normal);
-            AddSeed(DateTime.Today, 15, 0, "Stopp", "Ende der aktuellen Buchungskette.", TimeEntryMarkerKind.StopMark);
-            AddSeed(DateTime.Today, 12, 0, "Mittagspause", "Arbeitsunterbrechung.", TimeEntryMarkerKind.WorkBreak);
-            AddSeed(DateTime.Today, 9, 0, "Projektarbeit", "Umsetzung der Zeiterfassungsansicht.", TimeEntryMarkerKind.Normal);
-            AddSeed(DateTime.Today, 12, 30, "Projektarbeit", "UI-Slice fertigstellen und prüfen.", TimeEntryMarkerKind.Normal);
+            AddSeed(DateTime.Today, 8, 30, Text("Sample_DayPlanning"), Text("Sample_DayPlanningDescription"), TimeEntryMarkerKind.Normal);
+            AddSeed(DateTime.Today, 15, 0, Text("Booking_Stop"), Text("Sample_BookingChainEnd"), TimeEntryMarkerKind.StopMark);
+            AddSeed(DateTime.Today, 12, 0, Text("Sample_Lunch"), Text("Sample_WorkBreak"), TimeEntryMarkerKind.WorkBreak);
+            AddSeed(DateTime.Today, 9, 0, Text("Sample_ProjectWork"), Text("Sample_TimeCollectionImplementation"), TimeEntryMarkerKind.Normal);
+            AddSeed(DateTime.Today, 12, 30, Text("Sample_ProjectWork"), Text("Sample_UiVerification"), TimeEntryMarkerKind.Normal);
 
-            AddSeed(DateTime.Today.AddDays(-1), 8, 15, "Support", "Kundenrückfrage bearbeiten.", TimeEntryMarkerKind.Normal);
-            AddSeed(DateTime.Today.AddDays(-1), 10, 45, "Stopp", "Wechsel auf nicht gebuchte Tätigkeit.", TimeEntryMarkerKind.StopMark);
+            AddSeed(DateTime.Today.AddDays(-1), 8, 15, Text("Sample_Support"), Text("Sample_CustomerQuestion"), TimeEntryMarkerKind.Normal);
+            AddSeed(DateTime.Today.AddDays(-1), 10, 45, Text("Booking_Stop"), Text("Sample_UnbookedActivity"), TimeEntryMarkerKind.StopMark);
         }
 
         private void AddSeed(DateTime bookingDate, int hour, int minute, string title, string description, TimeEntryMarkerKind markerKind)

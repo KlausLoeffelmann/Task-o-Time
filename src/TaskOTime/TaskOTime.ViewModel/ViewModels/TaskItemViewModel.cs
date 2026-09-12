@@ -12,6 +12,7 @@ namespace TaskOTime.ViewModel.ViewModels
         private string _title;
         private string _description;
         private string _dueText;
+        private DateTimeOffset? _dueDate;
         private bool _isStarted;
         private bool _isDone;
         private bool _needsMore;
@@ -66,11 +67,26 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return _dueText;
+                return DueDate?.ToString("d", Localization.LocalizationService.Current.Culture) ?? _dueText;
             }
             set
             {
-                SetProperty(ref _dueText, value, nameof(DueText));
+                if (DueDate.HasValue)
+                {
+                    _dueText = value;
+                    DueDate = null;
+                }
+                else SetProperty(ref _dueText, value, nameof(DueText));
+            }
+        }
+
+        public DateTimeOffset? DueDate
+        {
+            get => _dueDate;
+            set
+            {
+                if (SetProperty(ref _dueDate, value, nameof(DueDate)))
+                    OnPropertyChanged(nameof(DueText));
             }
         }
 

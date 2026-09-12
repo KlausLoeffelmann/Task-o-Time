@@ -20,6 +20,7 @@ using TaskOTime.ViewModel.Localization;
 using TaskOTime.ViewModel.ViewModels;
 using TaskOTime.ViewModel;
 using TaskOTime.ViewModel.Views;
+using TaskOTime.ViewModel.Views.Localization;
 using TaskOTime.TimeTrackingServices.Tests.Doubles;
 
 namespace TaskOTime.Localization.Tests
@@ -29,6 +30,7 @@ namespace TaskOTime.Localization.Tests
     {
         private static Dispatcher dispatcher;
         private static Thread uiThread;
+        private static IDisposable cultureContext;
         private static readonly LocalizationService Localizer = LocalizationService.Current;
 
         [AssemblyInitialize]
@@ -46,11 +48,8 @@ namespace TaskOTime.Localization.Tests
                     {
                         Source = new Uri("/TaskOTime.App;component/Themes/ClassicDark.xaml", UriKind.Relative)
                     });
-                    app.Resources.MergedDictionaries.Add(new ResourceDictionary
-                    {
-                        Source = new Uri("/TaskOTime.App;component/Resources/Strings.xaml", UriKind.Relative)
-                    });
                     dispatcher = Dispatcher.CurrentDispatcher;
+                    cultureContext = Localizer.UseChangeContext(new WpfCultureChangeContext(dispatcher));
                 }
                 catch (Exception e) { failure = e; }
                 finally { ready.Set(); }
@@ -66,6 +65,7 @@ namespace TaskOTime.Localization.Tests
         [AssemblyCleanup]
         public static void Cleanup()
         {
+            dispatcher.Invoke(() => cultureContext.Dispose());
             dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
             dispatcher.BeginInvokeShutdown(DispatcherPriority.Send);
             Assert.IsTrue(uiThread.Join(TimeSpan.FromSeconds(10)),
@@ -80,6 +80,149 @@ namespace TaskOTime.Localization.Tests
         });
 
         private static void Flush() => dispatcher.Invoke(() => { }, DispatcherPriority.DataBind);
+
+        [TestMethod]
+        public void DesktopConfigurationErrorsUseRealResourcesBeforeAnyDatabaseAccess() => OnUi(() =>
+        {
+            var previousMode = Environment.GetEnvironmentVariable("TASKOTIME_MODE");
+            var previousConnection = Environment.GetEnvironmentVariable("TASKOTIME_CONNECTION_STRING");
+            try
+            {
+                foreach (var culture in new[] { "en", "de", "nl", "es" })
+                {
+                    Localizer.SetCulture(culture);
+                    Environment.SetEnvironmentVariable("TASKOTIME_MODE", "invalid");
+                    Assert.AreEqual(Localizer["Login_InvalidMode"],
+                        Assert.ThrowsException<InvalidOperationException>(() => DesktopServices.Create()).Message);
+                    Environment.SetEnvironmentVariable("TASKOTIME_MODE", "Production");
+                    Environment.SetEnvironmentVariable("TASKOTIME_CONNECTION_STRING", null);
+                    Assert.AreEqual(Localizer["Login_ConnectionRequired"],
+                        Assert.ThrowsException<InvalidOperationException>(() => DesktopServices.Create()).Message);
+                    Assert.AreEqual(Localizer["Common_NoServiceResult"],
+                        Assert.ThrowsException<InvalidOperationException>(() => DesktopServices.Require<object>(null)).Message);
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("TASKOTIME_MODE", previousMode);
+                Environment.SetEnvironmentVariable("TASKOTIME_CONNECTION_STRING", previousConnection);
+            }
+        });
+
+        [TestMethod]
+        public void TaskDueDateAndOpenListEditorRefreshWithoutOverwritingDrafts() => OnUi(() =>
+        {
+            var date = new DateTimeOffset(2026, 4, 23, 0, 0, 0, TimeSpan.FromHours(2));
+            var task = new TaskItemViewModel("Customer task", "Customer description", "") { DueDate = date };
+            var label = new TextBlock { DataContext = task };
+            label.SetBinding(TextBlock.TextProperty, new Binding(nameof(TaskItemViewModel.DueText)));
+            var request = new TaskListEditRequestEventArgs("Customer list", "Customer subtitle", (_, _) => { });
+            var view = new TaskListEditDialog(request);
+            try
+            {
+                view.Show();
+                foreach (var culture in new[] { "en", "de", "nl", "es", "de-AT" })
+                {
+                    Localizer.SetCulture(culture);
+                    Flush();
+                    Assert.AreEqual(date.ToString("d", Localizer.Culture), label.Text);
+                    Assert.AreEqual(date, task.DueDate);
+                    Assert.AreEqual(Localizer["TaskList_Title"], view.Title);
+                    Assert.IsTrue(Descendants(view).OfType<TextBlock>().Any(x => x.Text == Localizer["Booking_Description"]));
+                    Assert.IsTrue(Descendants(view).OfType<Button>().Any(x => Equals(x.ToolTip, Localizer["Common_Cancel"])));
+                    Assert.AreEqual("Customer list", request.Title);
+                    Assert.AreEqual("Customer subtitle", request.Subtitle);
+                }
+                task.DueText = "Customer deadline";
+                Localizer.SetCulture("nl");
+                Flush();
+                Assert.IsNull(task.DueDate);
+                Assert.AreEqual("Customer deadline", label.Text);
+            }
+            finally { view.Close(); }
+        });
+
+        [TestMethod]
+        public void WpfHostRejectsWorkerCultureChangesWithoutChangingState() => OnUi(() =>
+        {
+            var notifiedOn = -1;
+            System.ComponentModel.PropertyChangedEventHandler handler = (_, _) => notifiedOn = Environment.CurrentManagedThreadId;
+            Localizer.PropertyChanged += handler;
+            try
+            {
+                var failure = System.Threading.Tasks.Task.Run(() =>
+                    Assert.ThrowsException<InvalidOperationException>(() => Localizer.SetCulture("de"))).GetAwaiter().GetResult();
+                Assert.IsNotNull(failure);
+                Assert.AreEqual("en", Localizer.CultureName);
+                Assert.AreEqual(-1, notifiedOn);
+                Localizer.SetCulture("nl");
+                Assert.AreEqual(Environment.CurrentManagedThreadId, notifiedOn);
+            }
+            finally { Localizer.PropertyChanged -= handler; }
+        });
+
+        [TestMethod]
+        public void MainReportDialogsRefreshOpenBindingsAndCloseTooltipInEveryLanguage() => OnUi(() =>
+        {
+            var main = new VmMain(new TimeCollectionViewModel());
+            var date = new DateTime(2026, 4, 23);
+            main.SelectedDate = date;
+            DialogShellViewModel model = null;
+            main.DialogRequested += (_, e) => model = e.Dialog;
+            var commands = new[]
+            {
+                (main.ExportSelectedDayCommand, "Report_ExportDay"),
+                (main.ExportPeriodCommand, "Report_ExportPeriod"),
+                (main.ShowDailyStatementCommand, "Report_Day"),
+                (main.ShowWeeklyStatementCommand, "Report_Week"),
+                (main.ShowMonthlyStatementCommand, "Report_Month"),
+                (main.ShowTenantAdminStatisticsCommand, "Report_Tenant")
+            };
+            foreach (var (command, prefix) in commands)
+            {
+                command.Execute(null);
+                var view = new DialogShell(model);
+                try
+                {
+                    view.Show();
+                    foreach (var culture in new[] { "en", "de", "nl", "es", "de-AT" })
+                    {
+                        Localizer.SetCulture(culture);
+                        Flush();
+                        Assert.AreEqual(Localizer[prefix + "_Title"], view.Title);
+                        Assert.AreEqual(XmlLanguage.GetLanguage(Localizer.CultureName), view.Language);
+                        Assert.IsTrue(Descendants(view).OfType<TextBlock>().Any(x => x.Text == Localizer[prefix + "_Heading"]));
+                        Assert.IsTrue(Descendants(view).OfType<TextBlock>().Any(x => x.Text == Localizer.Format(prefix + "_Lead", date)));
+                        CollectionAssert.AreEqual(new[] { Localizer[prefix + "_Detail1"], Localizer[prefix + "_Detail2"] }, model.Details.ToArray());
+                        Assert.IsTrue(Descendants(view).OfType<Button>().Any(x => Equals(x.ToolTip, Localizer["DialogCloseButtonText"])));
+                        if (prefix == "Report_ExportDay" || prefix == "Report_Day")
+                            StringAssert.Contains(model.LeadText, date.ToString("d", Localizer.Culture));
+                    }
+                }
+                finally { view.Close(); }
+            }
+            var plain = new DialogShellViewModel("Custom title", "Custom heading", "User content", "Custom detail");
+            Localizer.SetCulture("de");
+            Assert.AreEqual("Custom title", plain.Title);
+            Assert.AreEqual("User content", plain.LeadText);
+        });
+
+        [TestMethod]
+        public void EditableSampleAndNewTaskContentUsesCreationCultureWithoutRewritingUserData() => OnUi(() =>
+        {
+            foreach (var (culture, title) in new[] { ("en", "My day"), ("de", "Mein Tag"), ("nl", "Mijn dag"), ("es", "Mi día") })
+            {
+                Localizer.SetCulture(culture);
+                var tasks = new TaskManagementViewModel();
+                Assert.AreEqual(title, tasks.SelectedTaskList.Title);
+                tasks.NewTaskCommand.Execute(null);
+                Assert.AreEqual(Localizer["NewTaskButtonText"], tasks.SelectedTaskItem.Title);
+                tasks.SelectedTaskItem.Title = "Customer title";
+                Localizer.SetCulture("en");
+                Assert.AreEqual(title, tasks.SelectedTaskList.Title);
+                Assert.AreEqual("Customer title", tasks.SelectedTaskItem.Title);
+            }
+        });
 
         [TestMethod]
         public void ResourceSetsHaveExactParityAndValidFormatArguments()
@@ -282,7 +425,7 @@ namespace TaskOTime.Localization.Tests
                     Assert.AreEqual(Localizer["Project_Selected"], window.ProjectScreen.AssignmentLabel.Text);
                     Assert.AreEqual(Localizer["Project_Updated"], ((TextBlock)window.ProjectScreen.FindName("StatusLabel")).Text);
                     Assert.AreEqual(Localizer["Project_Save"], window.ProjectScreen.SaveButton.Content);
-                    Assert.AreEqual(Localizer.Language, window.ProjectScreen.Language);
+                    Assert.AreEqual(Localizer.CultureName, window.ProjectScreen.Language.IetfLanguageTag);
                     Assert.AreEqual(selectedId, project.SelectedProject.IdProject);
                     Assert.AreEqual("Customer supplied name", window.ProjectScreen.ProjectNameTextBox.Text);
                     Assert.AreEqual(notifications, fixture.Interaction.Messages.Count);

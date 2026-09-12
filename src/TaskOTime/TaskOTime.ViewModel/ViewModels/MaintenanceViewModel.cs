@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.Specialized;
-using System.ComponentModel;
 using TaskOTime.ViewModel.Base;
 using TaskOTime.AppServer.Models;
 using TaskOTime.ViewModel.Localization;
@@ -19,12 +17,10 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             Store = store ?? throw new ArgumentNullException(nameof(store));
             Interaction = interaction ?? throw new ArgumentNullException(nameof(interaction));
-            CollectionChangedEventManager.AddHandler(Store.Users, OnUsersChanged);
-            PropertyChangedEventManager.AddHandler(Store, OnWorkspaceChanged, string.Empty);
+            WeakNotifications.SubscribeCollectionChanged(Store.Users, this,
+                static target => target.RefreshCommands());
+            WeakNotifications.SubscribePropertyChanged(Store, this, static target => target.RefreshCommands());
         }
-
-        private void OnUsersChanged(object sender, NotifyCollectionChangedEventArgs e) => RefreshCommands();
-        private void OnWorkspaceChanged(object sender, PropertyChangedEventArgs e) => RefreshCommands();
 
         public bool CanManage => Store.CanManage && Store.Tenant.IsActive && Store.IsMainDataLoaded;
         public string OperationStatusText => _status?.ToString() ?? string.Empty;

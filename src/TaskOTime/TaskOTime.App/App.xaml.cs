@@ -2,6 +2,8 @@ using System;
 using System.Windows;
 using TaskOTime.App.Themes;
 using TaskOTime.ViewModel.ViewModels;
+using TaskOTime.ViewModel.Localization;
+using TaskOTime.ViewModel.Views.Localization;
 
 namespace TaskOTime.App
 {
@@ -10,16 +12,18 @@ namespace TaskOTime.App
         private LoginViewModel login;
         private DesktopServices services;
         private ThemeService themes;
+        private IDisposable cultureContext;
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            cultureContext = LocalizationService.Current.UseChangeContext(new WpfCultureChangeContext(Dispatcher));
             TaskOTime.ViewModel.Localization.LocalizationService.Current.SetCulture(TaskOTime.App.Properties.Settings.Default.CultureName);
             base.OnStartup(e);
             DispatcherUnhandledException += (_, args) =>
             {
                 if (args.Exception is InvalidOperationException || args.Exception is ArgumentException)
                 {
-                    MessageBox.Show(args.Exception.Message, "Task-o-Time", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(args.Exception.Message, LocalizationService.Current["AppTitle"], MessageBoxButton.OK, MessageBoxImage.Error);
                     args.Handled = true;
                 }
             };
@@ -45,6 +49,7 @@ namespace TaskOTime.App
             }
             finally
             {
+                cultureContext?.Dispose();
                 base.OnExit(e);
             }
         }
