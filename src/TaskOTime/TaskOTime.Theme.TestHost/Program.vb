@@ -6,6 +6,7 @@ Namespace TaskOTime.Theme.TestHost
     Public Module Program
         <STAThread>
         Public Function Main(arguments As String()) As Integer
+            AppContext.SetSwitch("Switch.System.Windows.Media.ShouldRenderEvenWhenNoDisplayDevicesAreAvailable", True)
             Dim scenarios As New ThemeScenarios()
             Dim cases As New Dictionary(Of String, Action)(StringComparer.Ordinal) From {
                 {"calendar-states", AddressOf scenarios.CalendarPalettes_ResolveStateBrushesAndPreserveSelectionNavigationAndBlackout},
@@ -13,6 +14,7 @@ Namespace TaskOTime.Theme.TestHost
                 {"calendar-range-preview", AddressOf scenarios.CalendarRangePreview_UsesNativePendingHighlightBeforeCommit},
                 {"control-states", AddressOf scenarios.MainDataStyles_KeepReadingPairsFocusDisabledAndEditingBehaviorAcrossLivePalettes},
                 {"list-tab-states", AddressOf scenarios.SharedListAndTabStyles_PreserveContentSelectionAndLiveContrastSchemeChanges},
+                {"list-viewports", AddressOf scenarios.SharedListViewports_PaintEmptySpaceAndPreserveScrolling},
                 {"runtime-preferences", AddressOf scenarios.ThemeService_ObservesProcessPreferencesOnDispatcherAndHighContrastAlwaysWins},
                 {"maintenance-views", AddressOf scenarios.MainDataWindow_RealViewsKeepReadableContentBindingsAndEditingAcrossPalettes},
                 {"main-window", AddressOf scenarios.MainWindow_UsesLiveCalendarAndPaletteResources},

@@ -13,6 +13,7 @@ Namespace TaskOTime.Theme.Tests
         <DataRow("calendar-range-preview")>
         <DataRow("control-states")>
         <DataRow("list-tab-states")>
+        <DataRow("list-viewports")>
         <DataRow("runtime-preferences")>
         <DataRow("maintenance-views")>
         <DataRow("main-window")>
