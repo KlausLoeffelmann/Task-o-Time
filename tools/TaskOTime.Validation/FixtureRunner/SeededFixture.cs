@@ -12,6 +12,20 @@ using TaskOTime.AppServer.Services;
 using TaskOTime.DataLayer;
 using TaskOTime.DTOs;
 
+#if VALIDATION_MAIN_DATA_API && VALIDATION_MASTER_DATA_API
+#error Select exactly one validation data API.
+#elif VALIDATION_MAIN_DATA_API
+using ValidationAdminService = TaskOTime.AppServer.Services.AdminMainDataService;
+using ValidationCategoryDto = TaskOTime.AppServer.Models.CategoryMainDataDto;
+using ValidationDataQuery = TaskOTime.AppServer.Models.MainDataQueryRequest;
+#elif VALIDATION_MASTER_DATA_API
+using ValidationAdminService = TaskOTime.AppServer.Services.AdminMasterDataService;
+using ValidationCategoryDto = TaskOTime.AppServer.Models.CategoryMasterDataDto;
+using ValidationDataQuery = TaskOTime.AppServer.Models.MasterDataQueryRequest;
+#else
+#error ValidationDataApi must explicitly resolve to MasterData or MainData.
+#endif
+
 namespace TaskOTime.Validation
 {
     internal sealed class SeededFixture : IDisposable
@@ -19,6 +33,7 @@ namespace TaskOTime.Validation
         internal LocalDbPersistenceTestDatabase Database { get; } = new LocalDbPersistenceTestDatabase();
         internal string Password { get; } = "Validation-" + Guid.NewGuid().ToString("N") + "!a9";
         internal string UserName { get; } = "validation-" + Guid.NewGuid().ToString("N");
+        internal static string ServiceApi => typeof(ValidationAdminService).Name;
 
         internal void Create()
         {
@@ -51,7 +66,7 @@ namespace TaskOTime.Validation
             if (!login.MustChangePassword)
                 throw new InvalidOperationException("The real service did not require initial password change.");
 
-            var admin = new AdminMasterDataService(Database.CreateContext, hasher);
+            var admin = new ValidationAdminService(Database.CreateContext, hasher);
             foreach (var name in new[] { "First validation project", "Second validation project" })
                 Require(admin.CreateProject(new SaveProjectRequest
                 {
@@ -66,13 +81,13 @@ namespace TaskOTime.Validation
             {
                 IdTenant = created.Tenant.IdTenant,
                 IdActingUser = created.AdminUser.IdUser,
-                Item = new CategoryMasterDataDto
+                Item = new ValidationCategoryDto
                 {
                     IdCategory = Guid.NewGuid(), IdUser = created.AdminUser.IdUser,
                     CategoryName = "Validation work", IsPublic = true, DisplayOrder = 1
                 }
             }));
-            var query = new MasterDataQueryRequest
+            var query = new ValidationDataQuery
             {
                 IdTenant = created.Tenant.IdTenant, IdActingUser = created.AdminUser.IdUser
             };

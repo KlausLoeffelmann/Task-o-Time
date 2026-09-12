@@ -13,11 +13,13 @@ try {
     $run = Join-Path 'artifacts' ([DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss') + '-' + [Guid]::NewGuid().ToString('N'))
     New-Item -ItemType Directory -Path $run -Force | Out-Null
     $results = [System.Collections.Generic.List[object]]::new()
-    function Invoke-Validation([string] $name, [string[]] $arguments) {
-        & dotnet @arguments *> (Join-Path $run "$name.log")
+    function Invoke-Validation([string] $name, [string[]] $arguments, [int] $expectedExit = 0, [string] $expectedText = '') {
+        $log = Join-Path $run "$name.log"
+        & dotnet @arguments *> $log
         $code = $LASTEXITCODE
-        $results.Add([pscustomobject]@{ name = $name; exitCode = $code; arguments = $arguments })
-        Write-Host "$name : exit $code"
+        $passed = $code -eq $expectedExit -and (!$expectedText -or (Select-String -Path $log -Pattern $expectedText -SimpleMatch -Quiet))
+        $results.Add([pscustomobject]@{ name = $name; exitCode = $code; expectedExit = $expectedExit; passed = $passed; expectedText = $expectedText; arguments = $arguments })
+        Write-Host "$name : exit $code (expected $expectedExit), passed=$passed"
     }
 
     $source = (Resolve-Path $ApplicationRoot).Path
@@ -36,6 +38,15 @@ try {
         '--filter', $filter, '--logger', 'trx;LogFileName=integration.trx', '--results-directory', $run
     )
     Invoke-Validation 'sta-host' @('run', '--project', 'StaSmoke', '--', '--self-test')
+    Invoke-Validation 'startup-driver-synthetic' @('run', '--no-build', '--project', 'StaSmoke', '--', '--startup-self-test', 'core')
+    foreach ($scenario in @(
+        @{ name = 'invalid-login'; message = 'Login did not enforce the seeded temporary-password flow.' },
+        @{ name = 'early-exit'; message = 'Application exited before startup validation completed successfully.' },
+        @{ name = 'missing-ideal'; message = 'TaskOTime.ViewModel.Localization.LocalizationService' },
+        @{ name = 'timeout'; message = 'Startup timed out waiting in phase Login.' }
+    )) {
+        Invoke-Validation "startup-driver-$($scenario.name)" @('run', '--no-build', '--project', 'StaSmoke', '--', '--startup-self-test', $scenario.name) 1 $scenario.message
+    }
     Invoke-Validation 'fixture-guardrails' (@('run', '--project', 'FixtureRunner') + $stageArguments + @('--', 'self-test'))
     if ($IncludeSql) {
         Invoke-Validation 'fixture-setup' (@('run', '--project', 'FixtureRunner', '--no-build') + $stageArguments + @('--', 'fixture-check'))
@@ -58,7 +69,7 @@ try {
         results = $results
     } | ConvertTo-Json -Depth 8 | Set-Content (Join-Path $run 'manifest.json')
     Write-Host "Private evidence: $run"
-    if (@($results | Where-Object exitCode -ne 0).Count) { exit 1 }
+    if (@($results | Where-Object { !$_.passed }).Count) { exit 1 }
 }
 finally {
     Pop-Location
