@@ -3,7 +3,7 @@ using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class TaskItemViewModel : ViewModelBase
+    public class TaskItemViewModel : Localization.LocalizedViewModelBase
     {
 
         private readonly Guid _id;
@@ -157,20 +157,20 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (IsDone)
                 {
-                    return "Erledigt";
+                    return Text("Task_Done");
                 }
 
                 if (NeedsMore)
                 {
-                    return "Mehr zu tun";
+                    return Text("Task_More");
                 }
 
                 if (IsStarted)
                 {
-                    return "Läuft";
+                    return Text("Task_Running");
                 }
 
-                return "Bereit";
+                return Text("Task_Ready");
             }
         }
 
@@ -204,7 +204,7 @@ namespace TaskOTime.ViewModel.ViewModels
                     return string.Empty;
                 }
 
-                return $"{ShortTitle} sinds {StartedAt.Value:HH:mm} - {RecordingElapsedText}";
+                return Text("Task_Recording", ShortTitle, StartedAt.Value, RecordingElapsedText);
             }
         }
 
@@ -214,20 +214,20 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (IsDone)
                 {
-                    return "This task is complete.";
+                    return Text("Task_DoneHint");
                 }
 
                 if (NeedsMore)
                 {
-                    return "De taak blijft open en heeft meer werk nodig.";
+                    return Text("Task_MoreHint");
                 }
 
                 if (IsStarted)
                 {
-                    return "The task is currently running.";
+                    return Text("Task_RunningHint");
                 }
 
-                return "Klaar om te starten.";
+                return Text("Task_ReadyHint");
             }
         }
 

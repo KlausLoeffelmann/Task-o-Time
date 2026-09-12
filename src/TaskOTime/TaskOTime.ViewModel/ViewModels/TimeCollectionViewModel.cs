@@ -8,10 +8,11 @@ using TaskOTime.AppServer.Services;
 using TaskOTime.AppServer.TimeBooking;
 using TaskOTime.DTOs;
 using TaskOTime.ViewModel.Base;
+using TaskOTime.ViewModel.Localization;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class TimeCollectionViewModel : ViewModelBase
+    public class TimeCollectionViewModel : LocalizedViewModelBase
     {
 
         private readonly Dictionary<DateTime, List<TimeEntrySeed>> _entriesByDate;
@@ -231,7 +232,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return "Time collection";
+                return Text("Main_Heading");
             }
         }
 
@@ -241,10 +242,10 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (SelectedDayEntries.Count == 0)
                 {
-                    return "Voor deze dag zijn nog geen tijden geregistreerd.";
+                    return Text("Main_EmptyDay");
                 }
 
-                return string.Format(System.Globalization.CultureInfo.CurrentCulture, "{0} entries · {1} booked · {2} pauze · {3} open", SelectedDayEntries.Count, TimeEntryViewModel.FormatDuration(BookedTime), TimeEntryViewModel.FormatDuration(WorkBreakTime), TimeEntryViewModel.FormatDuration(RemainingTime));
+                return Text("Main_DaySummary", SelectedDayEntries.Count, TimeEntryViewModel.FormatDuration(BookedTime), TimeEntryViewModel.FormatDuration(WorkBreakTime), TimeEntryViewModel.FormatDuration(RemainingTime));
             }
         }
 
@@ -284,26 +285,26 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             if (SelectedCategory is null)
             {
-                throw new InvalidOperationException("Es ist keine buchbare Kategorie vorhanden.");
+                throw new InvalidOperationException(Text("Booking_NoCategory"));
             }
 
             var entryTime = GetNextEntryTime();
-            TimeEntryEditRequested?.Invoke(this, new TimeEntryEditRequestEventArgs(entryTime, "Neue Zeitbuchung", "Beschreibung ergänzen", false, (savedTime, savedTitle, savedDescription, completeRunningTask) => AddEntryFromDialog(savedTime, savedTitle, savedDescription, TimeEntryMarkerKind.Normal, completeRunningTask)));
+            TimeEntryEditRequested?.Invoke(this, new TimeEntryEditRequestEventArgs(entryTime, Text("Booking_New"), Text("Booking_AddDescription"), false, (savedTime, savedTitle, savedDescription, completeRunningTask) => AddEntryFromDialog(savedTime, savedTitle, savedDescription, TimeEntryMarkerKind.Normal, completeRunningTask)));
         }
 
         private void AddEntryFromDialog(DateTime entryTime, string title, string description, TimeEntryMarkerKind markerKind, bool completeRunningTask)
         {
             var startedAt = PrepareRecordingBoundary();
             if (startedAt.HasValue && entryTime <= startedAt.Value)
-                throw new InvalidOperationException("Die Abschlusszeit muss nach dem Aufgabenstart liegen.");
+                throw new InvalidOperationException(Text("Booking_EndBeforeStart"));
             var idTimeItem = Guid.NewGuid();
 
             var seed = new TimeEntrySeed()
             {
                 IdTimeItem = idTimeItem,
                 EntryTime = entryTime,
-                Title = string.IsNullOrWhiteSpace(title) ? "Neue Zeitbuchung" : title.Trim(),
-                Description = string.IsNullOrWhiteSpace(description) ? "Beschreibung ergänzen" : description.Trim(),
+                Title = string.IsNullOrWhiteSpace(title) ? Text("Booking_New") : title.Trim(),
+                Description = string.IsNullOrWhiteSpace(description) ? Text("Booking_AddDescription") : description.Trim(),
                 MarkerKind = markerKind,
                 IdCategory = CategoryFor(markerKind),
                 IdProject = SelectedProject is null ? Guid.Empty : SelectedProject.IdProject
@@ -360,7 +361,7 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             if (!recording)
                 markerTime = MoveToFreeMinute(markerTime);
 
-            AddEntryFromDialog(markerTime, markerKind == TimeEntryMarkerKind.WorkBreak ? "Pause" : "Stopp", markerKind == TimeEntryMarkerKind.WorkBreak ? "Arbeitsunterbrechung eingefügt." : "Stoppmarke eingefügt.", markerKind, false);
+            AddEntryFromDialog(markerTime, Text(markerKind == TimeEntryMarkerKind.WorkBreak ? "PauseButtonText" : "Booking_Stop"), Text(markerKind == TimeEntryMarkerKind.WorkBreak ? "Booking_BreakInserted" : "Booking_StopInserted"), markerKind, false);
         }
 
         private void UpsertLatestSystemMarker(TimeEntryMarkerKind markerKind)
@@ -372,7 +373,7 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
 
             if (latest is null)
             {
-                AddEntryFromDialog(recording ? nowTime : MoveToFreeMinute(nowTime), markerKind == TimeEntryMarkerKind.DownTime ? "Ausfallzeit" : markerKind == TimeEntryMarkerKind.Errand ? "Besorgung" : markerKind == TimeEntryMarkerKind.WorkBreak ? "Pause" : "Ausbuchen", markerKind == TimeEntryMarkerKind.DownTime ? "Ausfallzeit nachgetragen." : markerKind == TimeEntryMarkerKind.Errand ? "Besorgung nachgetragen." : markerKind == TimeEntryMarkerKind.WorkBreak ? "Pause aktualisiert." : "Tagesende aktualisiert.", markerKind, false);
+                AddEntryFromDialog(recording ? nowTime : MoveToFreeMinute(nowTime), Text(markerKind == TimeEntryMarkerKind.DownTime ? "DownTimeButtonText" : markerKind == TimeEntryMarkerKind.Errand ? "ErrandButtonText" : markerKind == TimeEntryMarkerKind.WorkBreak ? "PauseButtonText" : "CheckOutButtonText"), Text(markerKind == TimeEntryMarkerKind.DownTime ? "Booking_DowntimeAdded" : markerKind == TimeEntryMarkerKind.Errand ? "Booking_ErrandAdded" : markerKind == TimeEntryMarkerKind.WorkBreak ? "Booking_BreakUpdated" : "Booking_DayEndUpdated"), markerKind, false);
                 return;
             }
 
@@ -448,14 +449,14 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             RefreshEntries();
         }
 
-        // '' <summary>
-        // ''  vult hetzelfde zichtbare collectieobject opnieuw met nieuwe tijdregelobjecten.
-        // '' </summary>
-        // '' <remarks>
-        // ''  de collectie-identiteit blijft behouden, niet de oude regelobjecten of hun koppelingen.
-        // ''  toevoegen bouwt sortering en buurrelaties op.  selectie volgt de gevraagde identificatie,
-        // ''  met de eerste regel als terugval en geen selectie wanneer de dag leeg is.
-        // '' </remarks>
+        /// <summary>
+        /// Refills the same displayed collection instance with newly created time-entry objects.
+        /// </summary>
+        /// <remarks>
+        /// Collection identity is preserved, but previous entries and their links are not reused.
+        /// Adding entries establishes their order and neighbor links. Selection follows the requested ID,
+        /// falling back to the first entry, or no selection when the day is empty.
+        /// </remarks>
         private void RefreshEntries(Guid? selectedId = default)
         {
             SelectedDayEntries.Clear();
@@ -622,6 +623,12 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             }
         }
 
+        protected override void OnCultureChanged()
+        {
+            RebuildBookedDates();
+            base.OnCultureChanged();
+        }
+
         private static string GetBookedDateGroup(DateTime bookedDay)
         {
             var today = DateTime.Today;
@@ -633,20 +640,20 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             {
                 case 0:
                     {
-                        return "Diese Woche";
+                        return Text("Main_ThisWeek");
                     }
                 case 1:
                     {
-                        return "Letzte Woche";
+                        return Text("Main_LastWeek");
                     }
                 case 2:
                     {
-                        return "Vorletzte Woche";
+                        return Text("Main_PreviousWeek");
                     }
 
                 default:
                     {
-                        return $"{weekDelta + 1}. Woche im {bookedDay:MMMM}";
+                        return Text("Main_WeekInMonth", weekDelta + 1, bookedDay);
                     }
             }
         }
@@ -703,7 +710,7 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             var existingStart = GetOrCreateSeeds(BookingDate).FirstOrDefault(seed => seed.EntryTime == startTime);
             if (existingStart is not null && existingStart.MarkerKind != TimeEntryMarkerKind.Normal)
             {
-                throw new InvalidOperationException("Die Aufgabenstartzeit ist bereits durch eine Systembuchung belegt.");
+                throw new InvalidOperationException(Text("Booking_StartOccupied"));
             }
             return new TimeEntrySeed()
             {
@@ -724,18 +731,18 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
         public void RecordTask(TaskItemViewModel task, DateTime startTime, DateTime endTime, bool useExistingBoundary = false)
         {
             if (endTime <= startTime)
-                throw new InvalidOperationException("Die Abschlusszeit muss nach dem Aufgabenstart liegen.");
+                throw new InvalidOperationException(Text("Booking_EndBeforeStart"));
             BookingDate = startTime.Date;
             var existingBoundary = GetOrCreateSeeds(BookingDate).FirstOrDefault(seed => seed.EntryTime == endTime);
             if (useExistingBoundary && existingBoundary is null)
-                throw new InvalidOperationException("Die Abschlussbuchung ist nicht mehr vorhanden.");
+                throw new InvalidOperationException(Text("Booking_CompletionMissing"));
             var existingStart = GetOrCreateSeeds(BookingDate).FirstOrDefault(seed => seed.EntryTime == startTime);
             var startSeed = CreateTaskStartSeed(task, startTime);
             var endSeed = new TimeEntrySeed()
             {
                 IdTimeItem = Guid.NewGuid(),
                 EntryTime = endTime,
-                Title = "Stopp",
+                Title = Text("Booking_Stop"),
                 Description = task.Title,
                 IdProject = startSeed.IdProject,
                 IdTask = startSeed.IdTask,
@@ -813,7 +820,7 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
         {
             if (GetOrCreateSeeds(BookingDate).Any(item => item.IdTimeItem != seed.IdTimeItem && item.EntryTime == seed.EntryTime))
             {
-                throw new InvalidOperationException("Für diese Uhrzeit ist bereits eine Buchung vorhanden.");
+                throw new InvalidOperationException(Text("Booking_DuplicateTime"));
             }
             if (_service is null)
             {
@@ -822,7 +829,7 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
                 {
                     int index = seeds.FindIndex(item => item.IdTimeItem == seed.IdTimeItem);
                     if (index < 0)
-                        throw new InvalidOperationException("Die Buchung ist nicht mehr vorhanden.");
+                        throw new InvalidOperationException(Text("Booking_Missing"));
                     seeds[index] = seed;
                 }
                 else
@@ -857,13 +864,13 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             ApplyMutation(mutation);
         }
 
-        // '' <summary>
-        // ''  haalt bij een aangesloten service de gekozen boekingsdag op als bron voor de lokale daggegevens.
-        // '' </summary>
-        // '' <remarks>
-        // ''  zonder service blijven de lokale gegevens staan.  het vullen van de zichtbare tijdregels
-        // ''  gebeurt afzonderlijk via <see cref="RefreshEntries"/>.
-        // '' </remarks>
+        /// <summary>
+        /// Loads the selected booking day from the connected service into the local day data.
+        /// </summary>
+        /// <remarks>
+        /// Without a service, local data is retained. The displayed entries are populated separately
+        /// by <see cref="RefreshEntries"/>.
+        /// </remarks>
         private void LoadBookingDate()
         {
             if (_service is null)
@@ -872,17 +879,17 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             ApplyBookingDay(day);
         }
 
-        // '' <summary>
-        // ''  neemt de teruggegeven boekingsdag over en verwerkt daarna de expliciete verwijderingen.
-        // '' </summary>
-        // '' <remarks>
-        // ''  een ontbrekende boekingsdag wordt geweigerd.  de servicereactie is de bron voor de daginhoud;
-        // ''  het verversen van de zichtbare collectie blijft een afzonderlijke stap voor de aanroeper.
-        // '' </remarks>
+        /// <summary>
+        /// Applies the returned booking day, then processes explicit item removals.
+        /// </summary>
+        /// <remarks>
+        /// A missing booking day is rejected. The service response supplies the day's contents;
+        /// refreshing the displayed collection remains a separate responsibility of the caller.
+        /// </remarks>
         private void ApplyMutation(TimeBookingMutationResult mutation)
         {
             if (mutation.BookingDay is null)
-                throw new InvalidOperationException("Der Buchungsdienst hat keinen Buchungstag zurückgegeben.");
+                throw new InvalidOperationException(Text("Booking_NoDay"));
             ApplyBookingDay(mutation.BookingDay);
             if (mutation.RemovedItems is not null)
             {
@@ -891,13 +898,13 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             }
         }
 
-        // '' <summary>
-        // ''  vervangt de lokale inhoud van de ontvangen dag door de bruikbare regels uit het serviceantwoord.
-        // '' </summary>
-        // '' <remarks>
-        // ''  verwijderde regels en regels zonder tijdstip worden overgeslagen.  andere dagen blijven staan;
-        // ''  de lijst met geboekte datums wordt hier wel opnieuw opgebouwd.
-        // '' </remarks>
+        /// <summary>
+        /// Replaces the returned day's local contents with usable entries from the service response.
+        /// </summary>
+        /// <remarks>
+        /// Deleted entries and entries without a timestamp are skipped. Other days are retained,
+        /// but the list of dates with bookings is rebuilt here.
+        /// </remarks>
         private void ApplyBookingDay(TimeBookingDayDto day)
         {
             var seeds = GetOrCreateSeeds(day.BookingDate);
@@ -925,7 +932,7 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
         private static T Require<T>(ServiceResult<T> result)
         {
             if (result is null)
-                throw new InvalidOperationException("Keine Antwort vom Buchungsdienst.");
+                throw new InvalidOperationException(Text("Booking_NoResponse"));
             if (!result.Success)
                 throw new InvalidOperationException(result.ErrorCode + ": " + result.ErrorMessage);
             return result.Value;

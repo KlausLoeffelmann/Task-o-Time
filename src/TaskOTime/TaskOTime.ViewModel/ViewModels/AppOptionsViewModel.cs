@@ -1,10 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using TaskOTime.ViewModel.Localization;
 using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    // Die Optionen zusammen halten, dann weiss das Binding an einer Stelle wie die Ansicht aussehen soll
-    public class AppOptionsViewModel : ViewModelBase
+    /// <summary>Bindable options; dialog drafts are applied only after confirmation.</summary>
+    public class AppOptionsViewModel : LocalizedViewModelBase
     {
 
         private bool _restoreMainWindowPlacement = true;
@@ -13,6 +16,27 @@ namespace TaskOTime.ViewModel.ViewModels
         // Zwei Wochen als Startwert erschien mir erstmal uebersichtlicher.
         private int _bookedDateRangeCount = 14;
         private string _bookedDateRangeUnit = "Tage";
+        private string _cultureName = LocalizationService.Current.Culture.Name;
+
+        /// <summary>The dialog edits a draft. Applying options commits this culture.</summary>
+        public string CultureName
+        {
+            get => _cultureName;
+            set => SetProperty(ref _cultureName, LocalizationService.ResolveCulture(value).Name, nameof(CultureName));
+        }
+
+        public CultureInfo[] AvailableCultures => new[]
+        {
+            CultureInfo.GetCultureInfo("en"), CultureInfo.GetCultureInfo("de"),
+            CultureInfo.GetCultureInfo("nl"), CultureInfo.GetCultureInfo("es")
+        };
+
+        // Keep the stored range identifiers compatible with existing settings.
+        public KeyValuePair<string, string>[] RangeUnitChoices => new[]
+        {
+            new KeyValuePair<string, string>("Tage", Text("Options_Days")),
+            new KeyValuePair<string, string>("Wochen", Text("Options_Weeks"))
+        };
 
         public bool RestoreMainWindowPlacement
         {
@@ -87,12 +111,12 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
-        // Der Getter liest die Optionen, also muesste MVVM den Text doch schon dadurch mit beobachten.
         public string BookedDateRangeDescription
         {
             get
             {
-                return $"{BookedDateRangeCount} {BookedDateRangeUnit} anzeigen, die Buchungen aufweisen.";
+                return Text("Options_Range", BookedDateRangeCount,
+                    Text(BookedDateRangeUnit == "Wochen" ? "Options_Weeks" : "Options_Days"));
             }
         }
 
@@ -104,11 +128,12 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
-        // Eigene Kopie fuer den Dialog machen, damit Abbrechen nicht schon alle Felder ueberschreibt.
+        /// <summary>Creates a draft so cancelling does not modify the live options.</summary>
         public AppOptionsViewModel Clone()
         {
             return new AppOptionsViewModel()
             {
+                CultureName = CultureName,
                 RestoreMainWindowPlacement = RestoreMainWindowPlacement,
                 SaturdayIsWorkday = SaturdayIsWorkday,
                 SundayIsWorkday = SundayIsWorkday,

@@ -6,16 +6,16 @@ using System.ComponentModel;
 
 namespace ActiveDevelop.TimeTrackingServices
 {
-    // '' <summary>
-    // ''  bewaart tijdregels in een eigen gesorteerde lijst en meldt wijzigingen aan afnemers.
-    // ''  implementeert zelf de lijst- en collectiecontracten; dit is geen afgeleide van
-    // ''  <see cref="System.Collections.ObjectModel.ObservableCollection(Of TimeItemType)"/>.
-    // '' </summary>
-    // '' <remarks>
-    // ''  de volgorde volgt <see cref="ITimeItem(Of IndexType).EventTime"/>, niet de invoegvolgorde.
-    // ''  sorteren en herladen kunnen hetzelfde collectieobject blijven gebruiken.  de koppelingen
-    // ''  tussen naburige regels en de bijbehorende meldingen worden hier afzonderlijk onderhouden.
-    // '' </remarks>
+    /// <summary>
+    /// Maintains time items in its own sorted list and notifies subscribers of changes.
+    /// Implements the list and collection contracts directly rather than inheriting from
+    /// <see cref="System.Collections.ObjectModel.ObservableCollection{TimeItemType}"/>.
+    /// </summary>
+    /// <remarks>
+    /// Items are ordered by <see cref="ITimeItem{IndexType}.EventTime"/>, not by insertion order.
+    /// Sorting and reloading can retain the same collection instance. Neighbor links and their
+    /// associated notifications are maintained separately by this collection.
+    /// </remarks>
     public class TimeItemsBase<IndexType, TimeItemType> : IEnumerable<TimeItemType>, ICollection<TimeItemType>, IList<TimeItemType>, IList, INotifyCollectionChanged, INotifyPropertyChanged where IndexType : struct, IComparable<IndexType> where TimeItemType : class, ITimeItem<IndexType>, INotifyPropertyChanged, new()
     {
         private const string EventTimePropertyName = "EventTime";
@@ -48,13 +48,13 @@ namespace ActiveDevelop.TimeTrackingServices
             Add(timeItem);
         }
 
-        // '' <summary>
-        // ''  vergelijkt alleen met de gekoppelde buren en geeft een richting, geen invoegindex.
-        // '' </summary>
-        // '' <remarks>
-        // ''  vergelijkingen met ontbrekende regels of tijdstippen worden overgeslagen.  nul bewijst dus niet
-        // ''  dat een tijdstip uniek is; die controle staat los van deze voorspelling.
-        // '' </remarks>
+        /// <summary>
+        /// Compares only the linked neighbors and returns a direction, not an insertion index.
+        /// </summary>
+        /// <remarks>
+        /// Comparisons involving missing items or timestamps are skipped. A zero result therefore does
+        /// not prove timestamp uniqueness; duplicate detection is separate from this prediction.
+        /// </remarks>
         public int PredictNewPosition(TimeItemType item)
         {
             if (item is not null && item.PreviousItem is not null && item.PreviousItem.EventTime.HasValue && item.EventTime.HasValue && item.PreviousItem.EventTime.Value > item.EventTime.Value)
@@ -70,15 +70,15 @@ namespace ActiveDevelop.TimeTrackingServices
             return 0;
         }
 
-        // '' <summary>
-        // ''  voegt een tijdregel volgens de tijdvolgorde in en geeft de invoegpositie terug.
-        // '' </summary>
-        // '' <remarks>
-        // ''  een ontbrekend object wordt geweigerd.  een object zonder tijdstip mag wel vooraan staan.
-        // ''  gelijke tijdstippen worden geweigerd, ook als beide tijdstippen ontbreken.
-        // ''  na invoegen volgen meldingen voor <see cref="Count"/> en <see cref="Item(Integer)"/>.
-        // ''  de collectiemelding bevat daarna het toegevoegde object en zijn positie.
-        // '' </remarks>
+        /// <summary>
+        /// Inserts a time item in timestamp order and returns its insertion index.
+        /// </summary>
+        /// <remarks>
+        /// Null items are rejected, but an item with no timestamp may appear at the beginning.
+        /// Equal timestamps are rejected, including two missing timestamps.
+        /// Insertion raises notifications for <see cref="Count"/> and <see cref="this[int]"/>.
+        /// The subsequent collection notification includes the added item and its index.
+        /// </remarks>
         public int AddWithPositionInfo(TimeItemType item)
         {
             if (item is null)
@@ -133,8 +133,8 @@ namespace ActiveDevelop.TimeTrackingServices
 
             WirePropertyChangeEvent(item);
             UpdateItem(item, index);
-            // de teller beschrijft de omvang; de indexermelding maakt gewijzigde posities zichtbaar.
-            // de collectiemelding draagt daarnaast het toegevoegde object en zijn positie.
+            // Count reports the size; the indexer notification exposes changes to item positions.
+            // The collection notification also carries the added item and its index.
             OnPropertyChanged(_countPropertyChangedEventArgs);
             OnPropertyChanged(_itemPropertyChangedEventArgs);
             OnNotifyCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Add, item, index));
@@ -153,13 +153,13 @@ namespace ActiveDevelop.TimeTrackingServices
             return item;
         }
 
-        // '' <summary>
-        // ''  legt beide richtingen van een buurrelatie vast met dezelfde berekende tijdsafstand.
-        // '' </summary>
-        // '' <remarks>
-        // ''  ook aan een uiteinde wordt de aanwezige buur bijgewerkt.  daar ontbreken zowel
-        // ''  de verwijzing naar buiten als de duur; een ontbrekende duur is niet hetzelfde als nul.
-        // '' </remarks>
+        /// <summary>
+        /// Sets both directions of a neighbor link using the same calculated time difference.
+        /// </summary>
+        /// <remarks>
+        /// At either end of the list, the remaining neighbor is still updated. Its outward reference
+        /// and duration are both absent; a missing duration is not the same as zero.
+        /// </remarks>
         private static void LinkItems(TimeItemType previous, TimeItemType next)
         {
             var duration = CalculateDuration(previous, next);
@@ -176,13 +176,13 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
-        // '' <summary>
-        // ''  berekent het tijdsverschil, of geen waarde als een buur of een tijdstip ontbreekt.
-        // '' </summary>
-        // '' <remarks>
-        // ''  deze collectieberekening leest geen actievlaggen.  zij beschrijft de afstand tussen
-        // ''  twee tijdstippen, niet zelfstandig de betekenis van een boeking of onderbreking.
-        // '' </remarks>
+        /// <summary>
+        /// Calculates the time difference, or returns no value if either neighbor or timestamp is missing.
+        /// </summary>
+        /// <remarks>
+        /// This collection-level calculation does not inspect action flags. It describes the distance
+        /// between timestamps, not the business meaning of a booking or interruption.
+        /// </remarks>
         private static TimeSpan? CalculateDuration(TimeItemType previous, TimeItemType next)
         {
             if (previous is null || next is null || !previous.EventTime.HasValue || !next.EventTime.HasValue)
@@ -193,16 +193,17 @@ namespace ActiveDevelop.TimeTrackingServices
             return next.EventTime.Value - previous.EventTime.Value;
         }
 
-        // '' <summary>
-        // ''  controleert tijdstipconflicten voordat een bestaande regel wordt verplaatst of vervangen.
-        // '' </summary>
-        // '' <param name="oldValue">
-        // ''  de te vervangen regel; zonder deze waarde wordt het bestaande object opnieuw geplaatst.
-        // '' </param>
-        // '' <remarks>
-        // ''  vervanging op dezelfde positie meldt een vervanging en alleen de indexerwijziging.
-        // ''  bij een andere positie wordt eerst verwijderd en daarna toegevoegd, met beide tellermeldingen.
-        // '' </remarks>
+        /// <summary>
+        /// Checks for timestamp conflicts before moving or replacing an existing item.
+        /// </summary>
+        /// <param name="item">The item to reposition or use as the replacement.</param>
+        /// <param name="oldValue">
+        /// The item being replaced; when absent, the existing item is repositioned.
+        /// </param>
+        /// <remarks>
+        /// Replacement at the same index raises a replacement event and only the indexer property notification.
+        /// A different index causes removal followed by insertion, each with its own count notification.
+        /// </remarks>
         private void SetItemInternal(TimeItemType item, TimeItemType oldValue = null)
         {
             if (item is null)
@@ -246,13 +247,13 @@ namespace ActiveDevelop.TimeTrackingServices
             AddWithPositionInfo(item);
         }
 
-        // '' <summary>
-        // ''  sluit de oude buurrelatie en koppelt hetzelfde object opnieuw op zijn gesorteerde positie.
-        // '' </summary>
-        // '' <remarks>
-        // ''  de omvang verandert niet, dus <see cref="Count"/> wordt niet gemeld.  de indexer wel;
-        // ''  een verplaatsingsmelding volgt alleen wanneer de uiteindelijke index anders is.
-        // '' </remarks>
+        /// <summary>
+        /// Closes the old neighbor gap and relinks the same item at its sorted position.
+        /// </summary>
+        /// <remarks>
+        /// The size does not change, so <see cref="Count"/> is not notified; the indexer is.
+        /// A move event is raised only if the final index differs from the original one.
+        /// </remarks>
         private void RepositionItem(TimeItemType item, int oldIndex)
         {
             var previous = oldIndex > 0 ? _sortedList[oldIndex - 1] : null;
@@ -321,12 +322,12 @@ namespace ActiveDevelop.TimeTrackingServices
             item.PropertyChanged -= PropertyChangeEventHandlerProc;
         }
 
-        // '' <summary>
-        // ''  herordent alleen bij de melding voor het tijdstip, niet bij meldingen voor buren of duren.
-        // '' </summary>
-        // '' <remarks>
-        // ''  de tijdens het herkoppelen ontstane meldingen starten daardoor geen nieuwe sortering.
-        // '' </remarks>
+        /// <summary>
+        /// Reorders items only for timestamp notifications, not for neighbor or duration notifications.
+        /// </summary>
+        /// <remarks>
+        /// Notifications raised while relinking therefore do not trigger another sort.
+        /// </remarks>
         private void PropertyChangeEventHandlerProc(object sender, PropertyChangedEventArgs e)
         {
             if (sender is not null && (e.PropertyName ?? "") == EventTimePropertyName)
@@ -354,13 +355,13 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
-        // '' <summary>
-        // ''  verwijdert alle abonnementen op eigenschapswijzigingen en leegt de interne lijst.
-        // '' </summary>
-        // '' <remarks>
-        // ''  meldt teller, indexer en een volledige verversing, ook als de lijst al leeg was.
-        // ''  de oude objecten worden hier niet onderling losgekoppeld.  de collectie zelf blijft bestaan.
-        // '' </remarks>
+        /// <summary>
+        /// Unsubscribes from every item's property changes and empties the internal list.
+        /// </summary>
+        /// <remarks>
+        /// Raises count, indexer and collection-reset notifications even when the list was already empty.
+        /// Former items are not unlinked from one another here. The collection instance is retained.
+        /// </remarks>
         public void Clear()
         {
             foreach (var timeItem in _sortedList)
@@ -371,9 +372,9 @@ namespace ActiveDevelop.TimeTrackingServices
             OnNotifyCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Reset));
         }
 
-        // '' <summary>
-        // ''  zoekt op tijdstipvergelijking, niet op objectidentiteit; een ontbrekend object geeft onwaar.
-        // '' </summary>
+        /// <summary>
+        /// Searches by timestamp comparison rather than object identity; a null item returns false.
+        /// </summary>
         public bool Contains(TimeItemType item)
         {
             return item is not null && _sortedList.BinarySearch(item, _comparer) >= 0;
@@ -386,7 +387,7 @@ namespace ActiveDevelop.TimeTrackingServices
 
         public int IndexOf(TimeItemType item)
         {
-            // een ontbrekend object krijgt min één.  een andere misser behoudt het negatieve zoekresultaat.
+            // A null item returns -1. Other misses retain the negative binary-search result.
             if (item is null)
             {
                 return -1;
@@ -418,13 +419,13 @@ namespace ActiveDevelop.TimeTrackingServices
             OnNotifyCollectionChanged(new NotifyCollectionChangedEventArgs(NotifyCollectionChangedAction.Remove, item, index));
         }
 
-        // '' <summary>
-        // ''  verbindt de overblijvende buren en verwijdert het abonnement van de vertrekkende regel.
-        // '' </summary>
-        // '' <remarks>
-        // ''  wist ook de buurverwijzingen en duren van die regel.  de aanroeper verzorgt de meldingen
-        // ''  over de gewijzigde collectie; deze stap past alleen de inhoud en koppelingen aan.
-        // '' </remarks>
+        /// <summary>
+        /// Links the remaining neighbors and unsubscribes from the departing item's property changes.
+        /// </summary>
+        /// <remarks>
+        /// Also clears that item's neighbor references and durations. The caller raises collection
+        /// notifications; this step only updates the list contents and links.
+        /// </remarks>
         private void RemoveAtCore(int index)
         {
             var removedItem = _sortedList[index];
@@ -548,9 +549,9 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
-        // '' <summary>
-        // ''  zoekt een exact tijdstip en geeft geen object terug wanneer dat tijdstip niet voorkomt.
-        // '' </summary>
+        /// <summary>
+        /// Looks up an exact timestamp and returns null when no item has that timestamp.
+        /// </summary>
         public TimeItemType this[DateTimeOffset dateOfTimeItem]
         {
             get

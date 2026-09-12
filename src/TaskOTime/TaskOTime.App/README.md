@@ -1,7 +1,68 @@
 # Task-o-Time desktop
 
 The Windows desktop application provides time bookings, task recording, and
-main-data maintenance through the **Stammdaten** menu.
+main-data maintenance through the **Main Data** menu.
+
+## Live language selection
+
+Choose **Tools > Options > Language**, then **OK**, to switch the running
+application between English, German, Dutch, and Spanish. **Cancel** discards the
+draft without changing the application language. The saved language is loaded
+before the next sign-in window; a restart is not required to apply it.
+
+`TaskOTime.ViewModel\Localization` provides a shared
+`Microsoft.Extensions.Localization` resource-manager localizer. The pinned
+10.0.0 package contains .NET Framework 4.6.2, .NET Standard 2.0, and .NET 10
+assets; this application remains on **.NET Framework 4.7.2**. Framework
+migration is a separate change.
+
+`Resources\Strings.resx` is neutral English. `Strings.de.resx`,
+`Strings.nl.resx`, and `Strings.es.resx` have the same keys and translated
+values. Regional cultures use their parent language resources while retaining
+regional formatting. Unsupported or malformed culture names use English;
+unknown resource keys follow the Microsoft localizer's key-name fallback.
+User-entered titles, descriptions, and server diagnostic details are not
+translated.
+
+Views bind labels using `{loc:Loc ResourceKey}` and set
+`Language="{loc:Culture}"` at their root. Both are normal WPF bindings, so
+already-created controls refresh and inherit the selected formatting/parsing
+culture. `LocalizedViewModelBase` uses weak property-change subscriptions to
+refresh computed text without retaining discarded view models. Stateful
+messages retain resource keys and arguments, not pretranslated strings.
+Clock input accepts the culture's short time and the editor's 24-hour form;
+elapsed durations remain durations, not calendar dates.
+
+Sign-in and temporary-password changes show the translated `TenantInactive`
+reason when the authentication service rejects an inactive, deleted, or
+unavailable tenant. The diagnostic error code is preserved. Both booking
+end-before-start checks share one resource key, and a failed completion with
+failed compensation retains both underlying exceptions alongside its localized
+summary.
+
+All four required surfaces consume these bindings: Login (including forced
+password changes), Main time collection, the booking editor, and Project Main
+Data. Project labels, assignment state, validation, operation names, and
+success/error status use `Project_*` and `Common_*` resources. The Main Data
+host title and Projects tab also update while the window is open.
+
+`MaintenanceViewModel` derives from `LocalizedViewModelBase` and retains its
+`OperationStatusText` as a `LocalizedMessage` key/argument object. Nested operation
+messages are translated again after a culture switch, while server error
+codes and diagnostic details remain intact. Notifications still go through
+`IMaintenanceInteraction`; changing culture does not repeat a notification or
+service request. The Project editor validates a blank name before saving.
+User-entered drafts and selected project identity survive language changes.
+New project names are localized when created, but their persisted identifier
+`NEW` remains invariant.
+Other maintenance and placeholder report dialogs are outside this scope.
+
+Run localization resource, fallback, options, parsing, weak-subscription, and
+STA UI-binding tests without accessing SQL:
+
+```powershell
+dotnet test .\TaskOTime.Localization.Tests\TaskOTime.Localization.Tests.csproj
+```
 
 ## Local demo
 

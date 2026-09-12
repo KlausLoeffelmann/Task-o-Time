@@ -1,0 +1,530 @@
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Task_PanelSummary" xml:space="preserve">
+    <value>Selecteer een lijst en een taak om tijd vast te leggen.</value>
+  </data>
+  <data name="Task_NoList" xml:space="preserve">
+    <value>Geen takenlijst geselecteerd.</value>
+  </data>
+  <data name="Task_NoSelection" xml:space="preserve">
+    <value>Geen taak geselecteerd.</value>
+  </data>
+  <data name="Task_Done" xml:space="preserve">
+    <value>Afgerond</value>
+  </data>
+  <data name="Task_More" xml:space="preserve">
+    <value>Meer te doen</value>
+  </data>
+  <data name="Task_Running" xml:space="preserve">
+    <value>Actief</value>
+  </data>
+  <data name="Task_Ready" xml:space="preserve">
+    <value>Gereed</value>
+  </data>
+  <data name="Task_Recording" xml:space="preserve">
+    <value>{0} sinds {1:HH:mm} - {2}</value>
+  </data>
+  <data name="Task_DoneHint" xml:space="preserve">
+    <value>Deze taak is afgerond.</value>
+  </data>
+  <data name="Task_MoreHint" xml:space="preserve">
+    <value>De taak blijft open en heeft meer werk nodig.</value>
+  </data>
+  <data name="Task_RunningHint" xml:space="preserve">
+    <value>De taak is momenteel actief.</value>
+  </data>
+  <data name="Task_ReadyHint" xml:space="preserve">
+    <value>Klaar om te starten.</value>
+  </data>
+  <data name="Task_Progress" xml:space="preserve">
+    <value>{0} open · {1} afgerond</value>
+  </data>
+  <data name="Login_ModeDemo" xml:space="preserve">
+    <value>Lokale SQL-demo – LocalDB-database TaskOTime. Wijzigingen worden permanent opgeslagen.</value>
+  </data>
+  <data name="Login_ModeProduction" xml:space="preserve">
+    <value>Productiediensten – geconfigureerde SQL Server-database. Wijzigingen worden permanent opgeslagen.</value>
+  </data>
+  <data name="AppTitle" xml:space="preserve">
+    <value>Task-o-Time</value>
+  </data>
+  <data name="FileMenuHeader" xml:space="preserve">
+    <value>_Bestand</value>
+  </data>
+  <data name="MainDataMenuHeader" xml:space="preserve">
+    <value>_Stamgegevens</value>
+  </data>
+  <data name="AnalysisMenuHeader" xml:space="preserve">
+    <value>_Analyse</value>
+  </data>
+  <data name="ExportDayMenuHeader" xml:space="preserve">
+    <value>Geselecteerde dag als CSV exporteren</value>
+  </data>
+  <data name="ExportPeriodMenuHeader" xml:space="preserve">
+    <value>Periode als CSV exporteren</value>
+  </data>
+  <data name="QuitMenuHeader" xml:space="preserve">
+    <value>Afsluiten</value>
+  </data>
+  <data name="ToolsMenuHeader" xml:space="preserve">
+    <value>_Extra</value>
+  </data>
+  <data name="OptionsMenuHeader" xml:space="preserve">
+    <value>Instellingen…</value>
+  </data>
+  <data name="NewTaskButtonText" xml:space="preserve">
+    <value>Nieuwe taak</value>
+  </data>
+  <data name="EditTaskButtonText" xml:space="preserve">
+    <value>Taak bewerken</value>
+  </data>
+  <data name="NewTaskListButtonText" xml:space="preserve">
+    <value>Nieuwe takenlijst</value>
+  </data>
+  <data name="EditTaskListButtonText" xml:space="preserve">
+    <value>Takenlijst bewerken</value>
+  </data>
+  <data name="StartTaskButtonText" xml:space="preserve">
+    <value>Taak starten</value>
+  </data>
+  <data name="CheckOutButtonText" xml:space="preserve">
+    <value>Uitklokken</value>
+  </data>
+  <data name="CompleteTaskButtonText" xml:space="preserve">
+    <value>Taak afronden</value>
+  </data>
+  <data name="PauseButtonText" xml:space="preserve">
+    <value>Pauze</value>
+  </data>
+  <data name="DownTimeButtonText" xml:space="preserve">
+    <value>Uitvaltijd</value>
+  </data>
+  <data name="ErrandButtonText" xml:space="preserve">
+    <value>Boodschap</value>
+  </data>
+  <data name="ManageProjectsMenuHeader" xml:space="preserve">
+    <value>Projecten…</value>
+  </data>
+  <data name="ManageTaskListsMenuHeader" xml:space="preserve">
+    <value>Takenlijsten…</value>
+  </data>
+  <data name="ManageTasksMenuHeader" xml:space="preserve">
+    <value>Taken…</value>
+  </data>
+  <data name="ManageUsersAdminMenuHeader" xml:space="preserve">
+    <value>Gebruikers / beheer…</value>
+  </data>
+  <data name="DailyStatementMenuHeader" xml:space="preserve">
+    <value>Dagoverzicht…</value>
+  </data>
+  <data name="WeeklyStatementMenuHeader" xml:space="preserve">
+    <value>Weekoverzicht…</value>
+  </data>
+  <data name="MonthlyStatementMenuHeader" xml:space="preserve">
+    <value>Maandoverzicht…</value>
+  </data>
+  <data name="TenantAdminStatisticsMenuHeader" xml:space="preserve">
+    <value>Tenantstatistieken…</value>
+  </data>
+  <data name="DialogCloseButtonText" xml:space="preserve">
+    <value>Sluiten</value>
+  </data>
+  <data name="TodayButtonText" xml:space="preserve">
+    <value>Vandaag</value>
+  </data>
+  <data name="YesterdayButtonText" xml:space="preserve">
+    <value>Gisteren</value>
+  </data>
+  <data name="AddTimeEntryButtonText" xml:space="preserve">
+    <value>Boeking toevoegen</value>
+  </data>
+  <data name="EditTimeEntryButtonText" xml:space="preserve">
+    <value>Bewerken</value>
+  </data>
+  <data name="DeleteTimeEntryButtonText" xml:space="preserve">
+    <value>Verwijderen</value>
+  </data>
+  <data name="InsertWorkBreakButtonText" xml:space="preserve">
+    <value>Pauze toevoegen</value>
+  </data>
+  <data name="InsertDownTimeButtonText" xml:space="preserve">
+    <value>Uitvaltijd toevoegen</value>
+  </data>
+  <data name="InsertErrandButtonText" xml:space="preserve">
+    <value>Boodschap toevoegen</value>
+  </data>
+  <data name="InsertStopMarkButtonText" xml:space="preserve">
+    <value>Stopmarkering</value>
+  </data>
+  <data name="BookedDaysHeader" xml:space="preserve">
+    <value>Dagen met boekingen</value>
+  </data>
+  <data name="CompleteRecordingTaskCheckBoxText" xml:space="preserve">
+    <value>Lopende taak afronden</value>
+  </data>
+  <data name="Common_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Annuleren</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>Opslaan</value>
+  </data>
+  <data name="Login_Title" xml:space="preserve">
+    <value>Task-o-Time – Aanmelden</value>
+  </data>
+  <data name="Login_SignIn" xml:space="preserve">
+    <value>Aanmelden</value>
+  </data>
+  <data name="Login_UserName" xml:space="preserve">
+    <value>Gebruikersnaam of e-mailadres</value>
+  </data>
+  <data name="Login_Password" xml:space="preserve">
+    <value>Wachtwoord</value>
+  </data>
+  <data name="Login_NewPassword" xml:space="preserve">
+    <value>Nieuw wachtwoord (bij een tijdelijk wachtwoord)</value>
+  </data>
+  <data name="Login_NoResponse" xml:space="preserve">
+    <value>Geen antwoord van de aanmeldservice.</value>
+  </data>
+  <data name="Login_ChangeRequired" xml:space="preserve">
+    <value>Vervang het tijdelijke wachtwoord door een nieuw wachtwoord.</value>
+  </data>
+  <data name="Login_Failed" xml:space="preserve">
+    <value>Aanmelden is mislukt: {0}</value>
+  </data>
+  <data name="Login_ChangeFailed" xml:space="preserve">
+    <value>Het wijzigen van het wachtwoord is mislukt: {0}</value>
+  </data>
+  <data name="Login_InvalidRequest" xml:space="preserve">
+    <value>Vul de vereiste aanmeldgegevens in.</value>
+  </data>
+  <data name="Login_InvalidCredentials" xml:space="preserve">
+    <value>De gebruikersnaam of het wachtwoord is ongeldig.</value>
+  </data>
+  <data name="Login_UserInactive" xml:space="preserve">
+    <value>Deze gebruiker is niet actief.</value>
+  </data>
+  <data name="Login_UserLockedOut" xml:space="preserve">
+    <value>Deze gebruiker is tijdelijk geblokkeerd.</value>
+  </data>
+  <data name="Login_TemporaryPasswordExpired" xml:space="preserve">
+    <value>Het tijdelijke wachtwoord is verlopen.</value>
+  </data>
+  <data name="Login_UserNotFound" xml:space="preserve">
+    <value>De actieve gebruiker is niet gevonden.</value>
+  </data>
+  <data name="Login_PasswordChangeNotRequired" xml:space="preserve">
+    <value>Deze gebruiker hoeft het tijdelijke wachtwoord niet te wijzigen.</value>
+  </data>
+  <data name="Login_Rejected" xml:space="preserve">
+    <value>De aanmeldservice heeft de aanvraag geweigerd ({0}).</value>
+  </data>
+  <data name="Main_More" xml:space="preserve">
+    <value>Meer acties</value>
+  </data>
+  <data name="Main_UntilNext" xml:space="preserve">
+    <value>Tot volgende</value>
+  </data>
+  <data name="Main_SincePrevious" xml:space="preserve">
+    <value>Sinds vorige</value>
+  </data>
+  <data name="Main_Lists" xml:space="preserve">
+    <value>Lijsten</value>
+  </data>
+  <data name="Main_Tasks" xml:space="preserve">
+    <value>Taken</value>
+  </data>
+  <data name="Main_Logout" xml:space="preserve">
+    <value>Afmelden</value>
+  </data>
+  <data name="Main_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Main_Duration" xml:space="preserve">
+    <value>Duur</value>
+  </data>
+  <data name="Main_Date" xml:space="preserve">
+    <value>Datum</value>
+  </data>
+  <data name="Main_Target" xml:space="preserve">
+    <value>Doel: </value>
+  </data>
+  <data name="Main_Booked" xml:space="preserve">
+    <value>Geboekt: </value>
+  </data>
+  <data name="Main_Open" xml:space="preserve">
+    <value>Resterend: </value>
+  </data>
+  <data name="Main_Heading" xml:space="preserve">
+    <value>Tijdregistratie</value>
+  </data>
+  <data name="Main_EmptyDay" xml:space="preserve">
+    <value>Voor deze dag zijn nog geen tijden geregistreerd.</value>
+  </data>
+  <data name="Main_DaySummary" xml:space="preserve">
+    <value>{0} boekingen · {1} geboekt · {2} pauze · {3} resterend</value>
+  </data>
+  <data name="Main_ThisWeek" xml:space="preserve">
+    <value>Deze week</value>
+  </data>
+  <data name="Main_LastWeek" xml:space="preserve">
+    <value>Vorige week</value>
+  </data>
+  <data name="Main_PreviousWeek" xml:space="preserve">
+    <value>Twee weken geleden</value>
+  </data>
+  <data name="Main_WeekInMonth" xml:space="preserve">
+    <value>Week {0} in {1:MMMM}</value>
+  </data>
+  <data name="Main_NoStart" xml:space="preserve">
+    <value>De taak heeft geen begintijd.</value>
+  </data>
+  <data name="Booking_Title" xml:space="preserve">
+    <value>Tijdboeking</value>
+  </data>
+  <data name="Booking_Project" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="Booking_Category" xml:space="preserve">
+    <value>Categorie</value>
+  </data>
+  <data name="Booking_Start" xml:space="preserve">
+    <value>Begintijd</value>
+  </data>
+  <data name="Booking_Name" xml:space="preserve">
+    <value>Titel</value>
+  </data>
+  <data name="Booking_Description" xml:space="preserve">
+    <value>Beschrijving</value>
+  </data>
+  <data name="Booking_InvalidTime" xml:space="preserve">
+    <value>Voer een geldige begintijd in (bijvoorbeeld 14:30).</value>
+  </data>
+  <data name="Booking_InvalidDuration" xml:space="preserve">
+    <value>Voer de duur in als HH:mm.</value>
+  </data>
+  <data name="Booking_NoCategory" xml:space="preserve">
+    <value>Er is geen boekbare categorie beschikbaar.</value>
+  </data>
+  <data name="Booking_New" xml:space="preserve">
+    <value>Nieuwe tijdboeking</value>
+  </data>
+  <data name="Booking_AddDescription" xml:space="preserve">
+    <value>Beschrijving toevoegen</value>
+  </data>
+  <data name="Booking_Stop" xml:space="preserve">
+    <value>Stop</value>
+  </data>
+  <data name="Booking_BreakInserted" xml:space="preserve">
+    <value>Werkpauze toegevoegd.</value>
+  </data>
+  <data name="Booking_StopInserted" xml:space="preserve">
+    <value>Stopmarkering toegevoegd.</value>
+  </data>
+  <data name="Booking_DowntimeAdded" xml:space="preserve">
+    <value>Uitvaltijd toegevoegd.</value>
+  </data>
+  <data name="Booking_ErrandAdded" xml:space="preserve">
+    <value>Boodschap toegevoegd.</value>
+  </data>
+  <data name="Booking_BreakUpdated" xml:space="preserve">
+    <value>Pauze bijgewerkt.</value>
+  </data>
+  <data name="Booking_DayEndUpdated" xml:space="preserve">
+    <value>Dageinde bijgewerkt.</value>
+  </data>
+  <data name="Booking_CompletionMissing" xml:space="preserve">
+    <value>De afsluitende boeking bestaat niet meer.</value>
+  </data>
+  <data name="Booking_EndBeforeStart" xml:space="preserve">
+    <value>De eindtijd moet na het begin van de taak liggen.</value>
+  </data>
+  <data name="Booking_StartOccupied" xml:space="preserve">
+    <value>De begintijd van de taak is al bezet door een systeemboeking.</value>
+  </data>
+  <data name="Booking_DuplicateTime" xml:space="preserve">
+    <value>Er bestaat al een boeking op dit tijdstip.</value>
+  </data>
+  <data name="Booking_Missing" xml:space="preserve">
+    <value>De boeking bestaat niet meer.</value>
+  </data>
+  <data name="Booking_NoDay" xml:space="preserve">
+    <value>De boekingsservice heeft geen boekingsdag teruggegeven.</value>
+  </data>
+  <data name="Booking_NoResponse" xml:space="preserve">
+    <value>Geen antwoord van de boekingsservice.</value>
+  </data>
+  <data name="Options_Title" xml:space="preserve">
+    <value>Instellingen</value>
+  </data>
+  <data name="Options_Language" xml:space="preserve">
+    <value>Taal</value>
+  </data>
+  <data name="Options_RestorePlacement" xml:space="preserve">
+    <value>Positie en grootte van het hoofdvenster opslaan en herstellen.</value>
+  </data>
+  <data name="Options_Workdays" xml:space="preserve">
+    <value>Werkdagen</value>
+  </data>
+  <data name="Options_Saturday" xml:space="preserve">
+    <value>Zaterdag is een werkdag</value>
+  </data>
+  <data name="Options_Sunday" xml:space="preserve">
+    <value>Zondag is een werkdag</value>
+  </data>
+  <data name="Options_Days" xml:space="preserve">
+    <value>Dagen</value>
+  </data>
+  <data name="Options_Weeks" xml:space="preserve">
+    <value>Weken</value>
+  </data>
+  <data name="Options_Range" xml:space="preserve">
+    <value>{0} {1} met boekingen tonen.</value>
+  </data>
+  <data name="Project_Title" xml:space="preserve">
+    <value>Projecten</value>
+  </data>
+  <data name="Project_Heading" xml:space="preserve">
+    <value>Projectstamgegevens</value>
+  </data>
+  <data name="Project_Identifier" xml:space="preserve">
+    <value>Kenmerk</value>
+  </data>
+  <data name="Project_Description" xml:space="preserve">
+    <value>Beschrijving</value>
+  </data>
+  <data name="Project_NoAssignments" xml:space="preserve">
+    <value>Geen toewijzingen</value>
+  </data>
+  <data name="Project_Selected" xml:space="preserve">
+    <value>Project geselecteerd</value>
+  </data>
+  <data name="Project_Archive" xml:space="preserve">
+    <value>Archiveren</value>
+  </data>
+  <data name="Project_Archived" xml:space="preserve">
+    <value>Project gearchiveerd.</value>
+  </data>
+  <data name="Project_Updated" xml:space="preserve">
+    <value>Project bijgewerkt.</value>
+  </data>
+  <data name="Project_ServiceError" xml:space="preserve">
+    <value>Servicefout</value>
+  </data>
+  <data name="Login_StartupFailed" xml:space="preserve">
+    <value>Task-o-Time – Opstarten mislukt</value>
+  </data>
+  <data name="Login_WorkspaceFailed" xml:space="preserve">
+    <value>De werkruimte kon niet worden geladen</value>
+  </data>
+  <data name="Project_Name" xml:space="preserve">
+    <value>Projectnaam</value>
+  </data>
+  <data name="Project_Category" xml:space="preserve">
+    <value>Categorie</value>
+  </data>
+  <data name="Project_Categories" xml:space="preserve">
+    <value>Categorieën</value>
+  </data>
+  <data name="Project_Active" xml:space="preserve">
+    <value>Actief</value>
+  </data>
+  <data name="Project_New" xml:space="preserve">
+    <value>Nieuw</value>
+  </data>
+  <data name="Project_Save" xml:space="preserve">
+    <value>Opslaan</value>
+  </data>
+  <data name="Project_Delete" xml:space="preserve">
+    <value>Project verwijderen</value>
+  </data>
+  <data name="Project_AddCategory" xml:space="preserve">
+    <value>Categorie toevoegen</value>
+  </data>
+  <data name="Project_RemoveCategory" xml:space="preserve">
+    <value>Categorie verwijderen</value>
+  </data>
+  <data name="Project_Ready" xml:space="preserve">
+    <value>Gereed.</value>
+  </data>
+  <data name="Project_Loaded" xml:space="preserve">
+    <value>{0} projecten geladen.</value>
+  </data>
+  <data name="Project_Saved" xml:space="preserve">
+    <value>Project opgeslagen.</value>
+  </data>
+  <data name="Project_Deleted" xml:space="preserve">
+    <value>Project verwijderd.</value>
+  </data>
+  <data name="Project_NameRequired" xml:space="preserve">
+    <value>Voer een projectnaam in.</value>
+  </data>
+  <data name="Project_Select" xml:space="preserve">
+    <value>Selecteer een project.</value>
+  </data>
+  <data name="Project_CategoryRequired" xml:space="preserve">
+    <value>Voer een categorienaam in.</value>
+  </data>
+  <data name="Project_CategoryAdded" xml:space="preserve">
+    <value>Categorie toegevoegd.</value>
+  </data>
+  <data name="Project_CategoryRemoved" xml:space="preserve">
+    <value>Categorie verwijderd.</value>
+  </data>
+  <data name="Project_Failed" xml:space="preserve">
+    <value>De projectbewerking is mislukt: {0}</value>
+  </data>
+  <data name="Project_NewName" xml:space="preserve">
+    <value>Nieuw project</value>
+  </data>
+  <data name="Project_CreateOperation" xml:space="preserve">
+    <value>Project aanmaken</value>
+  </data>
+  <data name="Project_SaveOperation" xml:space="preserve">
+    <value>Project opslaan</value>
+  </data>
+  <data name="Project_ArchiveOperation" xml:space="preserve">
+    <value>Project archiveren</value>
+  </data>
+  <data name="Project_NotificationTitle" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="Project_ArchiveTitle" xml:space="preserve">
+    <value>Archiveren</value>
+  </data>
+  <data name="Common_ServiceError" xml:space="preserve">
+    <value>Servicefout</value>
+  </data>
+  <data name="MainData_Title" xml:space="preserve">
+    <value>Task-o-Time Stamgegevens</value>
+  </data>
+  <data name="Common_NoServiceResult" xml:space="preserve">
+    <value>{0}: geen antwoord van de service.</value>
+  </data>
+  <data name="Common_ServiceFailure" xml:space="preserve">
+    <value>{0} mislukt: {1} - {2}</value>
+  </data>
+  <data name="Common_ErrorDetail" xml:space="preserve">
+    <value>De bewerking is mislukt: {0}</value>
+  </data>
+  <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
+    <value>Het afronden van de taak is mislukt en de boekingen konden niet worden hersteld.</value>
+  </data>
+  <data name="Login_TenantInactive" xml:space="preserve">
+    <value>De tenant is inactief, verwijderd of niet beschikbaar.</value>
+  </data>
+</root>

@@ -1,22 +1,24 @@
 <Window x:Class="TaskOTime.App.LoginWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Task-o-Time – Aanmelden" Width="460" SizeToContent="Height"
+        xmlns:loc="clr-namespace:TaskOTime.ViewModel.Localization;assembly=TaskOTime.ViewModel"
+        Language="{loc:Culture}"
+        Title="{loc:Loc Login_Title}" Width="460" SizeToContent="Height"
         ResizeMode="NoResize" WindowStartupLocation="CenterScreen"
         Background="{StaticResource WindowBackgroundBrush}">
     <StackPanel Margin="24">
-        <TextBlock Text="Aanmelden" Style="{StaticResource SectionHeaderTextStyle}"/>
+        <TextBlock Text="{loc:Loc Login_SignIn}" Style="{StaticResource SectionHeaderTextStyle}"/>
         <TextBlock x:Name="ModeText" TextWrapping="Wrap" Foreground="{StaticResource MutedForegroundBrush}" Margin="0,8"/>
-        <TextBlock Text="Gebruikersnaam of e-mailadres" Foreground="{StaticResource MutedForegroundBrush}"/>
+        <TextBlock Text="{loc:Loc Login_UserName}" Foreground="{StaticResource MutedForegroundBrush}"/>
         <TextBox x:Name="UserName" Margin="0,4,0,10"/>
-        <TextBlock Text="Wachtwoord" Foreground="{StaticResource MutedForegroundBrush}"/>
+        <TextBlock Text="{loc:Loc Login_Password}" Foreground="{StaticResource MutedForegroundBrush}"/>
         <PasswordBox x:Name="Password" Margin="0,4,0,10"/>
-        <TextBlock Text="Nieuw wachtwoord (alleen bij een tijdelijk wachtwoord)" Foreground="{StaticResource MutedForegroundBrush}"/>
+        <TextBlock Text="{loc:Loc Login_NewPassword}" Foreground="{StaticResource MutedForegroundBrush}"/>
         <PasswordBox x:Name="NewPassword" Margin="0,4,0,10"/>
         <TextBlock Text="{Binding ErrorMessage}" Foreground="Salmon" TextWrapping="Wrap" Margin="0,4,0,10"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="Aanmelden" IsDefault="True" Click="OnLogin" MinWidth="100"/>
-            <Button Content="Annuleren" IsCancel="True" MinWidth="100"/>
+            <Button Content="{loc:Loc Login_SignIn}" IsDefault="True" Click="OnLogin" MinWidth="100"/>
+            <Button Content="{loc:Loc Common_Cancel}" IsCancel="True" MinWidth="100"/>
         </StackPanel>
     </StackPanel>
 </Window>

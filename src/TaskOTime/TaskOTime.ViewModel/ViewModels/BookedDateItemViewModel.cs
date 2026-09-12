@@ -18,7 +18,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return BookingDate.ToString("ddd, dd. MMMM yyyy");
+                return BookingDate.ToString("ddd, dd. MMMM yyyy", Localization.LocalizationService.Current.Culture);
             }
         }
     }
