@@ -7,6 +7,7 @@ param(
     [string] $PublicFrameworkRoot,
     [string] $BinaryRoot,
     [string] $EntryAssembly,
+    [string] $CompilerJobRoot,
     [string] $InputRoot,
     [string[]] $CommandArguments,
     [string] $ExpectedOutputRoot,
@@ -25,13 +26,27 @@ if ($SignProducerProof) {
 if (-not $PrepareOnly) {
     $feature = Get-CimInstance Win32_OptionalFeature -Filter "Name='Containers-DisposableClientVM'"
     if ($feature.InstallState -ne 1) { throw 'Windows Sandbox is not enabled. This command never enables or installs it.' }
-    if (Get-Process WindowsSandbox,WindowsSandboxClient -ErrorAction SilentlyContinue) {
+    if (Get-Process WindowsSandbox,WindowsSandboxClient,WindowsSandboxRemoteSession,WindowsSandboxServer -ErrorAction SilentlyContinue) {
         throw 'An existing Sandbox session is present; refusing to disturb it.'
     }
 }
 $sdk = (Resolve-Path $SdkRoot).Path
 if (-not (Test-Path (Join-Path $sdk 'dotnet.exe'))) { throw 'Public SDK root has no dotnet.exe.' }
+if ($CompilerJobRoot) {
+    if($SourceRoot -or $BinaryRoot -or $PublicPackageRoot -or $PublicFrameworkRoot -or $PSVersionTable.PSVersion.Major -lt 7) {
+        throw 'Protected compiler jobs require a fresh dedicated PowerShell 7 invocation without submitted builds or runtime binaries.'
+    }
+    . (Join-Path $PSScriptRoot 'CompilerPlan.ps1')
+    $compilerPlan=Assert-CompilerPlan ((Resolve-Path $CompilerJobRoot).Path) $sdk
+}
 $assessment = Split-Path $PSScriptRoot -Parent
+foreach($exposedRoot in @($SourceRoot,$BinaryRoot,$InputRoot,$PublicPackageRoot,$PublicFrameworkRoot,$CompilerJobRoot) | Where-Object { $_ }) {
+    $exposedPath=(Resolve-Path -LiteralPath $exposedRoot).Path.TrimEnd('\')
+    if($assessment.TrimEnd('\').Equals($exposedPath,[StringComparison]::OrdinalIgnoreCase) -or
+        $assessment.StartsWith($exposedPath+'\',[StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Never expose a root containing the private assessor tree.'
+    }
+}
 $run = Join-Path $assessment ('Artifacts\sandbox-probe-' + [guid]::NewGuid().ToString('N'))
 $payload = Join-Path $run 'payload'
 $output = Join-Path $run 'output'
@@ -50,6 +65,10 @@ function Copy-SourceTree([string]$from,[string]$to,[bool]$excludeBuild=$true) {
     }
 }
 if ($SourceRoot -and $BinaryRoot) { throw 'Choose one producer build or CLI execution per fresh Sandbox.' }
+if ($CompilerJobRoot) {
+    Copy-SourceTree ((Resolve-Path $CompilerJobRoot).Path) (Join-Path $payload 'compiler') $false
+    Copy-Item (Join-Path $payload 'compiler\job.json') (Join-Path $payload 'job.json')
+}
 if ($SourceRoot) {
     if (-not $Projects) { throw 'Producer mode requires explicit relative project paths.' }
     $source=(Resolve-Path $SourceRoot).Path.TrimEnd('\')
@@ -135,6 +154,9 @@ foreach ($name in @('Networking','ClipboardRedirection','AudioInput','VideoInput
 $protected=$document.CreateElement('ProtectedClient'); $protected.InnerText='Enable'; [void]$configuration.AppendChild($protected)
 $folders=$document.CreateElement('MappedFolders'); [void]$configuration.AppendChild($folders)
 $mappings=@(@($payload,'C:\ProbePayload','true'),@($sdk,'C:\PublicSdk','true'),@($output,'C:\ProbeOutput','false'))
+if($CompilerJobRoot -and (Test-Path (Join-Path $payload 'compiler\files\packages'))) {
+    $mappings+=,@((Join-Path $payload 'compiler\files\packages'),'C:\PublicPackages','true')
+}
 if ($PublicPackageRoot) { $mappings+=,@((Resolve-Path $PublicPackageRoot).Path,'C:\PublicPackages','true') }
 if ($PublicFrameworkRoot) { $mappings+=,@((Resolve-Path $PublicFrameworkRoot).Path,'C:\PublicFrameworkReferences','true') }
 foreach ($mapping in $mappings) {
@@ -155,6 +177,11 @@ if ($PrepareOnly) {
     return
 }
 $process=Start-Process (Join-Path $env:WINDIR 'System32\WindowsSandbox.exe') -ArgumentList ('"' + $config + '"') -PassThru
+function Find-OwnedRemoteSession {
+    @(Get-CimInstance Win32_Process -Filter "Name='WindowsSandboxRemoteSession.exe'" |
+        Where-Object { $_.CommandLine -and $_.CommandLine.EndsWith(' "'+$config+'"',[StringComparison]::OrdinalIgnoreCase) } |
+        ForEach-Object { [Diagnostics.Process]::GetProcessById($_.ProcessId) })
+}
 $deadline=[DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
 $bootstrap=Join-Path $output 'bootstrap.json'
 while (-not (Test-Path $bootstrap) -and [DateTime]::UtcNow -lt $deadline) {
@@ -165,8 +192,13 @@ while (-not (Test-Path $bootstrap) -and [DateTime]::UtcNow -lt $deadline) {
 }
 if (-not (Test-Path $bootstrap)) {
     if (-not $process.HasExited) { Stop-Process -Id $process.Id }
+    foreach($owned in Find-OwnedRemoteSession) { if(-not $owned.HasExited) { Stop-Process -Id $owned.Id } }
     throw "Protected controller did not bootstrap; no receipt produced. Artifacts: $run"
 }
+$remoteSessions=@(Find-OwnedRemoteSession)
+$servers=@(Get-Process WindowsSandboxServer -ErrorAction SilentlyContinue)
+if($remoteSessions.Count -ne 1 -or $servers.Count -ne 1) { throw 'Cannot establish a unique owned Sandbox lifecycle.' }
+$lifecycle=@($process)+$remoteSessions+$servers
 $handshake=Get-Content $bootstrap -Raw | ConvertFrom-Json
 if ([Convert]::FromBase64String($handshake.TransportNonce).Length -ne 32) { throw 'Invalid protected-controller handshake.' }
 Remove-Item $bootstrap
@@ -194,8 +226,10 @@ if (-not $result) {
     if (-not $process.HasExited) { Stop-Process -Id $process.Id }
     throw "Owned Sandbox preflight timed out; no receipt or acceptance produced. Config/artifacts: $run"
 }
-if (-not $process.HasExited) {
-    if (-not $process.WaitForExit(60000)) { Stop-Process -Id $process.Id; throw 'Owned Sandbox did not terminate after its authenticated result.' }
+foreach($owned in $lifecycle) {
+    if (-not $owned.HasExited -and -not $owned.WaitForExit(60000)) {
+        throw "Observed Sandbox process $($owned.Id) did not terminate after its authenticated result; no acceptance is possible."
+    }
 }
 if ((Get-Item -LiteralPath $output -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Untrusted export root after shutdown.' }
 if (Test-Path (Join-Path $payload 'forbidden-write.txt')) { throw 'Readonly mapping failed; no Sandbox acceptance is possible.' }
@@ -203,6 +237,30 @@ if (-not $result.Success) { throw ('Owned Sandbox preflight failed: ' + ($result
 $producerObservation=$null
 $executionVerification=$null
 $signedProducerProof=$null
+$compilerVerification=$null
+if($CompilerJobRoot) {
+    if($result.Compilation.Challenge -cne $compilerPlan.Challenge -or $result.Compilation.ExportDirectory -cnotmatch '^compile-[0-9a-f]{32}$' -or
+        $result.Compilation.InitialExit -ne 0 -or $result.Compilation.RepeatExit -ne 0 -or
+        $result.Compilation.InputHashesVerified -ne $true -or $result.Compilation.CompilerClosureVerified -ne $true) {
+        throw 'Missing request-bound successful protected compiler runs.'
+    }
+    $export=Join-Path $output $result.Compilation.ExportDirectory
+    $initial=Get-TreeSnapshot (Join-Path $export 'initial')
+    $repeat=Get-TreeSnapshot (Join-Path $export 'repeat')
+    if($initial.Count -eq 0 -or $initial.Count -ne $repeat.Count) { throw 'Protected compiler output file set differs.' }
+    foreach($path in $initial.Keys) {
+        if(-not $repeat.ContainsKey($path) -or $initial[$path] -cne $repeat[$path]) { throw 'Protected compilation is not deterministic.' }
+    }
+    $null=Assert-CompilerPlan (Join-Path $payload 'compiler') $sdk
+    $compilerVerification=@{
+        Protocol='protected-csc-v1'; Challenge=$compilerPlan.Challenge; Export=$export
+        CompilerSha256=$compilerPlan.CompilerSha256; Deterministic=$true
+            CompilerFiles=$compilerPlan.CompilerFiles; SandboxStopped=$true
+        PlanSha256=(Get-FileHash (Join-Path $payload 'compiler\job.json') -Algorithm SHA256).Hash
+        Outputs=$initial; Scope='independent-compilation-of-hash-bound-captured-inputs'
+        FormalVerified=$false
+    }
+}
 if ($SourceRoot) {
     if ($result.Producer.ExportDirectory -notmatch '^producer-[0-9a-f]{32}$') { throw 'Invalid producer export identity.' }
     $export=Join-Path $output $result.Producer.ExportDirectory
@@ -300,8 +358,11 @@ if ($BinaryRoot) {
     Execution=$result.Execution
     HostProducerVerification=$null
     HostProducerObservation=$producerObservation
+    HostCompilerVerification=$compilerVerification
     HostExecutionVerification=$executionVerification
     SignedProducerProof=$signedProducerProof
+    SandboxStopped=$true
+    SandboxProcessIds=@($lifecycle | ForEach-Object Id)
     FormalVerified=$false
     Note='Diagnostic execution only. Producer compiler provenance and full replay acceptance are unverified; producer signing is disabled.'
 }

@@ -1,4 +1,4 @@
-# Executable Windows Sandbox diagnostics; producer provenance blocked
+# Windows Sandbox diagnostics and bounded protected compilation
 
 This implementation uses the **existing enabled Windows Sandbox feature**.
 It does not enable/install Windows features, create Windows users, install a
@@ -14,6 +14,114 @@ post-build `/out:`/`TargetPath` comparison checks two submitted-build-controlled
 files. A target can replace both with a tracked payload. It cannot prove compiler
 production, even with unchanged source and `SkipCompilerExecution=false`.
 `-SignProducerProof` now fails before feature inspection, staging or VM startup.
+
+## Protected second compilation: supported console producers
+
+`Invoke-ProtectedProducer.ps1` adds a **different**, bounded route. It does not
+re-enable the old signer or reference-reviewed acceptance:
+
+```powershell
+$producer = & .\assessment\Sandbox\Invoke-ProtectedProducer.ps1 `
+  -SourceRoot 'C:\private\complete-console-producer-source' `
+  -Project 'Producer.csproj' -TimeoutSeconds 240
+$producer.ProtectedAssembly
+$producer.Evidence
+```
+
+For a locked `net10.0` package closure, first use
+`Copy-LockedPublicPackages.ps1 -LockFile <packages.lock.json> -Destination <new-private-cache> -PackageCache <existing-public-cache>`.
+The pinned SDK's NuGet archive reader verifies each canonical content hash against
+the lock, then extracts that verified archive. It does not trust potentially
+modified loose cache DLLs. NuGet's canonical content hash can differ from the raw
+signed ZIP hash; both are recorded. Only the exact 36 locked packages were exposed
+for the actual language producer, not the general user cache. Supply this curated
+directory as `-PublicPackageRoot` to the producer command.
+
+The sequence is:
+
+1. Run submitted restore/MSBuild only in the restricted first VM. Capture
+   command-line metadata, authored source and generated compiler data, including
+   `obj\protected-generated` source-generator output. Export referenced package
+   bytes for independent host comparison with the approved package snapshot.
+2. Observe the **actual VM lifecycle**, not just `WindowsSandbox.exe` exiting.
+   Modern Sandbox launches `WindowsSandboxRemoteSession` and
+   `WindowsSandboxServer`; the host requires a unique session and waits for all
+   observed processes to terminate. Existing sessions cause refusal. A bootstrap
+   timeout may terminate only the launcher's own PID and a remote-session PID
+   whose command line names this exact unique `.wsb`. Server processes are never
+   killed by name. A second-VM bootstrap failure permits one bounded fresh retry.
+3. `CompilerPlan.ps1` validates and hashes every selected source, generated file,
+   managed resource, SDK reference/configuration and package reference. Authored
+   source must match the staged original. Generated inputs are explicitly labelled
+   and hash-bound, not falsely presented as authored files. Package metadata must
+   match the approved bytes. Compiler implementation files are also hash-bound.
+4. Start a **fresh VM**, with only the selected data inputs, trusted SDK and
+   optional selected package references. Do not run submitted targets or tools
+   there. A trusted supervisor invokes SDK **10.0.401 `csc.dll` directly**, with a
+   response file it constructs from the validated argument array. No submitted
+   response file, analyzer, generator or hook is loaded. Removed build-plugin
+   arguments remain in the host plan as observations. Missing generated semantics
+   must cause compilation or byte comparison to fail, not a fallback to build DLLs.
+5. Run two separate restricted compiler processes; terminate descendants before
+   collection. Check compiler/input hashes before and after both executions.
+   Compare the complete PE/PDB/reference-image outputs independently on the host.
+   Fixed guest source paths preserve compiler path identity across the two VMs;
+   arbitrary `/pathmap` is currently rejected rather than guessed.
+6. Compare the independently produced main assembly with the claimed build target.
+   A difference throws and preserves `protected-producer.json` as **rejection
+   evidence**. Only the protected assembly is returned on success.
+
+Current support is deliberately **C# `net10.0` console executables**, explicit
+sources, managed embedded resources, standard SDK references and hash-matched
+approved package references. VB, library/Windows executable targets, project/local
+assembly dependencies requiring separate protected compilations, Framework/WPF
+reference surfaces, arbitrary compiler features, source-link files, signing/native
+resource options and response-file escapes are rejected.
+
+This establishes **compilation of the exact captured input set**, not that
+submitted metadata truthfully describes the earlier compiler invocation or that
+the selected/generated source graph is the intended transformation producer.
+The original source snapshot, selected input hashes and generated-input labels
+are retained for that independent assessment. It is not complete tool replay or
+application assessment, and no `tool-source-build` full-policy attestation is
+issued merely because this bounded comparison passed.
+
+### Actual protected-compiler verification
+
+Private evidence below was produced by real SDK/VM executions, not synthetic
+receipt files:
+
+| Case | Compiler VM artifact directory | Outcome |
+| --- | --- | --- |
+| Actual `TaskOTime.ProjectMigration` 1.1.2 | `sandbox-probe-afe89c9a842247fbaa5b30ca66c7f9c9` | Independent PE matches build; repeated PE/PDB/reference-image hashes match |
+| Actual `TaskOTime.Migration` 1.0.1 | `sandbox-probe-6b7098508bf3411c819aa45501ad9c8b` | Same, with 36 approved package archives and 206 bound compiler inputs |
+| Owned double-overwrite fixture | `sandbox-probe-73f2ff0eb78e4f2baf4678a460a5f861` | Rejected: tracked payload replaced both build outputs, but differs from protected `csc` output |
+
+These directories are beneath private `assessment\Artifacts`; each contains
+`protected-producer.json`, the compiler input plan, authenticated guest result
+and actual exported artifacts (the plan is in the linked first-build directory).
+The two successful producer PE SHA256 values are respectively
+`3CD93D7D80DE3D7C9636F72E29A674492AA4B4F445755B75FEF09AD31FDCA750` and
+`9D9AE1C986B5AB30F19CE99E8027DCD74B2C2843D04F4806B4F44DF7C8E9CDC6`.
+An earlier independent project compiler VM (`sandbox-probe-37743bea677b4ab18028fcce594aa093`)
+also produced the first PE hash. The final runs additionally verified modern
+Sandbox lifecycle termination. One first-attempt compiler VM failed to bootstrap
+(`sandbox-probe-ccdff7cf4c4d43118e31813e755ba358`); it has no acceptance evidence.
+
+Targeted validation:
+
+```powershell
+dotnet test .\assessment\Modernization.Analyzers.Tests\Modernization.Analyzers.Tests.csproj `
+  --no-restore --filter 'Category=ReplayUnit|FullyQualifiedName~SandboxContractTests'
+```
+
+The compiler packet adds 24 tests for allowed compiler data, unsupported execution
+features, changed authored/generated/resource inputs, compiler identity, lifecycle
+requirements, unbound files and input/output collisions. Full isolated migration
+cases and frozen-stage checkpoint reconciliation remain separate, incomplete
+work. In particular, producer compilation must not be mistaken for output
+behavior/compilation acceptance. `FormalVerified` remains false and no signing
+key or formal receipt is produced by this route.
 
 ## Commands
 
@@ -164,8 +272,9 @@ Startup failure is reported, never converted to a successful case.
 
 ## Historical producer proof and remaining claims
 
-All script results retain `FormalVerified=false`. This is a diagnostic execution
-primitive, **not a source-to-binary verifier or whole-assessment signer**.
+All script results retain `FormalVerified=false`. The original single-build
+probe remains diagnostic only; the separate second-compilation route above is
+bounded captured-input provenance, **not a whole-assessment signer**.
 The previous `taskotime-sandbox-producer-v1` proof must not be relied on even for
 its narrower `producer-source-build-only` claim. A valid signature authenticates
 that historical host assertion, not its truth. The full-replay verifier already
