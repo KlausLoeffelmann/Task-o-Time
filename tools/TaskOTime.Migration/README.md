@@ -114,6 +114,16 @@ modified. Full repeated application conversion produced **177 identical
 source/output file hashes**. Private manifests live under
 `artifacts\bulk-verified` and `artifacts\bulk-repeat`.
 
+The project-migration owner's `verified-net472` graph (tool commit `ec69c7d`)
+was subsequently copied read-only into `artifacts\normalized-input`, excluding
+bin/obj, and converted into `artifacts\normalized-csharp`. This **normalized
+net472 replay** also converted all 40 production sources, left zero production
+VB sources, built the **entire solution** with zero warnings/errors, and passed
+the original 33 collection plus 30 AppServer tests. A second run,
+`artifacts\normalized-repeat`, produced the same 177 output hashes. This graph
+is evidence for language conversion, not a substitute for the coordinator's
+latest safe-SQL-fixture checkpoint.
+
 The original tests pass against the converted graph: **33/33
 TimeTrackingServices.Tests and 30/30 AppServer.Tests**. At deeply nested paths,
 the Framework MSTest runner reported that
