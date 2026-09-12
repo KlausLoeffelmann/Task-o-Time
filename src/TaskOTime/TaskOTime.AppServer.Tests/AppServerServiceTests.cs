@@ -23,12 +23,12 @@ namespace TaskOTime.AppServer.Tests
         private static readonly DateTimeOffset WorkDayStart = new DateTimeOffset(2026, 6, 15, 9, 0, 0, TimeSpan.Zero);
 
         [TestMethod]
-        public void AdminMasterData_GetProjects_RejectsNonAdminActingUser()
+        public void AdminMainData_GetProjects_RejectsNonAdminActingUser()
         {
             var context = CreateTenantContext();
-            var service = new AdminMasterDataService(() => context, new Pbkdf2PasswordHasher());
+            var service = new AdminMainDataService(() => context, new Pbkdf2PasswordHasher());
 
-            var result = service.GetProjects(new MasterDataQueryRequest
+            var result = service.GetProjects(new MainDataQueryRequest
             {
                 IdTenant = TenantId,
                 IdActingUser = RegularUserId
@@ -39,10 +39,10 @@ namespace TaskOTime.AppServer.Tests
         }
 
         [TestMethod]
-        public void AdminMasterData_CreateAndUpdateProject_PersistsProjectAndOwnerAssignment()
+        public void AdminMainData_CreateAndUpdateProject_PersistsProjectAndOwnerAssignment()
         {
             var context = CreateTenantContext();
-            var service = new AdminMasterDataService(() => context, new Pbkdf2PasswordHasher());
+            var service = new AdminMainDataService(() => context, new Pbkdf2PasswordHasher());
 
             var createResult = service.CreateProject(new SaveProjectRequest
             {

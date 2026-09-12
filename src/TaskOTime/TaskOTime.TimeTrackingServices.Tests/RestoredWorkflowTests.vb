@@ -246,7 +246,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Dim fixture As New Workspace()
             Dim category = fixture.Services.CreateCategory(New SaveCategoryRequest With {
                 .IdTenant = fixture.Services.Tenant.IdTenant, .IdActingUser = fixture.Services.ActingUserId,
-                .Item = New CategoryMasterDataDto With {
+                .Item = New CategoryMainDataDto With {
                     .IdTenant = fixture.Services.Tenant.IdTenant, .IdUser = fixture.Services.ActingUserId,
                     .CategoryName = "Support"
                 }
@@ -261,7 +261,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 }
             })
             Assert.IsTrue(result.Success)
-            fixture.Times.RefreshCategories(fixture.Services.GetCategories(New MasterDataQueryRequest With {
+            fixture.Times.RefreshCategories(fixture.Services.GetCategories(New MainDataQueryRequest With {
                 .IdTenant = fixture.Services.Tenant.IdTenant, .IdActingUser = fixture.Services.ActingUserId
             }).Value)
             fixture.Times.BookingDate = BookingDay.AddDays(1)
@@ -281,12 +281,12 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Dim fixture As New Workspace()
             Dim category = fixture.Services.CreateCategory(New SaveCategoryRequest With {
                 .IdTenant = fixture.Services.Tenant.IdTenant, .IdActingUser = fixture.Services.ActingUserId,
-                .Item = New CategoryMasterDataDto With {
+                .Item = New CategoryMainDataDto With {
                     .IdTenant = fixture.Services.Tenant.IdTenant, .IdUser = fixture.Services.ActingUserId,
                     .CategoryName = "Kundendienst"
                 }
             }).Value
-            Dim query = New MasterDataQueryRequest With {
+            Dim query = New MainDataQueryRequest With {
                 .IdTenant = fixture.Services.Tenant.IdTenant, .IdActingUser = fixture.Services.ActingUserId
             }
 
@@ -390,10 +390,10 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 Access = New TimeBookingAccessContextDto With {
                     .IdTenant = Services.Tenant.IdTenant, .IdActingUser = Services.ActingUserId, .IdBookingUser = Services.ActingUserId
                 }
-                Dim projects = Services.GetProjects(New MasterDataQueryRequest With {
+                Dim projects = Services.GetProjects(New MainDataQueryRequest With {
                     .IdTenant = Services.Tenant.IdTenant, .IdActingUser = Services.ActingUserId
                 }).Value
-                Dim categories = Services.GetCategories(New MasterDataQueryRequest With {
+                Dim categories = Services.GetCategories(New MainDataQueryRequest With {
                     .IdTenant = Services.Tenant.IdTenant, .IdActingUser = Services.ActingUserId
                 }).Value
                 Times = New TimeCollectionViewModel(

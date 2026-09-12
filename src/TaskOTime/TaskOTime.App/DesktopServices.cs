@@ -14,7 +14,7 @@ namespace TaskOTime.App
     public sealed class DesktopServices
     {
         public IAuthenticationService Authentication { get; private set; }
-        public IAdminMasterDataService Admin { get; private set; }
+        public IAdminMainDataService Admin { get; private set; }
         public IUserAdministrationService Users { get; private set; }
         public ITimeBookingService Bookings { get; private set; }
         public string ModeDescription { get; private set; }
@@ -51,7 +51,7 @@ namespace TaskOTime.App
             return new DesktopServices
             {
                 Authentication = new AuthenticationService(factory, hasher),
-                Admin = new AdminMasterDataService(factory, hasher),
+                Admin = new AdminMainDataService(factory, hasher),
                 Users = new UserAdministrationService(factory, hasher),
                 Bookings = new TimeBookingService(factory, hasher),
                 ModeDescription = description,
@@ -61,7 +61,7 @@ namespace TaskOTime.App
 
         public static DesktopServices CreateForServices(
             IAuthenticationService authentication,
-            IAdminMasterDataService admin,
+            IAdminMainDataService admin,
             IUserAdministrationService users,
             ITimeBookingService bookings,
             TenantDto tenant,
@@ -165,7 +165,7 @@ namespace TaskOTime.App
             }));
         }
 
-        public static MasterDataQueryRequest Query(TenantUserDto user) => new MasterDataQueryRequest
+        public static MainDataQueryRequest Query(TenantUserDto user) => new MainDataQueryRequest
         {
             IdTenant = user.IdTenant, IdActingUser = user.IdUser
         };
