@@ -92,6 +92,10 @@ identity before replacement. The mapping uses evaluated `TargetRefPath`,
 not DLL basenames. Missing or ambiguous project identities fail closed. Metadata
 regressions compile an equivalent .NET 10 executable/library pair using the actual
 source-image replacement, without reading a stale reference DLL.
+Evaluated `ReferenceOutputAssembly=false` edges remain in the loaded build graph
+and their sources are checked, but do not require a compiler assembly reference.
+Build-only dependencies of test projects are classified as test harnesses unless
+a production consumer reaches them; a helper-like filename alone grants no role.
 
 The reports are `Artifacts\Reports\<stage>-<mode>-<configuration>\roslyn-diagnostics.json` and
 `repository-assessment.csv` in the same directory (or the configured artifact root),
@@ -210,7 +214,13 @@ example historical Markdown) is not a language verdict input.
   any translation is correct**; the translation-quality limitations below remain.
 * The repository policy additionally requires an evaluated
   `Microsoft.Extensions.Localization` dependency and a symbol-resolved
-  `IStringLocalizer` key lookup that reaches presentation output. Actual
+  `IStringLocalizer` key lookup that reaches presentation output. A real
+  `ResourceManagerStringLocalizerFactory` (including an interface-typed factory),
+  evaluated manifest base name, assembly and resource path are resolved through
+  source fields/properties. Forwarding methods, indexers, returned lookup delegates,
+  formatting facades and key-preserving message objects are traced with call-site
+  parameter substitution. A generated strongly typed accessor is **not mandatory**
+  for this provider path; namespace-only localizer stubs do not qualify. Actual
   `ResourceManager` construction, same-assembly input, symbol-resolved
   `GetString`, constant key/base-name alignment with evaluated manifest metadata,
   and a strongly typed static string accessor are examined, **including generated
@@ -222,10 +232,20 @@ example historical Markdown) is not a language verdict input.
   property use. The validated lookup must also contribute to the getter's
   **returned value**; discarded calls and unrelated local initializers do not
   qualify. Returned local aliases and resource-valued branches are supported.
-  Unused resource construction/imports/accessors do not suffice.
+  Unused resource construction/imports/accessors do not suffice. An inspected
+  markup extension returning a WPF binding to the verified provider's indexer is
+  also supported; a dead binding, wrong path or hardcoded return is not credited.
+  Parity applies to consumed resource groups, not unused template resource files.
 * **LOC002** diagnoses literal display text at those semantic sinks and WPF XAML
   display attributes/property elements. Observable outputs are recognized through
-  bound property names or standard display-output contracts. Producer tracing
+  bound property names or standard display-output contracts. Under the repository
+  policy, literal checks cover the required surfaces and Options, plus their
+  nested controls, DataContext types and bound child models. XAML class identity
+  and semantic relationships supplement external surface aliases; unrelated
+  maintenance screens are not extra localization requirements. An unknown object's
+  stored data does not inherit every assignment to that property on unrelated
+  instances; known object initializers and source getters remain inspected.
+  Producer tracing
   follows source returns, locals, fields and setter-helper arguments, but excludes
   conditional predicates and external lookup/provider metadata. Logs, identifiers,
   format-only strings, `nameof`, environment keys, resource keys and culture names
@@ -308,6 +328,10 @@ The cycle-checked style chain supplies inherited setters, the effective (last
 assigned) template, and inherited style triggers. Replacing a template does not
 borrow states from the overridden base template. State coverage therefore works
 for a healthy derived style while still rejecting genuinely missing states.
+Calendar button-style properties can themselves come from the Calendar's
+implicit/explicit style and its base chain, including dictionary resource
+references and inline styles. An explicit missing resource does not fall back
+to an unrelated implicit button style.
 
 THM002 means **unverified**, not success: missing/empty states, missing templates,
 cyclic/unresolved resources, unknown named colors, opaque bindings, animation

@@ -47,8 +47,10 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
         {
             foreach (var button in new[] { "CalendarDayButton", "CalendarButton" })
             {
-                var property = calendar.Attribute(button + "Style");
-                var style = property == null ? Lookup(calendar, "@" + button, []) : Lookup(calendar, Key(property.Value) ?? "", []);
+                var property = Effective(calendar, button + "Style", [], inherit: false);
+                var style = property == null ? Lookup(calendar, "@" + button, []) :
+                    property.Context.Name.LocalName == "Style" ? property.Context :
+                    Lookup(property.Context, Key(property.Text) ?? "", []);
                 if (style == null)
                 {
                     Missing(calendar, button + " has no resolvable style/template.");
@@ -212,17 +214,19 @@ internal sealed class ThemeAnalysis(AssessmentProject[] projects,
         static double Linear(int c) { var v = c / 255.0; return v <= 0.04045 ? v / 12.92 : Math.Pow((v + 0.055) / 1.055, 2.4); }
         return new(.2126 * Linear((rgb >> 16) & 255) + .7152 * Linear((rgb >> 8) & 255) + .0722 * Linear(rgb & 255), false, alpha);
     }
-    private Value? Effective(XElement element, string property, HashSet<XElement> seen)
+    private Value? Effective(XElement element, string property, HashSet<XElement> seen, bool inherit = true)
     {
         if (!seen.Add(element)) return null;
         var attribute = element.Attributes().FirstOrDefault(a => a.Name.LocalName.Split('.').Last() == property);
         if (attribute != null && attribute.Value != "Transparent") return new(attribute.Value, element);
+        var inline = element.Elements().FirstOrDefault(e => e.Name.LocalName == element.Name.LocalName + "." + property)?.Elements().FirstOrDefault();
+        if (inline != null) return new(inline.Value, inline);
         var explicitStyle = element.Attribute("Style");
         var style = Lookup(element, explicitStyle == null ? "@" + element.Name.LocalName : Key(explicitStyle.Value) ?? "", []);
         var chain = style == null ? null : StyleChain(style);
         var value = chain == null ? null : Setters(chain).GetValueOrDefault(property);
         if (value != null) return value;
-        return element.Parent == null ? null : Effective(element.Parent, property, seen);
+        return !inherit || element.Parent == null ? null : Effective(element.Parent, property, seen);
     }
     private static Value? SetterValue(XElement e)
     {

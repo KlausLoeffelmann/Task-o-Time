@@ -56,6 +56,38 @@ public sealed class OutcomeTests
             yield return [language, pair.Item1, pair.Item2];
     }
     [Theory]
+    [InlineData("valid", false, false)]
+    [InlineData("missing-state", false, true)]
+    [InlineData("literal-override", true, false)]
+    [InlineData("missing-style", false, true)]
+    public async Task Calendar_style_properties_resolve_through_application_merged_dictionary_and_based_on(string variant, bool contrast, bool coverage)
+    {
+        const string namespaces = """xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" """;
+        var buttons = string.Join("\n", new[] { "CalendarDayButton", "CalendarButton" }.Select(type =>
+            ButtonStyle(type, variant == "missing-state").Replace("<Style TargetType=", $"<Style x:Key=\"{type}Palette\" TargetType=")));
+        if (variant == "literal-override") buttons = buttons.Replace("Value=\"#282828\"", "Value=\"White\"");
+        var overrideStyle = variant == "missing-style" ? """CalendarButtonStyle="{DynamicResource Missing}" """ : "";
+        var found = await Analyze(Compile(LanguageNames.CSharp, Plain(LanguageNames.CSharp)), [
+            File("App.xaml", $"""<Application {namespaces}><Application.Resources><ResourceDictionary><ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Palette/Shared.xaml"/></ResourceDictionary.MergedDictionaries></ResourceDictionary></Application.Resources></Application>"""),
+            File(@"Palette\Shared.xaml", $$"""
+                <ResourceDictionary {{namespaces}}>
+                  <ResourceDictionary.MergedDictionaries><ResourceDictionary Source="Buttons.xaml"/></ResourceDictionary.MergedDictionaries>
+                  <SolidColorBrush x:Key="Surface" Color="#202020"/><SolidColorBrush x:Key="Ink" Color="#F8F8F8"/>
+                  <Style x:Key="BaseCalendar" TargetType="Calendar">
+                    <Setter Property="CalendarDayButtonStyle" Value="{DynamicResource CalendarDayButtonPalette}"/>
+                    <Setter Property="CalendarButtonStyle" Value="{DynamicResource CalendarButtonPalette}"/>
+                  </Style>
+                  <Style TargetType="Calendar" BasedOn="{StaticResource BaseCalendar}"/>
+                </ResourceDictionary>
+                """),
+            File(@"Palette\Buttons.xaml", $"""<ResourceDictionary {namespaces}>{buttons}</ResourceDictionary>"""),
+            File("Screen.xaml", $$"""<Window {{namespaces}} Background="{DynamicResource Surface}" Foreground="{DynamicResource Ink}"><Calendar {{overrideStyle}}/></Window>""")
+        ]);
+        Assert.Equal(contrast, found.Any(d => d.Id == "THM001"));
+        Assert.Equal(coverage, found.Any(d => d.Id == "THM002"));
+    }
+
+    [Theory]
     [MemberData(nameof(ProseCases))]
     public async Task Comment_and_XML_prose_is_bilingual_not_identifier_or_string_matching(string language, string prose, bool bad)
     {
@@ -885,7 +917,7 @@ public sealed class OutcomeTests
     }
 
     [Fact]
-    public async Task Strict_localization_policy_requires_extensions_usage_surfaces_and_options_culture()
+    public async Task Namespace_only_localizer_stub_and_disconnected_options_do_not_satisfy_strict_policy()
     {
         var source = Localized(LanguageNames.CSharp) + """
             namespace Microsoft.Extensions.Localization {
@@ -928,6 +960,7 @@ public sealed class OutcomeTests
             File("Renamed.resx", Resx()), File("Renamed.de.resx", Resx(value: "Änderungen speichern")),
             File("Renamed.nl.resx", Resx(value: "Wijzigingen opslaan")), File("Renamed.es.resx", Resx(value: "Guardar cambios"))];
         var found = await Analyze(Compile(LanguageNames.CSharp, source), files);
-        Assert.DoesNotContain(found, d => d.Id == "LOC001");
+        Assert.Contains(found, d => d.Id == "LOC001" && d.GetMessage().Contains("meaningfully applied"));
+        Assert.Contains(found, d => d.Id == "LOC001" && d.GetMessage().Contains("Options must"));
     }
 }

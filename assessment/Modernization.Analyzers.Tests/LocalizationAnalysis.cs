@@ -29,6 +29,11 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
     private bool optionsSelector;
     private bool optionsCultureBehavior;
     private bool policyValid = true;
+    private LocalizationFlow flow = null!;
+    private readonly HashSet<Resource> usedProviders = [];
+    private readonly HashSet<string> selectedProperties = [];
+    private readonly Dictionary<string, string> presentationTypes = [];
+    private readonly Dictionary<string, string> presentationFiles = new(StringComparer.OrdinalIgnoreCase);
     private static string Identity(IPropertySymbol property) => property.ContainingAssembly.Name + "|" + property.GetDocumentationCommentId();
 
     internal void Run()
@@ -37,14 +42,19 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
         ReadResources();
         CheckDeclaredNeutralLanguage();
         FindAccessors();
+        flow = new(projects);
+        BuildPresentationScope();
         AnalyzeXaml();
         foreach (var p in projects) AnalyzeOperations(p);
+        optionsCultureBehavior = flow.CultureFromSelection(selectedProperties);
+        CheckResources();
         CheckExtensionLocalization();
-        var complete = used.Count(a => policyValid && a.Neutral.Valid && HasRequiredCultures(a.Neutral));
+        var complete = used.Count(a => policyValid && a.Neutral.Valid && HasRequiredCultures(a.Neutral)) +
+            usedProviders.Count(n => policyValid && n.Valid && HasRequiredCultures(n));
         r.Measure("Localization", Math.Max(1, resources.Count + accessors.Count), complete > 0 ? resources.Count + used.Count : 0);
         if (complete == 0)
             r.Report("Localization", OutcomeAnalyzer.Localization, Location.None,
-                "No UI-consumed strongly typed ResourceManager.GetString accessor with valid neutral and required-culture .resx key parity was found.");
+                "No UI-consumed ResourceManager accessor or Microsoft.Extensions.Localization provider with valid neutral and required-culture .resx key parity was found.");
     }
 
     private static CultureInfo? KnownCulture(string value)
@@ -166,9 +176,15 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
                 catch (CultureNotFoundException) { }
             }
             resources.Add(new(input.File, stem, culture, values, textKeys, valid));
-            if (!valid) r.Report("Localization", OutcomeAnalyzer.Localization, Evidence.At(input.File), "Invalid/empty classic .resx schema, headers, values or duplicate keys.");
         }
-        foreach (var neutral in resources.Where(a => a.Culture == null))
+    }
+
+    private void CheckResources()
+    {
+        var consumed = used.Select(a => a.Neutral).Concat(usedProviders).ToHashSet();
+        foreach (var resource in resources.Where(a => consumed.Any(n => n.Stem == a.Stem) && !a.Valid))
+            r.Report("Localization", OutcomeAnalyzer.Localization, Evidence.At(resource.File), "Invalid/empty classic .resx schema, headers, values or duplicate keys.");
+        foreach (var neutral in consumed)
         {
             var variants = resources.Where(c => c.Stem == neutral.Stem && c.Culture != null).ToArray();
             if (requiredLanguages.Length == 0)
@@ -196,8 +212,6 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
                         "Culture .resx duplicates all neutral text instead of providing translated content.");
             }
         }
-        foreach (var culture in resources.Where(a => a.Culture != null && !resources.Any(n => n.Culture == null && n.Stem == a.Stem)))
-            r.Report("Localization", OutcomeAnalyzer.Localization, Evidence.At(culture.File), "Culture .resx has no neutral resource.");
     }
 
     private void FindAccessors()
@@ -264,12 +278,22 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
     {
         foreach (var input in xml.Where(x => Path.GetExtension(x.File.Path).Equals(".xaml", StringComparison.OrdinalIgnoreCase)))
         {
-        var surface = Surface(input.File.Path);
-        if (optionsSurface != null && input.File.Path.Contains(optionsSurface, StringComparison.OrdinalIgnoreCase) &&
+        var surface = presentationFiles.GetValueOrDefault(input.File.Path);
+        if (strictExtensionsPolicy && surface == null) continue;
+        if (surface == "$options" &&
             input.Document.Descendants().Any(e => (e.Name.LocalName is "ComboBox" or "ListBox") &&
-                e.Attributes().Any(a => a.Value.Contains("Language", StringComparison.OrdinalIgnoreCase) ||
-                                        a.Value.Contains("Culture", StringComparison.OrdinalIgnoreCase))))
+                e.Attributes().Any(a => a.Name.LocalName is "SelectedValue" or "SelectedItem" && a.Value.StartsWith("{Binding", StringComparison.Ordinal))))
             optionsSelector = true;
+        if (optionsSurface != null && surface == "$options")
+        {
+            var selected = input.Document.Descendants().Where(e => e.Name.LocalName is "ComboBox" or "ListBox")
+                .SelectMany(e => e.Attributes().Where(a => a.Name.LocalName is "SelectedValue" or "SelectedItem"))
+                .Select(a => Regex.Match(a.Value, @"^\{Binding\s+(?:Path\s*=\s*)?([\w.]+)"))
+                .Where(m => m.Success).Select(m => m.Groups[1].Value.Split('.').Last()).ToHashSet();
+            foreach (var property in projects.SelectMany(p => Evidence.Types(p.Compilation)).SelectMany(t => t.GetMembers().OfType<IPropertySymbol>())
+                .Where(p => selected.Contains(p.Name) && presentationTypes.GetValueOrDefault(LocalizationFlow.Id(p.ContainingType)) == "$options"))
+                selectedProperties.Add(LocalizationFlow.Id(property));
+        }
         foreach (var element in input.Document.Descendants())
         {
             foreach (var attribute in element.Attributes().Where(a => !a.IsNamespaceDeclaration))
@@ -281,8 +305,8 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
                 if (!TextProperties.Contains(attribute.Name.LocalName)) continue;
                 if (value.StartsWith("{Binding", StringComparison.Ordinal))
                 {
-                    var match = Regex.Match(value, @"^\{Binding\s+(?:Path\s*=\s*)?([A-Za-z_]\w*)");
-                    if (match.Success) bindings.Add(match.Groups[1].Value);
+                    var match = Regex.Match(value, @"^\{Binding\s+(?:Path\s*=\s*)?([A-Za-z_][\w.]*)");
+                    if (match.Success) bindings.Add(match.Groups[1].Value.Split('.').Last());
                 }
                 if (value.StartsWith("{", StringComparison.Ordinal))
                 {
@@ -325,12 +349,30 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
 
     private bool ConsumeMarkup(XElement element, string markup)
     {
+        var extension = Regex.Match(markup, @"^\{(?<prefix>\w+):(?<type>\w+)\s+(?:(?<property>\w+)\s*=\s*)?(?<key>[\w.]+)\s*\}$");
+        if (extension.Success)
+        {
+            var nsName = element.GetNamespaceOfPrefix(extension.Groups["prefix"].Value)?.NamespaceName ?? "";
+            var clrName = Regex.Match(nsName, @"^clr-namespace:([^;]*)(?:;assembly=([^;]+))?");
+            if (clrName.Success)
+            foreach (var p in projects.Where(p => !clrName.Groups[2].Success || p.Compilation.Assembly.Name == clrName.Groups[2].Value))
+            {
+                var name = clrName.Groups[1].Value + "." + extension.Groups["type"].Value;
+                var type = p.Compilation.GetTypeByMetadataName(name + "Extension") ?? p.Compilation.GetTypeByMetadataName(name);
+                if (type == null || flow.MarkupBinding(type) is not { } binding ||
+                    extension.Groups["property"].Success && extension.Groups["property"].Value != binding.Property) continue;
+                var accepted = false;
+                foreach (var lookup in flow.Indexer(binding.Source, extension.Groups["key"].Value))
+                    accepted |= ConsumeLookup(lookup, Evidence.At(Input(element), element));
+                if (accepted) return true;
+            }
+        }
         var match = Regex.Match(markup, @"^\{(?:\w+:)?Static\s+(?:Member=)?(?<prefix>\w+):(?<type>[\w.]+)\.(?<member>\w+)\s*\}$");
         if (!match.Success) return false;
         var ns = element.GetNamespaceOfPrefix(match.Groups["prefix"].Value)?.NamespaceName ?? "";
         var clr = Regex.Match(ns, @"^clr-namespace:([^;]*)(?:;assembly=([^;]+))?");
         if (!clr.Success) return false;
-        var before = used.Count;
+        var matched = false;
         var typeName = (clr.Groups[1].Value.Length == 0 ? "" : clr.Groups[1].Value + ".") + match.Groups["type"].Value;
         foreach (var p in projects.Where(p => !clr.Groups[2].Success || p.Compilation.Assembly.Name == clr.Groups[2].Value))
             foreach (var property in p.Compilation.GetTypeByMetadataName(typeName)?.GetMembers(match.Groups["member"].Value)
@@ -339,8 +381,9 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
         foreach (var accessor in accessors.Where(a =>
             a.Property.ContainingType.ToDisplayString() == typeName &&
             a.Property.Name == match.Groups["member"].Value &&
-            (!clr.Groups[2].Success || a.Property.ContainingAssembly.Name == clr.Groups[2].Value))) used.Add(accessor);
-        return used.Count > before;
+            (!clr.Groups[2].Success || a.Property.ContainingAssembly.Name == clr.Groups[2].Value)))
+        { used.Add(accessor); matched = true; }
+        return matched;
     }
 
     private void AnalyzeOperations(AssessmentProject p)
@@ -353,9 +396,15 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
             .Select(o => o.ReturnedValue!));
         foreach (var op in operations.Where(o => !Evidence.Generated(o.Syntax.SyntaxTree, p)))
         {
+            var owner = Evidence.Model(p.Compilation, op.Syntax.SyntaxTree).GetEnclosingSymbol(op.Syntax.SpanStart)?.ContainingType;
+            if (strictExtensionsPolicy && (owner == null || !presentationTypes.ContainsKey(LocalizationFlow.Id(owner)))) continue;
             if (op is ISimpleAssignmentOperation { Target: IPropertyReferenceOperation property } assignment &&
-                TextProperties.Contains(property.Property.Name) && PresentationScope.IsWpf(property.Property.ContainingType))
+                (TextProperties.Contains(property.Property.Name) && PresentationScope.IsWpf(property.Property.ContainingType) ||
+                 bindings.Contains(property.Property.Name) && presentationTypes.ContainsKey(LocalizationFlow.Id(property.Property.ContainingType))))
                 sinks.Add(assignment.Value);
+            if (op is IPropertyInitializerOperation initializer && initializer.InitializedProperties.Any(property =>
+                bindings.Contains(property.Name) && presentationTypes.ContainsKey(LocalizationFlow.Id(property.ContainingType))))
+                sinks.Add(initializer.Value);
             if (op is IInvocationOperation call && call.TargetMethod.ContainingType.ToDisplayString() == "System.Windows.MessageBox" &&
                 call.TargetMethod.Name == "Show")
                 sinks.AddRange(call.Arguments.Where(a => a.Parameter?.Type.SpecialType == SpecialType.System_String).Select(a => a.Value));
@@ -372,56 +421,114 @@ internal sealed class LocalizationAnalysis(AssessmentProject[] projects,
                 var symbol = Evidence.Model(p.Compilation, op.Syntax.SyntaxTree).GetEnclosingSymbol(op.Syntax.SpanStart);
                 var prop = symbol as IPropertySymbol ?? (symbol as IMethodSymbol)?.AssociatedSymbol as IPropertySymbol;
                 if (prop?.Type.SpecialType == SpecialType.System_String && Evidence.Observable(prop.ContainingType) &&
-                    (bindings.Contains(prop.Name) || TextProperties.Contains(prop.Name))) sinks.Add(returned);
+                    (bindings.Contains(prop.Name) || !strictExtensionsPolicy && TextProperties.Contains(prop.Name))) sinks.Add(returned);
             }
         }
         foreach (var sink in sinks)
         {
             var values = producers.Of(sink).ToArray();
-            var surface = Surface(sink.Syntax.SyntaxTree.FilePath + "|" +
-                Evidence.Model(p.Compilation, sink.Syntax.SyntaxTree).GetEnclosingSymbol(sink.Syntax.SpanStart)?.ContainingType?.Name);
+            var owner = Evidence.Model(p.Compilation, sink.Syntax.SyntaxTree).GetEnclosingSymbol(sink.Syntax.SpanStart)?.ContainingType;
+            var surface = owner == null ? null : presentationTypes.GetValueOrDefault(LocalizationFlow.Id(owner)) ?? Surface(owner.Name);
             foreach (var reference in values.OfType<IPropertyReferenceOperation>())
                 foreach (var accessor in accessors.Where(a => a.Property.GetDocumentationCommentId() == reference.Property.GetDocumentationCommentId() &&
                     a.Property.ContainingAssembly.Name == reference.Property.ContainingAssembly.Name)) used.Add(accessor);
-            foreach (var reference in values.SelectMany(Evidence.Descendants).OfType<IPropertyReferenceOperation>()
-                .Where(IsLocalizerIndexer))
+            foreach (var value in flow.Values(sink))
             {
-                var key = reference.Arguments.FirstOrDefault()?.Value.ConstantValue.Value as string;
-                if (key != null && resources.Any(x => x.Culture == null && x.TextKeys.Contains(key)))
+                if (value.Resource is { } lookup && ConsumeLookup(lookup, value.Operation.Syntax.GetLocation()))
                 {
-                    localizerUsed = true;
                     if (surface != null) appliedSurfaces.Add(surface);
                 }
-            }
-            foreach (var literal in values.Where(o => o is ILiteralOperation || o is IInterpolatedStringTextOperation))
-            {
-                var value = literal.ConstantValue.HasValue ? literal.ConstantValue.Value as string :
-                    literal is IInterpolatedStringTextOperation text ? text.Text.ConstantValue.Value as string : null;
-                if (value != null && Evidence.Prose(value))
+                if (value.Literal is { } literal && Evidence.Prose(literal))
                 {
-                    r.Report("Localization", OutcomeAnalyzer.Literal, literal.Syntax.GetLocation(), value);
-                    if (Evidence.MasterData(value)) r.Report("Naming", OutcomeAnalyzer.Naming, literal.Syntax.GetLocation(), value);
+                    r.Report("Localization", OutcomeAnalyzer.Literal, value.Operation.Syntax.GetLocation(), literal);
+                    if (Evidence.MasterData(literal)) r.Report("Naming", OutcomeAnalyzer.Naming, value.Operation.Syntax.GetLocation(), literal);
                 }
             }
-        }
-        foreach (var op in operations.Where(o => !Evidence.Generated(o.Syntax.SyntaxTree, p)))
-        {
-            var identity = op.Syntax.SyntaxTree.FilePath + "|" +
-                Evidence.Model(p.Compilation, op.Syntax.SyntaxTree).GetEnclosingSymbol(op.Syntax.SpanStart)?.ContainingType?.Name;
-            if (optionsSurface == null || !identity.Contains(optionsSurface, StringComparison.OrdinalIgnoreCase)) continue;
-            if (op is ISimpleAssignmentOperation assignment &&
-                assignment.Target is IPropertyReferenceOperation target &&
-                target.Property.ContainingType.ToDisplayString() == "System.Globalization.CultureInfo" &&
-                target.Property.Name is "CurrentCulture" or "CurrentUICulture" or "DefaultThreadCurrentCulture" or "DefaultThreadCurrentUICulture")
-                optionsCultureBehavior = true;
         }
     }
 
-    private static bool IsLocalizerIndexer(IPropertyReferenceOperation reference) =>
-        reference.Property.IsIndexer &&
-        (reference.Property.ContainingType.ToDisplayString().StartsWith("Microsoft.Extensions.Localization.IStringLocalizer", StringComparison.Ordinal) ||
-         reference.Property.ContainingType.AllInterfaces.Any(i =>
-             i.ToDisplayString().StartsWith("Microsoft.Extensions.Localization.IStringLocalizer", StringComparison.Ordinal)));
+    private AdditionalText Input(XElement element) => xml.First(x => ReferenceEquals(x.Document, element.Document)).File;
+    private bool ConsumeLookup(LocalizationFlow.Lookup lookup, Location location)
+    {
+        var project = projects.FirstOrDefault(p => p.Compilation.Assembly.Name == lookup.Assembly);
+        var neutral = project == null ? null : resources.FirstOrDefault(n => n.Culture == null && MatchesManifest(project, n, lookup.BaseName));
+        if (neutral == null || !neutral.TextKeys.Contains(lookup.Key))
+        {
+            r.Report("Localization", OutcomeAnalyzer.Localization, location, "Consumed localizer key/base is not backed by an evaluated neutral textual resource: " + lookup.Key);
+            return false;
+        }
+        usedProviders.Add(neutral);
+        localizerUsed = true;
+        return true;
+    }
+
+    private void BuildPresentationScope()
+    {
+        var types = projects.SelectMany(p => Evidence.Types(p.Compilation)).ToArray();
+        string? Role(string value) => Surface(value) ?? (optionsSurface != null && value.Contains(optionsSurface, StringComparison.OrdinalIgnoreCase) ? "$options" : null);
+        foreach (var type in types)
+            if (Role(type.Name) is { } role) presentationTypes[LocalizationFlow.Id(type)] = role;
+        var pathMembers = new HashSet<string>();
+        var xaml = xml.Where(x => Path.GetExtension(x.File.Path).Equals(".xaml", StringComparison.OrdinalIgnoreCase)).ToArray();
+        foreach (var input in xaml)
+        {
+            var cls = input.Document.Root?.Attribute(XName.Get("Class", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value;
+            var role = Role(cls ?? input.File.Path);
+            if (role == null && strictExtensionsPolicy) continue;
+            presentationFiles[input.File.Path] = role ?? "";
+        }
+        for (var i = 0; i < 16; i++)
+        {
+            var before = presentationFiles.Count;
+            foreach (var input in xaml.Where(x => presentationFiles.ContainsKey(x.File.Path)))
+            foreach (var element in input.Document.Descendants())
+            {
+                var clr = Regex.Match(element.Name.NamespaceName, @"^clr-namespace:([^;]*)(?:;assembly=([^;]+))?");
+                if (!clr.Success) continue;
+                var name = clr.Groups[1].Value + "." + element.Name.LocalName;
+                var role = presentationFiles[input.File.Path];
+                foreach (var type in types.Where(t => t.ToDisplayString() == name &&
+                    (!clr.Groups[2].Success || t.ContainingAssembly.Name == clr.Groups[2].Value)))
+                    presentationTypes.TryAdd(LocalizationFlow.Id(type), role);
+                foreach (var child in xaml.Where(x => x.Document.Root?.Attribute(XName.Get("Class", "http://schemas.microsoft.com/winfx/2006/xaml"))?.Value == name))
+                    presentationFiles.TryAdd(child.File.Path, role);
+            }
+            if (before == presentationFiles.Count) break;
+        }
+        foreach (var input in xaml.Where(x => presentationFiles.ContainsKey(x.File.Path)))
+        {
+            foreach (var match in input.Document.Descendants().Attributes().Select(a =>
+                Regex.Match(a.Value, @"^\{Binding\s+(?:Path\s*=\s*)?([\w.]+)")).Where(m => m.Success))
+                foreach (var member in match.Groups[1].Value.Split('.')) pathMembers.Add(member);
+        }
+        static ITypeSymbol? ValueType(IOperation value) =>
+            value is IConversionOperation conversion ? ValueType(conversion.Operand) : value.Type;
+        var contexts = projects.SelectMany(p => Evidence.Operations(p.Compilation).OfType<ISimpleAssignmentOperation>()
+            .Where(a => a.Target is IPropertyReferenceOperation r && r.Property.Name == "DataContext")
+            .Select(a => (Owner: ((IPropertyReferenceOperation)a.Target).Instance?.Type as INamedTypeSymbol ??
+                Evidence.Model(p.Compilation, a.Syntax.SyntaxTree).GetEnclosingSymbol(a.Syntax.SpanStart)?.ContainingType,
+                Context: ValueType(a.Value) as INamedTypeSymbol))).ToArray();
+        for (var i = 0; i < 16; i++)
+        {
+            var before = presentationTypes.Count;
+            void Add(INamedTypeSymbol? type, string role)
+            {
+                if (type == null) return;
+                if (types.Any(t => LocalizationFlow.Id(t) == LocalizationFlow.Id(type))) presentationTypes.TryAdd(LocalizationFlow.Id(type), role);
+                foreach (var argument in type.TypeArguments.OfType<INamedTypeSymbol>()) Add(argument, role);
+            }
+            foreach (var context in contexts)
+                if (context.Owner != null && presentationTypes.TryGetValue(LocalizationFlow.Id(context.Owner), out var role)) Add(context.Context, role);
+            foreach (var type in types.Where(t => presentationTypes.ContainsKey(LocalizationFlow.Id(t))))
+            {
+                var role = presentationTypes[LocalizationFlow.Id(type)];
+                Add(type.BaseType, role);
+                foreach (var property in type.GetMembers().OfType<IPropertySymbol>().Where(p => pathMembers.Contains(p.Name)))
+                    Add(property.Type as INamedTypeSymbol, role);
+            }
+            if (before == presentationTypes.Count) break;
+        }
+    }
 
     private string? Surface(string value) => requiredSurfaces.FirstOrDefault(pair =>
         pair.Value.Any(pattern => value.Contains(pattern, StringComparison.OrdinalIgnoreCase))).Key;
