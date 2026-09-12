@@ -296,6 +296,18 @@ try
             "normal restore/build did not deploy the test adapter");
         var again = Run(0, "normalize-framework", "--target", "net472", "--source", output, "--output", output + "-again");
         Check(again.RootElement.GetProperty("ChangedFiles").GetArrayLength() == 0, "restored normalization not idempotent");
+        var prepared = output + "-prepared";
+        // Remove only the fixture's deliberately Framework-specific assembly reference before
+        // modern retargeting; PackageReference remains the assembly resolution contract.
+        var modernInput = XDocument.Load(Path.Combine(output, "RestoredTests.csproj"));
+        modernInput.Descendants("Reference").Remove();
+        Write(output, "RestoredTests.csproj", modernInput.ToString());
+        Run(0, "prepare-net10", "--source", output, "--output", prepared);
+        var modern = output + "-modern";
+        Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", prepared, "--output", modern);
+        Build(Path.Combine(modern, "RestoredTests.csproj"));
+        var modernAgain = Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", modern, "--output", modern + "-again");
+        Check(modernAgain.RootElement.GetProperty("ChangedFiles").GetArrayLength() == 0, "restored modern test-host output type broke idempotence");
         var xml = XDocument.Load(Path.Combine(source, "RestoredTests.csproj"));
         xml.Root!.Add(new XElement("ItemGroup", new XElement("None",
             new XAttribute("Include", "$(NuGetPackageRoot)mstest.testadapter\\2.2.10\\build\\_common\\Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.dll"),
@@ -313,6 +325,52 @@ try
             d.GetProperty("Code").GetString() == "output-dependency-mismatch" &&
             d.GetProperty("Message").GetString()!.Contains("PackageReference")),
             "package-asset exemption hid loss of the conditioned adapter dependency");
+    });
+    Test("modern preparation generates structured EDMX output and transitive publish content", () =>
+    {
+        var source = Path.Combine(workspace, "edmx-source");
+        Write(source, "Models\\Models.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /><EntityDeploy Include="Other\Second.edmx" /></ItemGroup></Project>
+            """);
+        Write(source, "Consumer\\Consumer.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><ProjectReference Include="..\Models\Models.csproj" /></ItemGroup>
+            <Target Name="OldMetadataCopy" AfterTargets="Build">
+              <ItemGroup><LegacyMetadata Include="..\Models\bin\$(Configuration)\Model\Independent.csdl" /></ItemGroup>
+              <Copy SourceFiles="@(LegacyMetadata)" DestinationFolder="$(OutDir)Model" SkipUnchangedFiles="true" />
+            </Target></Project>
+            """);
+        const string model = """
+            <edmx:Edmx xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx"><edmx:Runtime>
+              <edmx:ConceptualModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" Namespace="Independent" xmlns:test="urn:fixture" test:note="semi;colon" /></edmx:ConceptualModels>
+              <edmx:StorageModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl" Namespace="Independent.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" /></edmx:StorageModels>
+              <edmx:Mappings><Mapping xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs" Space="C-S" /></edmx:Mappings>
+            </edmx:Runtime></edmx:Edmx>
+            """;
+        Write(source, "Models\\Model\\Independent.edmx", model);
+        Write(source, "Models\\Other\\Second.edmx", model);
+        var prepared = source + "-prepared";
+        Run(0, "prepare-net10", "--source", source, "--output", prepared);
+        var replay = Run(0, "prepare-net10", "--source", prepared, "--output", prepared + "-again");
+        Check(replay.RootElement.GetProperty("ChangedFiles").GetArrayLength() == 0, "preparation is not idempotent");
+        var modern = source + "-modern";
+        Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", prepared, "--output", modern);
+        var consumer = Path.Combine(modern, "Consumer\\Consumer.csproj");
+        Build(consumer);
+        var publish = Path.Combine(workspace, "edmx-publish");
+        RunDotnet("publish", consumer, "--nologo", "--verbosity", "quiet", "--output", publish);
+        foreach (var folder in new[] { Path.Combine(modern, "Consumer\\bin\\Debug\\net10.0"), publish })
+            foreach (var name in new[] { "Model\\Independent", "Other\\Second" })
+            {
+                Check(XDocument.Load(Path.Combine(folder, name + ".csdl")).Root!.Attribute(XName.Get("note", "urn:fixture"))!.Value == "semi;colon", "conceptual XML/semicolons changed");
+                Check(XDocument.Load(Path.Combine(folder, name + ".ssdl")).Root!.Attribute("Provider")!.Value == "System.Data.SqlClient", "provider identity changed");
+                Check(XDocument.Load(Path.Combine(folder, name + ".msl")).Root!.Attribute("Space")!.Value == "C-S", "mapping identity changed");
+            }
+        var generated = Path.Combine(modern, "Models\\obj\\Debug\\net10.0\\EntityMetadata\\Model\\Independent.csdl");
+        var timestamp = File.GetLastWriteTimeUtc(generated);
+        Build(consumer);
+        Check(timestamp == File.GetLastWriteTimeUtc(generated), "unchanged EDMX was regenerated");
     });
     Console.WriteLine($"PASS: {passed} regression scenarios; artifacts: {workspace}");
     return 0;
@@ -362,6 +420,9 @@ static void Check(bool condition, string message)
 }
 
 static void Build(string project)
+    => RunDotnet("build", project, "--nologo", "--verbosity", "quiet");
+
+static void RunDotnet(params string[] arguments)
 {
     var start = new ProcessStartInfo("dotnet")
     {
@@ -370,7 +431,7 @@ static void Build(string project)
         UseShellExecute = false,
         WorkingDirectory = AppContext.BaseDirectory
     };
-    foreach (var argument in new[] { "build", project, "--nologo", "--verbosity", "quiet" }) start.ArgumentList.Add(argument);
+    foreach (var argument in arguments) start.ArgumentList.Add(argument);
     using var process = Process.Start(start)!;
     var stdout = process.StandardOutput.ReadToEndAsync();
     var stderr = process.StandardError.ReadToEndAsync();

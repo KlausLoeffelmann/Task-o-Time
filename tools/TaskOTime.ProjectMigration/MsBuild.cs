@@ -23,14 +23,14 @@ internal static class MsBuild
     private static readonly string[] ItemNames =
     [
         "Compile", "EmbeddedResource", "Resource", "Page", "ApplicationDefinition", "EntityDeploy",
-        "Content", "None", "ProjectReference", "Reference", "PackageReference"
+        "Content", "None", "ProjectReference", "Reference", "PackageReference", "EntityModel"
     ];
     private static readonly HashSet<string> Metadata = new(StringComparer.Ordinal)
     {
         "Identity", "Link", "LinkBase", "LogicalName", "ManifestResourceName", "DependentUpon", "Generator",
         "LastGenOutput", "AutoGen", "DesignTime", "CopyToOutputDirectory", "CopyToPublishDirectory",
         "Private", "Aliases", "HintPath", "Version", "PrivateAssets", "SubType", "TargetPath",
-        "ReferenceOutputAssembly", "EmbedInteropTypes", "DefiningProjectFullPath"
+        "ReferenceOutputAssembly", "EmbedInteropTypes", "DefiningProjectFullPath", "MetadataPath"
     };
     private static readonly HashSet<string> IntrinsicMetadata = new(StringComparer.Ordinal)
     {

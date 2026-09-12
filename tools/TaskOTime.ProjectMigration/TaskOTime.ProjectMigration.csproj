@@ -5,11 +5,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <DefaultItemExcludes>$(DefaultItemExcludes);artifacts\**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <Compile Remove="tests\**\*.cs" />
     <None Include="global.json" CopyToOutputDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Templates\EntityFramework.Metadata.targets" />
   </ItemGroup>
 </Project>

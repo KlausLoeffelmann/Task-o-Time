@@ -9,7 +9,7 @@ source files, candidate refs or databases were modified.
 
 | Check | Result |
 | --- | --- |
-| Independent regression runner | 13 scenarios pass; emitted net472, net10, explicit-reference WPF/WinForms and restored MSTest/VB consumers build |
+| Independent regression runner | 14 scenarios pass; emitted net472/net10, desktop and restored MSTest/VB consumers build; structured metadata builds/publishes transitively |
 | Repository inspection | 11 application/test projects, including all remaining VB tests |
 | Framework normalization | 8 project files changed; all 11 evaluate to net472 in Debug and Release |
 | SDK conversion | 3 classic projects changed; all 11 retain net472 and evaluate as SDK-style |

@@ -14,7 +14,7 @@ public sealed record Manifest(string Tool, string Version, string DotnetSdk, obj
     FileHash[] Inputs, FileHash[] Outputs, Change[] ChangedFiles, ProjectReport[] Projects,
     ProjectReport[] OutputProjects, Diagnostic[] Diagnostics, string Verification);
 
-public sealed class Migration(Options options)
+public sealed partial class Migration(Options options)
 {
     private readonly List<Diagnostic> diagnostics = [];
     private readonly List<Change> changes = [];
@@ -26,7 +26,7 @@ public sealed class Migration(Options options)
     private static readonly HashSet<string> ModernImplicitReferences = new(StringComparer.Ordinal)
     {
         "System", "System.Core", "System.Data", "System.Xml", "System.Xml.Linq", "Microsoft.CSharp", "System.Net.Http",
-        "WindowsBase", "PresentationCore", "PresentationFramework", "System.Xaml", "System.Windows.Forms"
+        "WindowsBase", "PresentationCore", "PresentationFramework", "System.Xaml", "System.Windows.Forms", "Microsoft.VisualBasic"
     };
     private static readonly HashSet<string> WpfReferences = new(StringComparer.Ordinal)
     {
@@ -88,7 +88,11 @@ public sealed class Migration(Options options)
                 case "retarget":
                     Retarget(report, root, applied);
                     break;
+                case "prepare-net10":
+                    PrepareNet10(report, root, applied);
+                    break;
             }
+            if (options.Command is "prepare-net10" or "retarget") CleanStructuralWhitespace(root, applied);
             if (applied.Count == 0) continue;
             var bytes = Save(documents[report.Path]);
             if (inputs[report.Path].SequenceEqual(bytes)) continue;
@@ -125,7 +129,7 @@ public sealed class Migration(Options options)
 
     private bool HasErrors => diagnostics.Any(d => d.Severity == "error");
     private Manifest CreateManifest(string sdk, string verification) => new(
-        "TaskOTime.ProjectMigration", "1.0.0", sdk,
+        "TaskOTime.ProjectMigration", "1.1.0", sdk,
         new
         {
             options.Command,
@@ -167,7 +171,7 @@ public sealed class Migration(Options options)
             if (evaluation.Items["Compile"].Any(i => i.ContainsKey("Link") || i.ContainsKey("LinkBase") ||
                                                     i["Identity"].StartsWith("..", StringComparison.Ordinal)))
                 Add("warning", "linked-source", path, "Linked compile items and their metadata are retained; compatibility changes must cover every consumer.");
-            foreach (var kind in new[] { "Compile", "ProjectReference", "EntityDeploy", "EmbeddedResource", "Resource", "Page", "ApplicationDefinition", "Content", "None" })
+            foreach (var kind in new[] { "Compile", "ProjectReference", "EntityDeploy", "EntityModel", "EmbeddedResource", "Resource", "Page", "ApplicationDefinition", "Content", "None" })
                 foreach (var item in evaluation.Items[kind])
                 {
                     var identity = item["Identity"];
@@ -340,6 +344,12 @@ public sealed class Migration(Options options)
                 Add("error", "retarget-framework-hintpath", report.Path, "Replace Framework-specific assembly HintPath with a compatible PackageReference before retargeting: " + hint.Value);
         EstablishDesktopFlags(report, root, rules);
         var target = windows.Contains(report.Path) ? "net10.0-windows" : "net10.0";
+        if ((string?)root.Attribute("Sdk") == "Microsoft.NET.Sdk.WindowsDesktop" &&
+            report.Evaluations.All(e => IsTrue(e, "UseWPF") || IsTrue(e, "UseWindowsForms")))
+        {
+            root.SetAttributeValue("Sdk", "Microsoft.NET.Sdk");
+            rules.Add("use-modern-desktop-sdk");
+        }
         foreach (var element in FrameworkElements(root))
             if (element.Name.LocalName == "TargetFramework" && FrameworkLiteral(element.Value))
                 ChangeValue(element, target, "retarget-framework", rules);
@@ -349,6 +359,15 @@ public sealed class Migration(Options options)
                 RecordRemoval(report.Path, "PackageReference", PackageId(package));
                 package.Remove();
                 rules.Add("remove-framework-reference-assemblies");
+            }
+            else if (PackageId(package) == "System.Configuration.ConfigurationManager" &&
+                     (string?)package.Attribute("Version") == "10.0.0" &&
+                     package.Attributes().All(a => a.Name.LocalName is "Include" or "Version") && !package.HasElements &&
+                     report.Evaluations.All(e => IsTrue(e, "UseWPF") || IsTrue(e, "UseWindowsForms")))
+            {
+                RecordRemoval(report.Path, "PackageReference", PackageId(package));
+                package.Remove();
+                rules.Add("use-desktop-shared-configuration-manager");
             }
         foreach (var reference in Elements(root, "Reference").ToArray())
         {
@@ -433,7 +452,8 @@ public sealed class Migration(Options options)
                 foreach (var property in new[] { "AssemblyName", "RootNamespace", "OutputType", "StartupObject",
                          "ApplicationIcon", "SignAssembly", "AssemblyOriginatorKeyFile", "OptionStrict",
                          "OptionExplicit", "OptionInfer", "OptionCompare", "MyType" })
-                    if (ComparableProperty(property, before.Properties[property]) != ComparableProperty(property, after.Properties[property]))
+                    if (ComparableProperty(property, before.Properties[property]) != ComparableProperty(property, after.Properties[property]) &&
+                        !RestoredTestOutputType(property, report.Path, before, after))
                         Add("error", "output-identity-mismatch", report.Path, $"{before.Configuration}: {property} changed from '{before.Properties[property]}' to '{after.Properties[property]}'.");
                 var expectedOutputPath = before.Properties["OutputPath"];
                 if (options.Command == "normalize-framework" && IsTrue(before, "AppendTargetFrameworkToOutputPath"))
@@ -444,8 +464,12 @@ public sealed class Migration(Options options)
                 }
                 if (options.Command != "retarget" && expectedOutputPath != after.Properties["OutputPath"])
                     Add("error", "output-path-mismatch", report.Path, $"{before.Configuration}: OutputPath changed from '{before.Properties["OutputPath"]}' to '{after.Properties["OutputPath"]}'.");
-                foreach (var kind in new[] { "Compile", "EmbeddedResource", "Resource", "Page", "ApplicationDefinition", "EntityDeploy", "Content", "None", "ProjectReference" })
-                    if (ComparableItems(kind, before.Items[kind]) != ComparableItems(kind, after.Items[kind]))
+                foreach (var kind in new[] { "Compile", "EmbeddedResource", "Resource", "Page", "ApplicationDefinition", "EntityDeploy", "EntityModel", "Content", "None", "ProjectReference" })
+                    if (options.Command == "prepare-net10" && kind is "EntityDeploy" or "EntityModel")
+                    {
+                        if (kind == "EntityDeploy") ValidatePreparedModels(report.Path, before, after);
+                    }
+                    else if (ComparableItems(kind, before.Items[kind]) != ComparableItems(kind, after.Items[kind]))
                         Add("error", "output-item-mismatch", report.Path, $"{before.Configuration}: evaluated {kind} items/metadata changed; output was not published.");
                 foreach (var kind in new[] { "Reference", "PackageReference" })
                     if (ComparableDependencies(report.Path, before.Items[kind], kind, true) != ComparableDependencies(report.Path, after.Items[kind], kind, false))
@@ -459,9 +483,16 @@ public sealed class Migration(Options options)
         diagnostics.Add(new(severity, code, path, message));
     private static string ComparableProperty(string name, string value) =>
         name == "SignAssembly" && value.Length == 0 ? "false" : value;
+    private bool RestoredTestOutputType(string property, string path, EvaluatedProject before, EvaluatedProject after) =>
+        property == "OutputType" && before.Properties[property] == "Exe" && after.Properties[property] == "Library" &&
+        EffectiveFramework(before) == EffectiveFramework(after) &&
+        !Elements(documents[path].Root!, "OutputType").Any() &&
+        before.Items["PackageReference"].Any(p => p["Identity"] == "Microsoft.NET.Test.Sdk" &&
+            after.Items["PackageReference"].Any(q => q["Identity"] == p["Identity"] && q.GetValueOrDefault("Version") == p.GetValueOrDefault("Version")));
     private static string ComparableItems(string kind, List<SortedDictionary<string, string>> items) =>
         JsonSerializer.Serialize(items.Where(i => Path.GetFileName(i["Identity"]) != "migration-manifest.json" &&
-                                                 !PackageProvidedAsset(kind, i) && !DefaultBuildArtifact(kind, i)));
+                                                 !PackageProvidedAsset(kind, i) && !DefaultBuildArtifact(kind, i) &&
+                                                 !i["Identity"].EndsWith(MetadataTemplatePath, StringComparison.OrdinalIgnoreCase)));
     private static bool DefaultBuildArtifact(string kind, SortedDictionary<string, string> item) =>
         kind == "None" &&
         item.GetValueOrDefault("DefiningProjectFullPath") == "{sdk}\\Sdks\\Microsoft.NET.Sdk\\targets\\Microsoft.NET.Sdk.DefaultItems.props" &&
@@ -491,12 +522,16 @@ public sealed class Migration(Options options)
             if (input && options.Command == "normalize-framework" && kind == "PackageReference" &&
                 Regex.IsMatch(identity, @"^Microsoft\.NETFramework\.ReferenceAssemblies\.net4\d{1,2}$", RegexOptions.IgnoreCase))
                 row["Identity"] = "Microsoft.NETFramework.ReferenceAssemblies.net472";
-            if (input && options.Command == "retarget" &&
+            if (input && options.Command == "prepare-net10" && kind == "PackageReference")
+                ApplyPreparedVersion(row);
+            if (input && options.Command is "retarget" or "prepare-net10" &&
                 row.GetValueOrDefault("DefiningProjectFullPath") == "{workspace}\\" + path &&
                 removedDependencies.TryGetValue(path, out var removed) && removed.Contains(kind + "\0" + identity))
                 continue;
             expected.Add(row);
         }
+        if (input && kind == "PackageReference" && options.Command == "prepare-net10" && preparedPackages.TryGetValue(path, out var additions))
+            expected.AddRange(additions);
         return JsonSerializer.Serialize(expected.OrderBy(r => r["Identity"], StringComparer.Ordinal)
             .ThenBy(r => JsonSerializer.Serialize(r), StringComparer.Ordinal));
     }
@@ -539,6 +574,30 @@ public sealed class Migration(Options options)
         if (element.Value == value) return;
         element.Value = value;
         rules.Add(rule);
+    }
+    private static void CleanStructuralWhitespace(XElement root, List<string> rules)
+    {
+        foreach (var group in root.Elements().Where(e => e.Name.LocalName is "ItemGroup" or "PropertyGroup" &&
+                     !e.HasAttributes && e.Nodes().All(n => n is XText t && string.IsNullOrWhiteSpace(t.Value))).ToArray())
+        {
+            group.Remove();
+            rules.Add("clean-structural-xml-whitespace");
+        }
+        foreach (var parent in root.DescendantsAndSelf().Where(e =>
+                     e.Name.LocalName is "Project" or "PropertyGroup" or "ItemGroup" or "Target"))
+            foreach (var text in parent.Nodes().OfType<XText>().Where(t => t is not XCData && string.IsNullOrWhiteSpace(t.Value)).ToArray())
+            {
+                if (text.Parent == null) continue;
+                while (text.NextNode is XText next && next is not XCData && string.IsNullOrWhiteSpace(next.Value))
+                {
+                    text.Value += next.Value;
+                    next.Remove();
+                }
+                var cleaned = Regex.Replace(text.Value, @"[ \t]+(?=\r?\n)", "");
+                if (cleaned == text.Value) continue;
+                text.Value = cleaned;
+                rules.Add("clean-structural-xml-whitespace");
+            }
     }
     private static XDocument Load(byte[] bytes)
     {

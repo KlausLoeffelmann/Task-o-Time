@@ -33,9 +33,13 @@ dotnet $cli convert-projects --sdk-style `
 
 dotnet build .\artifacts\s2a\TaskOTime.slnx --nologo --verbosity quiet
 
-# Deliberately returns 2 until known application compatibility seams are fixed.
+# After reviewed serializer/API changes, prepare the known compatibility seams.
+dotnet $cli prepare-net10 --source .\artifacts\s2a --output .\artifacts\prepared --dry-run
+dotnet $cli prepare-net10 --source .\artifacts\s2a --output .\artifacts\prepared
+
+# Unknown/unresolved compatibility seams still return 2.
 dotnet $cli retarget --framework net10.0 --wpf-framework net10.0-windows `
-  --source .\artifacts\s2a --output .\artifacts\s3 --dry-run
+  --source .\artifacts\prepared --output .\artifacts\s3 --dry-run
 ```
 
 The tool's own `global.json` is copied next to its binary, so the subprocess also
@@ -86,6 +90,21 @@ workspace concern. There are no third-party package dependencies for this CLI.
   reported for review; inspect the dry-run XML and execute the relevant targets
   in subsequent builds. There is no pretend generic rewrite for arbitrary
   build logic.
+- `prepare-net10` is an explicit compatibility operation, not another accepted
+  Framework checkpoint. It keeps TFMs unchanged, upgrades the reviewed EF6
+  6.5.1 -> 6.5.2 and MSTest 2.2.10 -> 3.6.4 / test-SDK 17.2.0 -> 17.14.1
+  package versions, and replaces simple assembly references with appropriate
+  packages. It refuses unknown versions/custom reference semantics.
+  The serializer source/API replacement must be reviewed first; this command
+  does not rewrite C#/VB source.
+- Preparation maps literal `EntityDeploy` items to `EntityModel`, retains their
+  original metadata, and adds a shared `build\EntityFramework.Metadata.targets`
+  template. Built-in local MSBuild XSLT extracts the original runtime
+  CSDL/SSDL/MSL elements without changing provider, schema or mappings.
+  Incremental generation uses evaluated intermediate paths; standard
+  `Content`/`TargetPath` project-reference propagation deploys and publishes
+  metadata. Only simple old metadata-copy targets for known EDMX model names
+  are removed. Unknown extra tasks/semantics fail closed.
 - Modern retargeting requires an SDK checkpoint, removes obsolete reference-
   assembly packages and simple implicit Framework references, and propagates
   `net10.0-windows` from WPF/WinForms projects through project references.
@@ -166,4 +185,10 @@ MSTest/test-SDK/reference-assembly packages through normal NuGet semantics.
 It proves all four imported adapter assets are inventoried, no package DLLs are
 copied into emitted source, fresh output builds deploy the adapter, and an
 old-framework-conditioned adapter PackageReference still fails closed.
+Modern test-SDK packages contribute an implicit `Exe` output type after restore.
+On an otherwise unchanged modern target, that known package-generated default
+may differ from the un-restored SDK `Library` default; explicit OutputType
+declarations are never exempted. Restored modern-test idempotence is covered.
 It never accesses a database. See [repository execution evidence](docs\Execution-Evidence.md).
+For the separate authorized candidate compatibility run, see
+[.NET 10 execution and reviewed source exceptions](docs\Net10-Execution.md).
