@@ -83,6 +83,7 @@ public sealed class ExternalReplayTests : IDisposable
     [InlineData("overlong-expiry")]
     [InlineData("missing-source-roots")]
     [InlineData("missing-artifact-roots")]
+    [InlineData("producer-only-policy")]
     public void Unbound_or_candidate_controlled_receipts_fail_closed(string variant)
     {
         var plan = Plan(); var challenge = Guid.NewGuid().ToString("N");
@@ -92,6 +93,7 @@ public sealed class ExternalReplayTests : IDisposable
             attestation = attestation with { Cases = attestation.Cases.Select(c => c with { Checks = [] }).ToArray() };
         if (variant == "expired") attestation = attestation with { ExpiresAt = DateTimeOffset.UtcNow.AddMinutes(-1) };
         if (variant == "overlong-expiry") attestation = attestation with { ExpiresAt = DateTimeOffset.UtcNow.AddDays(1) };
+        if (variant == "producer-only-policy") attestation = attestation with { Policy = "taskotime-sandbox-producer-v1" };
         var envelope = Sign(attestation, key);
         var publicKey = key.ExportSubjectPublicKeyInfoPem();
         switch (variant)
