@@ -142,10 +142,10 @@ internal static class Program
             if (main.TimeCollection.Categories.Count == 0 || main.TimeCollection.SelectedCategory is null)
                 throw new InvalidOperationException("Fixture booking categories were not loaded.");
 
-            var master = (Window)Activator.CreateInstance(viewModel.GetType("TaskOTime.ViewModel.Views.MasterDataWindow", true)!)!;
-            windows.Add(master);
-            _ = Activator.CreateInstance(viewModel.GetType("TaskOTime.ViewModel.ViewModels.MasterDataViewModel", true)!,
-                new object[] { master, services.TenantFor(session), session.IdUser, services.Admin, services.Users, services.Bookings, 1 });
+            object tenant = services.TenantFor(session);
+            var maintenance = MainDataComposition.Resolve(viewModel, tenant.GetType().Assembly);
+            MainDataComposition.Create(maintenance, tenant, (Guid)session.IdUser,
+                (object)services.Admin, (object)services.Users, (object)services.Bookings, windows);
             windows.Add((Window)Activator.CreateInstance(assembly.GetType("TaskOTime.App.LoginWindow", true)!,
                 new object[] { login, services.ModeDescription })!);
             windows.Add((Window)Activator.CreateInstance(assembly.GetType("TaskOTime.App.OptionsDialog", true)!,
@@ -209,6 +209,7 @@ internal static class Program
         try { IsolatedConnection.Validate(valid, ""); throw new InvalidOperationException("Missing owner was accepted."); }
         catch (ArgumentException) { }
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+        MainDataCompositionSelfTest.Run();
         var items = new object[] { "isolated STA probe" };
         var list = new ListView { ItemsSource = items };
         var window = new Window { Content = list };
@@ -218,6 +219,6 @@ internal static class Program
             throw new InvalidOperationException("STA WPF identity self-test failed.");
         window.Close();
         app.Shutdown();
-        Console.WriteLine("STA host self-test passed: nine rejection cases and WPF collection identity; no SQL connection opened.");
+        Console.WriteLine("STA host self-test passed: connection guards, legacy/modern maintenance composition and WPF identity; no SQL connection opened.");
     }
 }

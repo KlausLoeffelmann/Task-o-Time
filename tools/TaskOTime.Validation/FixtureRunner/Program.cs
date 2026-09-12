@@ -9,6 +9,8 @@ using System.Xml.Linq;
 using TaskOTime.AppServer.Models;
 using TaskOTime.AppServer.Security;
 using TaskOTime.AppServer.Services;
+using TaskOTime.DataLayer;
+using TaskOTime.DTOs;
 
 namespace TaskOTime.Validation
 {
@@ -192,6 +194,7 @@ namespace TaskOTime.Validation
         private static void CheckFixture(SeededFixture fixture)
         {
             var inheritedPassword = Environment.GetEnvironmentVariable("TASKOTIME_VALIDATION_PASSWORD");
+            CheckMarkerGuardrail(fixture);
             var args = new[]
             {
                 "probe", "--connection", fixture.Database.ProviderConnectionString,
@@ -231,6 +234,7 @@ namespace TaskOTime.Validation
             }));
             if (!authenticated.MustChangePassword)
                 throw new InvalidOperationException("Expected the seeded initial-password change requirement.");
+            SeededFixture.VerifyMarkerCategories(factory, authenticated.User.IdUser);
             var replacement = "Replacement-" + Guid.NewGuid().ToString("N") + "!a9";
             SeededFixture.Require(authentication.ChangeTemporaryPassword(
                 authenticated.User.IdTenant, authenticated.User.IdUser, password, replacement));
@@ -243,7 +247,36 @@ namespace TaskOTime.Validation
                 UserIdentOrEmail = options["--user"], Password = password
             }).Success)
                 throw new InvalidOperationException("Initial password change did not replace the temporary credential.");
-            Console.WriteLine("Child verified ownership, real authentication and forced initial-password change.");
+            Console.WriteLine("Child verified ownership, marker category IDs, real authentication and forced initial-password change.");
+        }
+
+        private static void CheckMarkerGuardrail(SeededFixture fixture)
+        {
+            Guid owner;
+            using (var context = fixture.Database.CreateContext())
+            {
+                var marker = context.Category.Single(category => category.IdCategory == SystemTimeMarkerIds.StopMarkCategoryId);
+                owner = marker.IdUser;
+                marker.CategoryName = "Invalid fixture marker";
+                context.SaveChanges();
+            }
+            try
+            {
+                var rejected = false;
+                try { SeededFixture.VerifyMarkerCategories(fixture.Database.CreateContext, owner); }
+                catch (InvalidOperationException) { rejected = true; }
+                if (!rejected) throw new InvalidOperationException("Corrupted marker metadata was accepted.");
+            }
+            finally
+            {
+                using (var context = fixture.Database.CreateContext())
+                {
+                    SystemTimeMarkerSeed.EnsureCategories(context, owner);
+                    context.SaveChanges();
+                }
+            }
+            SeededFixture.VerifyMarkerCategories(fixture.Database.CreateContext, owner);
+            Console.WriteLine("Verified marker metadata rejection and idempotent owned-fixture reseeding.");
         }
 
         private static void SelfTest()
