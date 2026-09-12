@@ -13,7 +13,7 @@ namespace TaskOTime.AppServer.IntegrationTests
 {
     [TestClass]
     [TestCategory("IsolatedSql")]
-    public sealed class AppServerPersistenceIntegrationTests
+    public sealed partial class AppServerPersistenceIntegrationTests
     {
         private LocalDbPersistenceTestDatabase database;
         private static readonly Guid TenantId = GuidFromSuffix(101);
@@ -279,8 +279,14 @@ namespace TaskOTime.AppServer.IntegrationTests
         private sealed class TenantTestInteraction : IMaintenanceInteraction
         {
             public string Message { get; private set; }
+            public string Confirmation { get; private set; }
+            public bool ConfirmResult { get; set; } = true;
             public void Notify(string message, string title) => Message = message;
-            public bool Confirm(string message, string title) => true;
+            public bool Confirm(string message, string title)
+            {
+                Confirmation = message;
+                return ConfirmResult;
+            }
         }
 
         [TestMethod]

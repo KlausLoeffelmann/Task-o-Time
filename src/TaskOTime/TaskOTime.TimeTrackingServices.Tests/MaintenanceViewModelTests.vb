@@ -238,6 +238,41 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Assert.AreEqual(2, f.Interaction.Messages.Count)
         End Sub
 
+        <DataTestMethod>
+        <DataRow(0, 51)>
+        <DataRow(1, 31)>
+        <DataRow(2, 4001)>
+        <DataRow(3, 2001)>
+        Public Sub Collaboration_RejectsOverlengthValuesWithoutMutation(tab As Integer, length As Integer)
+            Dim f As New Fixture()
+            Dim vm = f.Main.Collaboration
+            Dim value = New String("x"c, length)
+            If tab = 3 Then
+                Dim prefix = "https://example.invalid/"
+                value = prefix & New String("x"c, length - prefix.Length)
+            End If
+            vm.SelectedTab = tab
+            vm.QuickValue = value
+            vm.AddCommand.Execute(Nothing)
+            Assert.AreEqual(0, f.Services.MutationCalls)
+            Assert.AreEqual(value, vm.QuickValue)
+            StringAssert.Contains(f.Interaction.Messages.Single(), "cannot exceed")
+        End Sub
+
+        <TestMethod>
+        Public Sub Collaboration_RejectsOverlengthDomainWithoutMutation()
+            Dim f As New Fixture()
+            Dim vm = f.Main.Collaboration
+            Dim host = New String("a"c, 63) & "." & New String("b"c, 63) & "." & New String("c"c, 63) & ".example.invalid"
+            vm.SelectedTab = 3
+            vm.QuickValue = "https://" & host & "/"
+            Dim value = vm.QuickValue
+            vm.AddCommand.Execute(Nothing)
+            Assert.AreEqual(0, f.Services.MutationCalls)
+            Assert.AreEqual(value, vm.QuickValue)
+            StringAssert.Contains(f.Interaction.Messages.Single(), "host cannot exceed 200")
+        End Sub
+
         <TestMethod>
         Public Sub TenantUsers_SaveTenantCreateWithPasswordAndConfirmDelete()
             Dim f As New Fixture()

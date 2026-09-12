@@ -88,6 +88,15 @@ Task lists use the explicitly selected project. Category, tag, note, web-link,
 and task deletion retain their existing hard-delete behavior. Activity log edits
 remain local to the workspace.
 
+Collaboration quick-create validates the existing SQL field limits: category names
+up to 50 characters, tags up to 30, and note text up to 4,000. A note's required
+mnemonic is derived from its first line, limited to 100 UTF-16 code units without
+splitting a surrogate pair; its full text is preserved. Web links must be absolute,
+well-formed HTTP/HTTPS URLs without embedded credentials. Their normalized URL is
+limited to 2,000 characters and host to 200; the required domain comes from the URL
+host, and a display title is derived from the first 100 code units. Invalid input
+is reported without clearing the draft or invoking a mutation.
+
 Maintenance mutation commands require an active, non-deleted administrator.
 Server-side Main Data authorization remains authoritative. Create-user fields
 include a temporary password, which is cleared after successful creation; the
@@ -112,9 +121,14 @@ the error is reported, and another tenant save retries the load.
 
 Closing maintenance with the tenant still inactive ends the desktop session
 instead of attempting further project/booking queries for that tenant.
-This is not a new inactive-tenant login path: the existing authentication service
-checks user credentials/status but does not itself check tenant activity; normal
-desktop creation still fails its Main Data reads for inactive tenants. This branch
+Deactivation requires confirmation explaining that the change is persistent,
+blocks sign-in, and ends the session when maintenance closes. Reactivation remains
+available to authorized administrators before closing or through the tenant
+administration API; ordinary inactive-tenant login is not a recovery path.
+Authentication and both password-change operations return `TenantInactive` for
+inactive, deleted, or unavailable tenants without changing user login/password
+state. Active-tenant login and forced initial-password replacement remain intact.
+This branch
 composes maintenance in `MainWindow.OnMainDataRequested` using `TenantFor` and the
 `MainDataViewModel` service constructor; it has no separate desktop factory helper.
 

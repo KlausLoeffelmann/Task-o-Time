@@ -66,6 +66,13 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void SaveTenant()
         {
+            if (SelectedTenant.IsActive && !TenantActive
+                && !Interaction.Confirm(
+                    "Deactivating this tenant is saved to the database and prevents sign-in. "
+                    + "Closing this maintenance window will end your session. Reactivation requires an authorized "
+                    + "administrator using this window before closing it or the tenant administration API. Continue?",
+                    "Deactivate tenant"))
+                return;
             var saved = ServiceWorkspace.Require(Store.AdminService.UpdateTenant(new UpdateTenantRequest
             {
                 IdTenant = SelectedTenant.IdTenant, IdActingUser = Store.ActingUserId,
