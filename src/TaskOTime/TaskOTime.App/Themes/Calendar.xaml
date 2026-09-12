@@ -43,6 +43,11 @@
                             <Setter Property="Foreground" Value="{DynamicResource SelectedForegroundBrush}" />
                             <Setter Property="BorderBrush" Value="{DynamicResource ListItemSelectedBorderBrush}" />
                         </Trigger>
+                        <Trigger Property="IsHighlighted" Value="True">
+                            <Setter Property="Background" Value="{DynamicResource ListItemSelectedBackgroundBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource SelectedForegroundBrush}" />
+                            <Setter Property="BorderBrush" Value="{DynamicResource ListItemSelectedBorderBrush}" />
+                        </Trigger>
                         <Trigger Property="IsBlackedOut" Value="True">
                             <Setter TargetName="BlackoutMark" Property="Visibility" Value="Visible" />
                         </Trigger>
@@ -139,14 +144,15 @@
         <Setter Property="Template">
             <Setter.Value>
                 <ControlTemplate TargetType="{x:Type CalendarItem}">
+                    <ControlTemplate.Resources>
+                        <!-- CalendarItem resolves weekday titles from its template's resource dictionary. -->
+                        <DataTemplate x:Key="{x:Static CalendarItem.DayTitleTemplateResourceKey}">
+                            <TextBlock Text="{Binding}" HorizontalAlignment="Center" Margin="0,3"
+                                       Foreground="{DynamicResource ContentForegroundBrush}" />
+                        </DataTemplate>
+                    </ControlTemplate.Resources>
                     <!-- CalendarItem populates these named grids and wires navigation itself. -->
                     <Grid x:Name="PART_Root">
-                        <Grid.Resources>
-                            <DataTemplate x:Key="{x:Static CalendarItem.DayTitleTemplateResourceKey}">
-                                <TextBlock Text="{Binding}" HorizontalAlignment="Center" Margin="0,3"
-                                           Foreground="{DynamicResource ContentForegroundBrush}" />
-                            </DataTemplate>
-                        </Grid.Resources>
                         <Border Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}" Padding="3">
                             <Grid>

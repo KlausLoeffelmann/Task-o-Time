@@ -9,6 +9,8 @@ Namespace TaskOTime.Theme.Tests
     Public Class ThemeProcessTests
         <DataTestMethod>
         <DataRow("calendar-states")>
+        <DataRow("calendar-weekday-headers")>
+        <DataRow("calendar-range-preview")>
         <DataRow("control-states")>
         <DataRow("list-tab-states")>
         <DataRow("runtime-preferences")>

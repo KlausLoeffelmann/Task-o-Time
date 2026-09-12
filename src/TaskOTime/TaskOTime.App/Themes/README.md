@@ -82,6 +82,9 @@ its existing `SelectedDate` binding (and any range, culture, or selection-mode
 settings). The style does not assign dates or replace the calendar control.
 Month/year/decade grids, navigation parts, blackout markers, date automation,
 today highlighting, and keyboard focus indicators are retained.
+The weekday title template is scoped to `ControlTemplate.Resources`, where
+CalendarItem resolves it. Committed selection and pending range highlighting
+share the selected brush pair; disabled foreground/background take precedence.
 
 Use `MainDataTextStyle` for reading text on panels, not text inside selected
 list/tab/button content. Content inside stateful controls should inherit
@@ -95,7 +98,12 @@ Applications adding a custom ViewBase must theme its custom surfaces explicitly.
 `TaskOTime.Theme.TestHost` contains the real WPF scenarios. They
 instantiate production templates, exercise two-way date selection and navigation,
 resolve state brushes, check contrast, edit text, open a combo popup, switch tabs,
-and change live process-local high-contrast resources. Mouse/focus state triggers
+and change live process-local high-contrast resources. Weekday coverage verifies
+seven visible, correctly ordered labels for en-US, de-DE, nl-NL, and es-ES calendars
+across all palettes. Range coverage seeds WPF's native pending hover endpoints,
+checks its generated `IsHighlighted` buttons before dates are committed, and
+verifies reversed ranges, hover/disabled precedence, and committed selection.
+Mouse/focus state triggers
 are driven through WPF dependency-property keys to avoid moving the user's cursor
 or keyboard focus. They do not change machine settings. An additional scenario
 hosts the real MainDataWindow with production ViewModels and test service data,
@@ -118,7 +126,8 @@ dotnet test .\TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj
 .\TaskOTime.Theme.TestHost\bin\Debug\net472\TaskOTime.Theme.TestHost.exe --case main-window
 ```
 
-Accepted cases are `calendar-states`, `control-states`, `list-tab-states`,
+Accepted cases are `calendar-states`, `calendar-weekday-headers`,
+`calendar-range-preview`, `control-states`, `list-tab-states`,
 `runtime-preferences`, `maintenance-views`, `main-window`, and
 `application-lifetime`. `self-test-failure` deliberately fails an assertion for
 the runner's error-path check. Missing, unknown, or additional arguments return

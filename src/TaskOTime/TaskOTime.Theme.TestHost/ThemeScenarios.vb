@@ -1,5 +1,6 @@
 Imports System
 Imports System.Collections.Generic
+Imports CultureInfo = System.Globalization.CultureInfo
 Imports System.Linq
 Imports System.Reflection
 Imports System.Threading
@@ -10,6 +11,7 @@ Imports System.Windows.Controls
 Imports System.Windows.Controls.Primitives
 Imports System.Windows.Data
 Imports System.Windows.Media
+Imports System.Windows.Markup
 Imports System.Windows.Shapes
 Imports System.Windows.Threading
 Imports Microsoft.VisualStudio.TestTools.UnitTesting
@@ -128,6 +130,124 @@ Namespace TaskOTime.Theme.TestHost
                         AssertPair(today, "DisabledForegroundBrush", "DisabledBackgroundBrush")
                     End Using
                 End Sub)
+        End Sub
+
+        Public Sub CalendarWeekdayHeaders_RenderSevenLocalizedLabelsAcrossPalettes()
+            OnSta(
+                Sub()
+                    Using host As New ThemeHost()
+                        host.UseContrastScheme()
+                        host.Show()
+                        For Each cultureName In {"en-US", "de-DE", "nl-NL", "es-ES"}
+                            Dim culture = CultureInfo.GetCultureInfo(cultureName)
+                            Dim calendar As New Calendar With {
+                                .DisplayDate = New DateTime(2026, 6, 15),
+                                .Language = XmlLanguage.GetLanguage(cultureName),
+                                .FirstDayOfWeek = culture.DateTimeFormat.FirstDayOfWeek}
+                            host.Panel.Children.Add(calendar)
+                            calendar.SetResourceReference(FrameworkElement.StyleProperty, "ThemedCalendarStyle")
+                            For Each palette In {AppTheme.Dark, AppTheme.Light, AppTheme.HighContrast}
+                                host.Service.SetTheme(palette)
+                                host.Layout()
+                                Dim item = Descendants(Of CalendarItem)(calendar).Single()
+                                Dim month = DirectCast(item.Template.FindName("PART_MonthView", item), Grid)
+                                Dim headers = month.Children.Cast(Of FrameworkElement)().
+                                    Where(Function(child) Grid.GetRow(child) = 0).
+                                    OrderBy(Function(child) Grid.GetColumn(child)).ToList()
+                                Assert.AreEqual(7, headers.Count)
+                                For column = 0 To 6
+                                    Dim header = headers(column)
+                                    Dim labels = If(TypeOf header Is TextBlock,
+                                        New List(Of TextBlock) From {DirectCast(header, TextBlock)},
+                                        Descendants(Of TextBlock)(header).ToList())
+                                    Assert.AreEqual(1, labels.Count, cultureName & ": missing rendered weekday in column " & column)
+                                    Dim label = labels.Single()
+                                    Dim dayIndex = (CInt(calendar.FirstDayOfWeek) + column) Mod 7
+                                    Assert.AreEqual(culture.DateTimeFormat.ShortestDayNames(dayIndex), label.Text, cultureName)
+                                    Assert.IsTrue(label.IsVisible AndAlso label.ActualWidth > 0 AndAlso label.ActualHeight > 0)
+                                    AssertBrush(label.Foreground, calendar.FindResource("ContentForegroundBrush"))
+                                    Assert.IsTrue(Contrast(label.Foreground, PaintedBackground(label)) >= 4.5)
+                                Next
+                            Next
+                            host.Panel.Children.Remove(calendar)
+                        Next
+                    End Using
+                End Sub)
+        End Sub
+
+        Public Sub CalendarRangePreview_UsesNativePendingHighlightBeforeCommit()
+            OnSta(
+                Sub()
+                    Using host As New ThemeHost()
+                        Dim first = New DateTime(2026, 6, 15)
+                        Dim last = first.AddDays(3)
+                        Dim calendar As New Calendar With {
+                            .DisplayDate = first, .SelectionMode = CalendarSelectionMode.SingleRange}
+                        host.Panel.Children.Add(calendar)
+                        calendar.SetResourceReference(FrameworkElement.StyleProperty, "ThemedCalendarStyle")
+                        host.UseContrastScheme()
+                        host.Show()
+                        For Each palette In {AppTheme.Dark, AppTheme.Light, AppTheme.HighContrast}
+                            host.Service.SetTheme(palette)
+                            For Each reverse In {False, True}
+                                calendar.SelectedDates.Clear()
+                                SetNativeHoverRange(calendar, If(reverse, last, first), If(reverse, first, last))
+                                host.Layout()
+                                Assert.AreEqual(0, calendar.SelectedDates.Count, "Preview must not commit the selected range.")
+                                Dim preview = Descendants(Of CalendarDayButton)(calendar).
+                                    Where(Function(day) day.IsHighlighted).ToList()
+                                Assert.AreEqual(4, preview.Count, "Native range preview must include both endpoints.")
+                                For Each day As CalendarDayButton In preview
+                                    Assert.IsFalse(day.IsSelected, "This must exercise pending, not committed, selection.")
+                                    Assert.IsTrue(DirectCast(day.DataContext, DateTime) >= first AndAlso
+                                                  DirectCast(day.DataContext, DateTime) <= last)
+                                    AssertPreviewPair(day, "SelectedForegroundBrush", "ListItemSelectedBackgroundBrush")
+                                Next
+                                Dim hovered = preview.Last()
+                                SetState(hovered, "IsMouseOver", True)
+                                AssertPreviewPair(hovered, "SelectedForegroundBrush", "ListItemSelectedBackgroundBrush")
+                                hovered.IsEnabled = False
+                                AssertPreviewPair(hovered, "DisabledForegroundBrush", "DisabledBackgroundBrush")
+                                hovered.IsEnabled = True
+                                SetState(hovered, "IsMouseOver", False)
+                                AssertPreviewPair(hovered, "SelectedForegroundBrush", "ListItemSelectedBackgroundBrush")
+                                calendar.SelectedDates.AddRange(first, last)
+                                SetNativeHoverRange(calendar, Nothing, Nothing)
+                                host.Layout()
+                                Assert.AreEqual(4, calendar.SelectedDates.Count)
+                                For Each day As CalendarDayButton In preview
+                                    Assert.IsTrue(day.IsSelected)
+                                    Assert.IsFalse(day.IsHighlighted)
+                                    AssertPreviewPair(day, "SelectedForegroundBrush", "ListItemSelectedBackgroundBrush")
+                                Next
+                            Next
+                        Next
+                    End Using
+                End Sub)
+        End Sub
+
+        Private Shared Sub SetNativeHoverRange(calendar As Calendar, first As DateTime?, last As DateTime?)
+            ' Seed the same pending range as native drag handling, without capturing the user's mouse.
+            ' WPF computes IsHighlighted on its generated buttons; the test never assigns that state.
+            Dim flags = BindingFlags.Instance Or BindingFlags.NonPublic
+            Dim startProperty = GetType(Calendar).GetProperty("HoverStart", flags)
+            Dim endProperty = GetType(Calendar).GetProperty("HoverEnd", flags)
+            Dim refresh = GetType(Calendar).GetMethod("UpdateCellItems", flags)
+            Assert.IsNotNull(startProperty)
+            Assert.IsNotNull(endProperty)
+            Assert.IsNotNull(refresh)
+            startProperty.SetValue(calendar, first)
+            endProperty.SetValue(calendar, last)
+            refresh.Invoke(calendar, Nothing)
+        End Sub
+
+        Private Shared Sub AssertPreviewPair(day As CalendarDayButton, foreground As String, background As String)
+            AssertPair(day, foreground, background)
+            Dim border = DirectCast(day.Template.FindName("DayBorder", day), Border)
+            AssertBrush(border.Background, day.FindResource(background))
+            Dim label = Descendants(Of TextBlock)(day).Single()
+            AssertBrush(label.Foreground, day.FindResource(foreground))
+            Assert.IsTrue(Contrast(label.Foreground, border.Background) >= 4.5)
         End Sub
 
         Public Sub MainDataStyles_KeepReadingPairsFocusDisabledAndEditingBehaviorAcrossLivePalettes()

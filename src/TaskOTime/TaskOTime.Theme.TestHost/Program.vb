@@ -9,6 +9,8 @@ Namespace TaskOTime.Theme.TestHost
             Dim scenarios As New ThemeScenarios()
             Dim cases As New Dictionary(Of String, Action)(StringComparer.Ordinal) From {
                 {"calendar-states", AddressOf scenarios.CalendarPalettes_ResolveStateBrushesAndPreserveSelectionNavigationAndBlackout},
+                {"calendar-weekday-headers", AddressOf scenarios.CalendarWeekdayHeaders_RenderSevenLocalizedLabelsAcrossPalettes},
+                {"calendar-range-preview", AddressOf scenarios.CalendarRangePreview_UsesNativePendingHighlightBeforeCommit},
                 {"control-states", AddressOf scenarios.MainDataStyles_KeepReadingPairsFocusDisabledAndEditingBehaviorAcrossLivePalettes},
                 {"list-tab-states", AddressOf scenarios.SharedListAndTabStyles_PreserveContentSelectionAndLiveContrastSchemeChanges},
                 {"runtime-preferences", AddressOf scenarios.ThemeService_ObservesProcessPreferencesOnDispatcherAndHighContrastAlwaysWins},
