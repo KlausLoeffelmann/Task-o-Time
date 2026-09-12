@@ -121,7 +121,7 @@
     "applicationBinarySourceCommit": "d157288c55c49a8b3eae8fac2691b5e8632a6823",
     "inputCommit": "307ecf3acbf38910b73f0e19caf665810b4ccc2a",
     "toolCommit": "fffdd73",
-    "replayVerificationToolCommit": "10ce5fd",
+    "replayVerificationToolCommit": "dc92172",
     "operations": [
       "prepare-net10",
       "retarget --framework net10.0 --wpf-framework net10.0-windows"
@@ -160,7 +160,7 @@
     "desktopVisualRun": false,
     "applicationStageAccepted": true,
     "formalToolReplayAccepted": false,
-    "reusableToolReview": "Separate acceptance remains pending: metadata-copy removal must prove producer reachability. No demonstrated failure in this candidate.",
+    "reusableToolReview": "Independent review findings resolved in dc92172; all 16 migration scenarios passed in parent verification. Formal isolated replay remains separate.",
     "goldenIdealAccepted": false
   }
 }
