@@ -23,7 +23,7 @@ namespace TaskOTime.ViewModel.ViewModels
             Projects = new ProjectViewModel(store, interaction);
             Tasks = new MasterTaskViewModel(store, interaction);
             Collaboration = new CollaborationViewModel(store, interaction);
-            SelectedTab = tab;
+            SelectedTab = store.Tenant.IsActive ? tab : 0;
             AboutCommand = new DelegateCommand(() => interaction.Notify("Main Data maintenance", "Task-o-Time"));
         }
 

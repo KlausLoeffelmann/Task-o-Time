@@ -218,6 +218,41 @@ namespace TaskOTime.Localization.Tests
             }
         });
 
+        [TestMethod]
+        public void InactiveTenantErrorsAreLocalizedForSignInAndForcedPasswordChange() => OnUi(() =>
+        {
+            var service = new AuthenticationStub { TenantInactive = true };
+            var login = new LoginViewModel(service);
+            Assert.IsFalse(login.Login("user", "password"));
+            var expected = new[]
+            {
+                ("en", "The tenant is inactive, deleted, or unavailable."),
+                ("de", "Der Mandant ist inaktiv, gelöscht oder nicht verfügbar."),
+                ("nl", "De tenant is inactief, verwijderd of niet beschikbaar."),
+                ("es", "El cliente está inactivo, eliminado o no disponible.")
+            };
+            foreach (var pair in expected)
+            {
+                Localizer.SetCulture(pair.Item1);
+                Assert.AreEqual("TenantInactive: " + pair.Item2, login.ErrorMessage);
+                Assert.IsNull(login.Session);
+            }
+            Assert.AreEqual(1, service.Calls);
+            service.TenantInactive = false;
+            service.RequireChange = true;
+            Assert.IsFalse(login.Login("user", "temporary"));
+            Assert.IsTrue(login.MustChangePassword);
+            service.TenantInactive = true;
+            Assert.IsFalse(login.ChangeTemporaryPassword("temporary", "new"));
+            foreach (var pair in expected)
+            {
+                Localizer.SetCulture(pair.Item1);
+                Assert.AreEqual("TenantInactive: " + pair.Item2, login.ErrorMessage);
+                Assert.IsNull(login.Session);
+                Assert.IsTrue(login.MustChangePassword);
+            }
+        });
+
         private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
         {
             yield return root;
@@ -435,10 +470,13 @@ namespace TaskOTime.Localization.Tests
         {
             public int Calls;
             public bool RequireChange;
+            public bool TenantInactive;
             private bool changed;
             public ServiceResult<AuthenticationResult> Authenticate(AuthenticateUserRequest request)
             {
                 Calls++;
+                if (TenantInactive)
+                    return ServiceResult<AuthenticationResult>.Fail("TenantInactive", "Untranslated service diagnostic");
                 return RequireChange || changed
                     ? ServiceResult<AuthenticationResult>.Ok(new AuthenticationResult
                     {
@@ -449,6 +487,8 @@ namespace TaskOTime.Localization.Tests
             }
             public ServiceResult<TenantUserDto> ChangeTemporaryPassword(Guid tenant, Guid user, string temporary, string password)
             {
+                if (TenantInactive)
+                    return ServiceResult<TenantUserDto>.Fail("TenantInactive", "Untranslated service diagnostic");
                 changed = true;
                 return ServiceResult<TenantUserDto>.Ok(new TenantUserDto());
             }

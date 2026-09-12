@@ -142,6 +142,15 @@ Task lists use the explicitly selected project. Category, tag, note, web-link,
 and task deletion retain their existing hard-delete behavior. Activity log edits
 remain local to the workspace.
 
+Collaboration quick-create validates the existing SQL field limits: category names
+up to 50 characters, tags up to 30, and note text up to 4,000. A note's required
+mnemonic is derived from its first line, limited to 100 UTF-16 code units without
+splitting a surrogate pair; its full text is preserved. Web links must be absolute,
+well-formed HTTP/HTTPS URLs without embedded credentials. Their normalized URL is
+limited to 2,000 characters and host to 200; the required domain comes from the URL
+host, and a display title is derived from the first 100 code units. Invalid input
+is reported without clearing the draft or invoking a mutation.
+
 Maintenance mutation commands require an active, non-deleted administrator.
 Server-side Main Data authorization remains authoritative. Create-user fields
 include a temporary password, which is cleared after successful creation; the
@@ -156,9 +165,26 @@ duplicate names. The workspace adopts the service result, and reopening it reads
 the tenant through the authorized `GetTenant` API rather than a cached DTO.
 
 An active administrator may reactivate an inactive tenant using this dedicated
-operation. While the tenant is inactive, other maintenance mutations are disabled.
+operation. Recreating the maintenance model for an existing administrator first
+reads the authorized tenant state, even if its caller supplies a stale active DTO.
+An inactive tenant opens on the tenant tab with no normal Main Data collections
+loaded; users remain readable, but only tenant updates are enabled. Normal Main
+Data authorization is not relaxed. Reactivation reloads all collections before
+enabling normal mutations. If reload fails, the saved tenant remains visible,
+the error is reported, and another tenant save retries the load.
+
 Closing maintenance with the tenant still inactive ends the desktop session
 instead of attempting further project/booking queries for that tenant.
+Deactivation requires confirmation explaining that the change is persistent,
+blocks sign-in, and ends the session when maintenance closes. Reactivation remains
+available to authorized administrators before closing or through the tenant
+administration API; ordinary inactive-tenant login is not a recovery path.
+Authentication and both password-change operations return `TenantInactive` for
+inactive, deleted, or unavailable tenants without changing user login/password
+state. Active-tenant login and forced initial-password replacement remain intact.
+This branch
+composes maintenance in `MainWindow.OnMainDataRequested` using `TenantFor` and the
+`MainDataViewModel` service constructor; it has no separate desktop factory helper.
 
 Application API types use `MainData` (for example `IAdminMainDataService`).
 SQL table names, EF mappings, and persisted identifiers are unchanged.

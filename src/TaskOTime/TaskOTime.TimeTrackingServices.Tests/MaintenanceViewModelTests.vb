@@ -238,6 +238,41 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Assert.AreEqual(2, f.Interaction.Messages.Count)
         End Sub
 
+        <DataTestMethod>
+        <DataRow(0, 51)>
+        <DataRow(1, 31)>
+        <DataRow(2, 4001)>
+        <DataRow(3, 2001)>
+        Public Sub Collaboration_RejectsOverlengthValuesWithoutMutation(tab As Integer, length As Integer)
+            Dim f As New Fixture()
+            Dim vm = f.Main.Collaboration
+            Dim value = New String("x"c, length)
+            If tab = 3 Then
+                Dim prefix = "https://example.invalid/"
+                value = prefix & New String("x"c, length - prefix.Length)
+            End If
+            vm.SelectedTab = tab
+            vm.QuickValue = value
+            vm.AddCommand.Execute(Nothing)
+            Assert.AreEqual(0, f.Services.MutationCalls)
+            Assert.AreEqual(value, vm.QuickValue)
+            StringAssert.Contains(f.Interaction.Messages.Single(), "cannot exceed")
+        End Sub
+
+        <TestMethod>
+        Public Sub Collaboration_RejectsOverlengthDomainWithoutMutation()
+            Dim f As New Fixture()
+            Dim vm = f.Main.Collaboration
+            Dim host = New String("a"c, 63) & "." & New String("b"c, 63) & "." & New String("c"c, 63) & ".example.invalid"
+            vm.SelectedTab = 3
+            vm.QuickValue = "https://" & host & "/"
+            Dim value = vm.QuickValue
+            vm.AddCommand.Execute(Nothing)
+            Assert.AreEqual(0, f.Services.MutationCalls)
+            Assert.AreEqual(value, vm.QuickValue)
+            StringAssert.Contains(f.Interaction.Messages.Single(), "host cannot exceed 200")
+        End Sub
+
         <TestMethod>
         Public Sub TenantUsers_SaveTenantCreateWithPasswordAndConfirmDelete()
             Dim f As New Fixture()
@@ -317,6 +352,33 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             vm.SaveTenantCommand.Execute(Nothing)
             Assert.IsTrue(f.Services.Tenant.IsActive)
             Assert.IsTrue(f.Main.Projects.NewCommand.CanExecute(Nothing))
+        End Sub
+
+        <TestMethod>
+        Public Sub ReactivationLoadFailure_KeepsSavedTenantButDisablesNormalCommandsUntilRetry()
+            Dim f As New Fixture()
+            Dim staleTenant = f.Store.Tenant
+            f.Main.TenantUsers.TenantActive = False
+            f.Main.TenantUsers.SaveTenantCommand.Execute(Nothing)
+            f.Services.FailMainDataReads = True
+            Dim reopened = New MainDataViewModel(staleTenant, f.Services.ActingUserId,
+                f.Services, f.Services, f.Services, 1, f.Interaction)
+            Assert.AreEqual(0, reopened.SelectedTab)
+            Assert.IsFalse(reopened.Tenant.IsActive)
+            reopened.TenantUsers.TenantActive = True
+            reopened.TenantUsers.SaveTenantCommand.Execute(Nothing)
+            Assert.IsTrue(reopened.Tenant.IsActive)
+            Assert.AreSame(reopened.Tenant, reopened.TenantUsers.SelectedTenant)
+            Assert.IsFalse(reopened.Projects.NewCommand.CanExecute(Nothing))
+            Assert.AreEqual(0, reopened.Projects.Projects.Count)
+            StringAssert.Contains(f.Interaction.Messages.Last(), "TestReadFailure")
+            f.Services.FailMainDataReads = False
+            reopened.TenantUsers.SaveTenantCommand.Execute(Nothing)
+            Assert.IsTrue(reopened.Projects.NewCommand.CanExecute(Nothing))
+            Assert.AreEqual(2, reopened.Projects.Projects.Count)
+            Assert.IsNotNull(reopened.Projects.SelectedProject)
+            Assert.IsNotNull(reopened.Tasks.SelectedList)
+            Assert.IsNotNull(reopened.Tasks.SelectedTask)
         End Sub
 
         <TestMethod>

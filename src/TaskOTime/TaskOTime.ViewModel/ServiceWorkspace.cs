@@ -22,25 +22,26 @@ namespace TaskOTime.ViewModel
                 throw new ArgumentNullException(nameof(userService));
             if (timeBookingService is null)
                 throw new ArgumentNullException(nameof(timeBookingService));
-            Tenant = tenant;
             ActingUserId = actingUserId;
             AdminService = adminService;
             UserService = userService;
             TimeBookingService = timeBookingService;
 
-            Tenants.Add(tenant);
-            Replace(Users, Require(userService.GetTenantUsers(tenant.IdTenant), "Load users"));
-            var query = new MainDataQueryRequest() { IdTenant = tenant.IdTenant, IdActingUser = actingUserId };
-            Replace(Projects, Require(adminService.GetProjects(query), "Load projects"));
-            Replace(TaskLists, Require(adminService.GetTaskLists(query), "Load task lists"));
-            Replace(Tasks, Require(adminService.GetTaskItems(query), "Load tasks"));
-            Replace(Categories, Require(adminService.GetCategories(query), "Load categories"));
-            Replace(Tags, Require(adminService.GetTags(query), "Load tags"));
-            Replace(Notes, Require(adminService.GetNotes(query), "Load notes"));
-            Replace(WebLinks, Require(adminService.GetWebLinks(query), "Load web links"));
-            Logs.Add("Main Data loaded from the configured service.");
+            Tenant = Require(adminService.GetTenant(new GetTenantRequest
+            {
+                IdTenant = tenant.IdTenant, IdActingUser = actingUserId
+            }), "Load tenant");
+            Tenants.Add(Tenant);
+            Replace(Users, Require(userService.GetTenantUsers(Tenant.IdTenant), "Load users"));
+            ReloadMainData();
         }
 
+        private bool _isMainDataLoaded;
+        public bool IsMainDataLoaded
+        {
+            get => _isMainDataLoaded;
+            private set => SetProperty(ref _isMainDataLoaded, value, nameof(IsMainDataLoaded));
+        }
         public TenantDto Tenant { get; private set; }
         public Guid ActingUserId { get; private set; }
         public IAdminMainDataService AdminService { get; private set; }
@@ -53,7 +54,50 @@ namespace TaskOTime.ViewModel
             var index = Tenants.IndexOf(Tenant);
             Tenant = tenant;
             Tenants[index] = tenant;
+            if (!tenant.IsActive) ClearMainData();
             OnPropertyChanged(nameof(Tenant));
+        }
+
+        public void ReloadMainData()
+        {
+            if (!Tenant.IsActive)
+            {
+                ClearMainData();
+                Logs.Add("Tenant is inactive. Only tenant administration is available.");
+                return;
+            }
+            if (IsMainDataLoaded) return;
+
+            var query = Query();
+            // Load the complete snapshot before publishing collections or enabling normal mutations.
+            var projects = Require(AdminService.GetProjects(query), "Load projects");
+            var taskLists = Require(AdminService.GetTaskLists(query), "Load task lists");
+            var tasks = Require(AdminService.GetTaskItems(query), "Load tasks");
+            var categories = Require(AdminService.GetCategories(query), "Load categories");
+            var tags = Require(AdminService.GetTags(query), "Load tags");
+            var notes = Require(AdminService.GetNotes(query), "Load notes");
+            var webLinks = Require(AdminService.GetWebLinks(query), "Load web links");
+            Replace(Projects, projects);
+            Replace(TaskLists, taskLists);
+            Replace(Tasks, tasks);
+            Replace(Categories, categories);
+            Replace(Tags, tags);
+            Replace(Notes, notes);
+            Replace(WebLinks, webLinks);
+            IsMainDataLoaded = true;
+            Logs.Add("Main Data loaded from the configured service.");
+        }
+
+        private void ClearMainData()
+        {
+            IsMainDataLoaded = false;
+            Projects.Clear();
+            TaskLists.Clear();
+            Tasks.Clear();
+            Categories.Clear();
+            Tags.Clear();
+            Notes.Clear();
+            WebLinks.Clear();
         }
 
         public bool CanManage => Users.Any(user => user.IdUser == ActingUserId

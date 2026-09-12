@@ -524,4 +524,7 @@
   <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
     <value>No se pudo completar la tarea ni restaurar sus registros de tiempo.</value>
   </data>
+  <data name="Login_TenantInactive" xml:space="preserve">
+    <value>El cliente está inactivo, eliminado o no disponible.</value>
+  </data>
 </root>

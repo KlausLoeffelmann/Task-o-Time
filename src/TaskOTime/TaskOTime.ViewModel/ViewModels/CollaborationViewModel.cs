@@ -58,6 +58,7 @@ namespace TaskOTime.ViewModel.ViewModels
             switch (SelectedTab)
             {
                 case 0:
+                    RequireLength(value, 50, "Category name");
                     var category = ServiceWorkspace.Require(Store.AdminService.CreateCategory(new SaveCategoryRequest
                     {
                         IdTenant = tenant, IdActingUser = user,
@@ -67,6 +68,7 @@ namespace TaskOTime.ViewModel.ViewModels
                     SelectedCategory = category;
                     break;
                 case 1:
+                    RequireLength(value, 30, "Tag");
                     var tag = ServiceWorkspace.Require(Store.AdminService.CreateTag(new SaveTagRequest
                     {
                         IdTenant = tenant, IdActingUser = user,
@@ -76,19 +78,36 @@ namespace TaskOTime.ViewModel.ViewModels
                     SelectedTag = tag;
                     break;
                 case 2:
+                    RequireLength(value, 4000, "Note");
+                    var lineEnd = value.IndexOfAny(new[] { '\r', '\n' });
+                    var mnemonic = Prefix(lineEnd < 0 ? value : value.Substring(0, lineEnd), 100);
                     var note = ServiceWorkspace.Require(Store.AdminService.CreateNote(new SaveNoteRequest
                     {
                         IdTenant = tenant, IdActingUser = user,
-                        Item = new NoteMainDataDto { IdTenant = tenant, IdUser = user, NoteText = value, DateCreated = now, DateModified = now }
+                        Item = new NoteMainDataDto
+                        {
+                            IdTenant = tenant, IdUser = user, NoteMnemonic = mnemonic, NoteText = value,
+                            DateCreated = now, DateModified = now
+                        }
                     }), "Create note");
                     Notes.Add(note);
                     SelectedNote = note;
                     break;
                 case 3:
+                    if (!Uri.TryCreate(value, UriKind.Absolute, out var uri) || !uri.IsWellFormedOriginalString()
+                        || (uri.Scheme != Uri.UriSchemeHttp && uri.Scheme != Uri.UriSchemeHttps)
+                        || string.IsNullOrEmpty(uri.Host) || !string.IsNullOrEmpty(uri.UserInfo))
+                        throw new InvalidOperationException("Enter an absolute HTTP or HTTPS URL with a host and no embedded credentials.");
+                    RequireLength(uri.AbsoluteUri, 2000, "Web link");
+                    RequireLength(uri.IdnHost, 200, "Web link host");
                     var webLink = ServiceWorkspace.Require(Store.AdminService.CreateWebLink(new SaveWebLinkRequest
                     {
                         IdTenant = tenant, IdActingUser = user,
-                        Item = new WebLinkMainDataDto { IdTenant = tenant, IdUser = user, Title = value, Link = value, DateCreated = now, DateModified = now }
+                        Item = new WebLinkMainDataDto
+                        {
+                            IdTenant = tenant, IdUser = user, Title = Prefix(value, 100), Link = uri.AbsoluteUri,
+                            Domain = uri.IdnHost, DateCreated = now, DateModified = now
+                        }
                     }), "Create web link");
                     WebLinks.Add(webLink);
                     SelectedWebLink = webLink;
@@ -100,6 +119,20 @@ namespace TaskOTime.ViewModel.ViewModels
                 default: return;
             }
             QuickValue = "";
+        }
+
+        private static void RequireLength(string value, int maximum, string field)
+        {
+            if (value.Length > maximum)
+                throw new InvalidOperationException(field + " cannot exceed " + maximum + " characters.");
+        }
+
+        private static string Prefix(string value, int maximum)
+        {
+            if (value.Length <= maximum) return value;
+            // Keep derived labels within the UTF-16 schema limit without splitting a surrogate pair.
+            var length = char.IsHighSurrogate(value[maximum - 1]) ? maximum - 1 : maximum;
+            return value.Substring(0, length);
         }
 
         private void DeleteCurrent()

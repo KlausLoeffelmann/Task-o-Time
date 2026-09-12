@@ -524,4 +524,7 @@
   <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
     <value>Het afronden van de taak is mislukt en de boekingen konden niet worden hersteld.</value>
   </data>
+  <data name="Login_TenantInactive" xml:space="preserve">
+    <value>De tenant is inactief, verwijderd of niet beschikbaar.</value>
+  </data>
 </root>

@@ -22,6 +22,12 @@ namespace TaskOTime.ViewModel.ViewModels
             SaveTaskCommand = Command(SaveTask, () => SelectedTask != null);
             DeleteTaskCommand = Command(DeleteTask, () => SelectedList != null && SelectedTask != null);
             Store.Tasks.CollectionChanged += (_, __) => RefreshTasks();
+            TaskLists.CollectionChanged += (_, __) =>
+            {
+                var selectedId = SelectedList?.IdTaskList;
+                SelectedList = TaskLists.FirstOrDefault(list => list.IdTaskList == selectedId)
+                    ?? TaskLists.FirstOrDefault();
+            };
             Store.Projects.CollectionChanged += (_, __) =>
             {
                 var selectedId = SelectedProject?.IdProject;

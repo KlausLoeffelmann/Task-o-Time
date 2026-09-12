@@ -524,4 +524,7 @@
   <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
     <value>Der Aufgabenabschluss ist fehlgeschlagen und die Buchungen konnten nicht wiederhergestellt werden.</value>
   </data>
+  <data name="Login_TenantInactive" xml:space="preserve">
+    <value>Der Mandant ist inaktiv, gelöscht oder nicht verfügbar.</value>
+  </data>
 </root>

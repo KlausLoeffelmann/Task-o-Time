@@ -129,6 +129,7 @@ namespace TaskOTime.ViewModel.ViewModels
                 case "InvalidRequest":
                 case "InvalidCredentials":
                 case "UserInactive":
+                case "TenantInactive":
                 case "UserLockedOut":
                 case "TemporaryPasswordExpired":
                 case "UserNotFound":

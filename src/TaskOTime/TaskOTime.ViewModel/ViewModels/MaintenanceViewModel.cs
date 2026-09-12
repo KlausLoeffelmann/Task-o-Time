@@ -26,7 +26,7 @@ namespace TaskOTime.ViewModel.ViewModels
         private void OnUsersChanged(object sender, NotifyCollectionChangedEventArgs e) => RefreshCommands();
         private void OnWorkspaceChanged(object sender, PropertyChangedEventArgs e) => RefreshCommands();
 
-        public bool CanManage => Store.CanManage && Store.Tenant.IsActive;
+        public bool CanManage => Store.CanManage && Store.Tenant.IsActive && Store.IsMainDataLoaded;
         public string OperationStatusText => _status?.ToString() ?? string.Empty;
 
         protected void SetStatus(string key, params object[] arguments) =>
@@ -57,7 +57,7 @@ namespace TaskOTime.ViewModel.ViewModels
 
         protected DelegateCommand Command(Action action, Func<bool> enabled = null, bool allowInactiveTenant = false)
         {
-            bool CanExecute() => Store.CanManage && (allowInactiveTenant || Store.Tenant.IsActive)
+            bool CanExecute() => Store.CanManage && (allowInactiveTenant || (Store.Tenant.IsActive && Store.IsMainDataLoaded))
                 && (enabled == null || enabled());
             var command = new DelegateCommand(_ =>
             {

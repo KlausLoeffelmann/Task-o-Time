@@ -14,7 +14,7 @@ namespace TaskOTime.AppServer.IntegrationTests
 {
     [TestClass]
     [TestCategory("IsolatedSql")]
-    public sealed class AppServerPersistenceIntegrationTests
+    public sealed partial class AppServerPersistenceIntegrationTests
     {
         private LocalDbPersistenceTestDatabase database;
         private static readonly Guid TenantId = GuidFromSuffix(101);
@@ -221,6 +221,88 @@ namespace TaskOTime.AppServer.IntegrationTests
         }
 
         [TestMethod]
+        public void InactiveTenant_RecreatedMaintenanceModel_ReactivatesAndLoadsAllCollections()
+        {
+            var hasher = new Pbkdf2PasswordHasher();
+            var admin = new AdminMainDataService(database.CreateContext, hasher);
+            var users = new UserAdministrationService(database.CreateContext, hasher);
+            var bookings = new TimeBookingService(database.CreateContext, hasher);
+            SeedProjectCategoryTaskForBookings(hasher);
+            AssertSucceeded(admin.CreateTag(new SaveTagRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new TagMainDataDto { IdUser = AdminUserId, Tag = "Reload tag" }
+            }));
+            AssertSucceeded(admin.CreateNote(new SaveNoteRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new NoteMainDataDto { IdUser = AdminUserId, NoteMnemonic = "Reload", NoteText = "Reload note" }
+            }));
+            AssertSucceeded(admin.CreateWebLink(new SaveWebLinkRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new WebLinkMainDataDto { IdUser = AdminUserId, Title = "Reload link", Link = "https://example.invalid/reload", Domain = "example.invalid" }
+            }));
+            var tenantQuery = new GetTenantRequest { IdTenant = TenantId, IdActingUser = AdminUserId };
+            var staleActiveTenant = AssertSucceeded(admin.GetTenant(tenantQuery));
+            var interaction = new TenantTestInteraction();
+            var firstModel = new MainDataViewModel(staleActiveTenant, AdminUserId, admin, users, bookings, 1, interaction);
+            firstModel.TenantUsers.TenantActive = false;
+            firstModel.TenantUsers.SaveTenantCommand.Execute(null);
+            Assert.IsFalse(firstModel.Tenant.IsActive);
+            Assert.AreEqual(0, firstModel.Projects.Projects.Count);
+            firstModel = null;
+
+            // Recreate through the service constructor, not through the old workspace or its cached DTO.
+            var reopened = new MainDataViewModel(staleActiveTenant, AdminUserId, admin, users, bookings, 1, interaction);
+            Assert.AreEqual(0, reopened.SelectedTab);
+            Assert.IsFalse(reopened.Tenant.IsActive);
+            Assert.AreEqual(0, reopened.Projects.Projects.Count);
+            Assert.AreEqual(0, reopened.Tasks.TaskLists.Count);
+            Assert.AreEqual(0, reopened.Tasks.Tasks.Count);
+            Assert.AreEqual(0, reopened.Collaboration.Categories.Count);
+            Assert.AreEqual(0, reopened.Collaboration.Tags.Count);
+            Assert.AreEqual(0, reopened.Collaboration.Notes.Count);
+            Assert.AreEqual(0, reopened.Collaboration.WebLinks.Count);
+            Assert.IsFalse(reopened.Projects.NewCommand.CanExecute(null));
+            Assert.IsFalse(reopened.Tasks.AddListCommand.CanExecute(null));
+            Assert.IsFalse(reopened.Collaboration.AddCommand.CanExecute(null));
+            Assert.IsTrue(reopened.TenantUsers.SaveTenantCommand.CanExecute(null));
+            Assert.AreEqual("TenantNotFound", admin.GetProjects(Query()).ErrorCode);
+            Assert.IsFalse(admin.CreateProject(new SaveProjectRequest
+            {
+                IdTenant = TenantId,
+                IdActingUser = AdminUserId,
+                Item = new ProjectMainDataDto { ProjectName = "Forbidden while inactive", IsActive = true }
+            }).Success);
+
+            reopened.TenantUsers.TenantActive = true;
+            reopened.TenantUsers.SaveTenantCommand.Execute(null);
+            Assert.AreEqual("Tenant saved.", interaction.Message);
+            Assert.IsTrue(AssertSucceeded(admin.GetTenant(tenantQuery)).IsActive);
+            Assert.AreEqual(ProjectId, reopened.Projects.SelectedProject.IdProject);
+            Assert.AreEqual(TaskListId, reopened.Tasks.SelectedList.IdTaskList);
+            Assert.AreEqual(TaskItemId, reopened.Tasks.SelectedTask.IdTaskItem);
+            Assert.AreEqual(1, reopened.Projects.Projects.Count);
+            Assert.AreEqual(1, reopened.Tasks.TaskLists.Count);
+            Assert.AreEqual(1, reopened.Tasks.Tasks.Count);
+            Assert.AreEqual(1, reopened.Collaboration.Categories.Count);
+            Assert.AreEqual(1, reopened.Collaboration.Tags.Count);
+            Assert.AreEqual(1, reopened.Collaboration.Notes.Count);
+            Assert.AreEqual(1, reopened.Collaboration.WebLinks.Count);
+            Assert.IsTrue(reopened.Tasks.AddListCommand.CanExecute(null));
+            reopened.Tasks.AddListCommand.Execute(null);
+            using (var context = database.CreateContext())
+            {
+                Assert.AreEqual(1, context.Project.Count());
+                Assert.AreEqual(2, context.TaskList.Count());
+            }
+        }
+
+        [TestMethod]
         public void TenantUpdate_ValidatesNameAndPreservesDatabaseOnFailure()
         {
             var service = new AdminMainDataService(database.CreateContext, new Pbkdf2PasswordHasher());
@@ -264,8 +346,14 @@ namespace TaskOTime.AppServer.IntegrationTests
         private sealed class TenantTestInteraction : IMaintenanceInteraction
         {
             public string Message { get; private set; }
+            public string Confirmation { get; private set; }
+            public bool ConfirmResult { get; set; } = true;
             public void Notify(string message, string title) => Message = message;
-            public bool Confirm(string message, string title) => true;
+            public bool Confirm(string message, string title)
+            {
+                Confirmation = message;
+                return ConfirmResult;
+            }
         }
 
         [TestMethod]

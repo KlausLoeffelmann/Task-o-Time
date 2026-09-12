@@ -524,4 +524,7 @@
   <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
     <value>Task completion failed and its bookings could not be restored.</value>
   </data>
+  <data name="Login_TenantInactive" xml:space="preserve">
+    <value>The tenant is inactive, deleted, or unavailable.</value>
+  </data>
 </root>
