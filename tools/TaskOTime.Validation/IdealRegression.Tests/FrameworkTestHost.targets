@@ -1,0 +1,29 @@
+<Project>
+  <PropertyGroup Condition="$([MSBuild]::GetTargetFrameworkIdentifier('$(TargetFramework)')) == '.NETFramework'">
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+  </PropertyGroup>
+
+  <!-- The adapter loads this dependency at runtime, outside RAR's compile-time dependency graph. -->
+  <Target Name="AddFrameworkTestHostBindingRedirect"
+          AfterTargets="ResolveAssemblyReferences"
+          BeforeTargets="_GenerateSuggestedBindingRedirectsCache"
+          Condition="'$(TargetFrameworkIdentifier)' == '.NETFramework' and '$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+      <_FrameworkTestTaskExtensions Include="@(ReferenceCopyLocalPaths)"
+          Condition="'%(Filename)' == 'System.Threading.Tasks.Extensions' and '%(Extension)' == '.dll'" />
+      <_ExistingTaskExtensionsRedirect Include="@(SuggestedBindingRedirects)"
+          Condition="$([System.String]::Copy('%(Identity)').StartsWith('System.Threading.Tasks.Extensions,'))" />
+    </ItemGroup>
+    <Error Condition="'@(_FrameworkTestTaskExtensions->Count())' != '1'"
+           Text="Framework test-host binding requires exactly one resolved System.Threading.Tasks.Extensions runtime assembly." />
+    <GetAssemblyIdentity AssemblyFiles="@(_FrameworkTestTaskExtensions)">
+      <Output TaskParameter="Assemblies" ItemName="_FrameworkTestTaskExtensionsIdentity" />
+    </GetAssemblyIdentity>
+    <ItemGroup Condition="'@(_ExistingTaskExtensionsRedirect)' == ''">
+      <SuggestedBindingRedirects Include="@(_FrameworkTestTaskExtensionsIdentity)">
+        <MaxVersion>%(_FrameworkTestTaskExtensionsIdentity.Version)</MaxVersion>
+      </SuggestedBindingRedirects>
+    </ItemGroup>
+  </Target>
+</Project>

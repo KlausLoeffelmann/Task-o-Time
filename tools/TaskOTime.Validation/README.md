@@ -167,15 +167,36 @@ timeouts and verified cleanup. This does **not** establish .NET 10 acceptance.
 After the runtime stage, use its matching `ValidationFramework` and preserve
 production project references rather than source-linking duplicate service types.
 
-The private correctness project also compiles against both APIs. Its five tests
-passed against the integrated Framework root after an **artifact-only test-host**
-binding redirect: the copied output contains `System.Threading.Tasks.Extensions`
-assembly 4.2.4.0, while MSTest requests 4.2.0.1. The copied
-`IdealRegression.Tests.dll.config` redirected versions 0.0.0.0–4.2.4.0 to 4.2.4.0.
-No production configuration/dependencies were changed. Initial zero-test discovery
-was rejected, not counted as a pass. This Framework test-host compatibility step
-must be retained for equivalent Framework reruns; do not assume the .NET 10 host
-needs the same redirect. Always verify actual discovery/execution counts.
+The private correctness project also compiles against both APIs. Framework
+test-host configuration is generated reproducibly by
+`IdealRegression.Tests\FrameworkTestHost.targets`; no copied-config edit or
+package upgrade is required:
+
+- `AutoGenerateBindingRedirects` and `GenerateBindingRedirectsOutputType` are
+  enabled for Framework. Those switches alone do not cover the MSTest adapter's
+  runtime-only `System.Threading.Tasks.Extensions` dependency.
+- After reference resolution, the target reads the identity of the single
+  resolved copy-local DLL and supplies a missing `SuggestedBindingRedirects`
+  entry to the standard MSBuild generator. Existing SDK suggestions are retained.
+- The SDK generates, copies and incrementally tracks `IdealRegression.Tests.dll.config`
+  normally. Its redirect follows the resolved assembly version, not a hard-coded
+  package version (integrated Framework currently resolves assembly 4.2.4.0;
+  the original baseline resolves 4.2.0.1).
+- The custom target is inactive for .NET 10; production configuration and
+  dependencies are untouched.
+
+From a Framework tooling root, the normal command restores/builds and runs all
+five unchanged assertions:
+
+```powershell
+dotnet test .\IdealRegression.Tests\IdealRegression.Tests.csproj --nologo --verbosity minimal
+```
+
+The clean-build verification used a private source snapshot of the committed
+Framework integration revision `0dbc123`, because the parent worktree was
+undergoing its .NET 10 merge. All five tests were discovered and passed without
+editing generated files. Initial zero-test discovery during investigation was
+rejected, not counted as a pass. Always verify actual discovery/execution counts.
 
 ## .NET 10 Windows STA smoke
 
