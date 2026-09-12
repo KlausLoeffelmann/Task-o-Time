@@ -335,7 +335,7 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (!e.Task.StartedAt.HasValue)
                     throw new InvalidOperationException("Die Aufgabe hat keine Startzeit.");
-                TimeCollection.RecordTask(e.Task, e.Task.StartedAt.Value, e.CompletedAt, true);
+                e.RollbackBooking = TimeCollection.RecordTaskWithCompensation(e.Task, e.Task.StartedAt.Value, e.CompletedAt, true);
                 SelectedDate = e.Task.StartedAt.Value.Date;
                 return;
             }
@@ -360,7 +360,7 @@ namespace TaskOTime.ViewModel.ViewModels
                 startTime = SelectedDate.Add(start);
             }
             var endTime = startTime.Add(duration);
-            TimeCollection.RecordTask(e.Task, startTime, endTime);
+            e.RollbackBooking = TimeCollection.RecordTaskWithCompensation(e.Task, startTime, endTime);
             SelectedDate = startTime.Date;
         }
 

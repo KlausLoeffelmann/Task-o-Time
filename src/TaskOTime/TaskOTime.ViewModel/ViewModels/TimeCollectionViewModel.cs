@@ -759,6 +759,25 @@ TimeEntryCreated?.Invoke(this, new TimeEntryCreatedEventArgs(edited.EntryTime, t
             RefreshEntries(startSeed.IdTimeItem);
         }
 
+        internal Action RecordTaskWithCompensation(TaskItemViewModel task, DateTime startTime, DateTime endTime, bool useExistingBoundary = false)
+        {
+            var date = startTime.Date;
+            BookingDate = date;
+            var original = GetOrCreateSeeds(date).Select(seed => seed.Copy()).ToArray();
+            var originalIds = new HashSet<Guid>(original.Select(seed => seed.IdTimeItem));
+            var selectedId = SelectedEntry?.IDTimeItem;
+            RecordTask(task, startTime, endTime, useExistingBoundary);
+            var changedIds = GetOrCreateSeeds(date)
+                .Where(seed => !originalIds.Contains(seed.IdTimeItem) || seed.EntryTime == startTime)
+                .Select(seed => seed.IdTimeItem).ToArray();
+            return () =>
+            {
+                BookingDate = date;
+                RestoreSeeds(original, changedIds);
+                RefreshEntries(selectedId);
+            };
+        }
+
         private void RestoreSeeds(TimeEntrySeed[] original, params Guid[] changedIds)
         {
             if (_service is null)
