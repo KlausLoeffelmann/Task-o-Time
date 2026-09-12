@@ -45,6 +45,13 @@ The prepared contract includes `Project_Heading`, `Project_Name`,
 `Project_ServiceError`, and `Project_Failed` (one diagnostic argument).
 After merging the MVVM packet, wire its Project labels/status to these keys
 and extend the STA test to the actual rewritten Project view.
+The finalized MVVM workflow additionally uses `Project_NewName`,
+`Project_CreateOperation`, `Project_SaveOperation`, `Project_ArchiveOperation`,
+`Project_NotificationTitle`, `Project_ArchiveTitle`, and `Common_ServiceError`.
+Keep the new project's persisted identifier `NEW` invariant; it is not a
+translated label. When merging, derive `MaintenanceViewModel` from
+`LocalizedViewModelBase` and notify `AssignmentText` from Project culture
+changes without introducing view dependencies.
 Other maintenance and placeholder report dialogs are outside this scope.
 
 Run localization resource, fallback, options, parsing, weak-subscription, and

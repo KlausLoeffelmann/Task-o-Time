@@ -488,4 +488,25 @@
   <data name="Project_Failed" xml:space="preserve">
     <value>De projectbewerking is mislukt: {0}</value>
   </data>
+  <data name="Project_NewName" xml:space="preserve">
+    <value>Nieuw project</value>
+  </data>
+  <data name="Project_CreateOperation" xml:space="preserve">
+    <value>Project aanmaken</value>
+  </data>
+  <data name="Project_SaveOperation" xml:space="preserve">
+    <value>Project opslaan</value>
+  </data>
+  <data name="Project_ArchiveOperation" xml:space="preserve">
+    <value>Project archiveren</value>
+  </data>
+  <data name="Project_NotificationTitle" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="Project_ArchiveTitle" xml:space="preserve">
+    <value>Archiveren</value>
+  </data>
+  <data name="Common_ServiceError" xml:space="preserve">
+    <value>Servicefout</value>
+  </data>
 </root>

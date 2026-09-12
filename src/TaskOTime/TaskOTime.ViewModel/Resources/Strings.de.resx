@@ -488,4 +488,25 @@
   <data name="Project_Failed" xml:space="preserve">
     <value>Die Projektaktion ist fehlgeschlagen: {0}</value>
   </data>
+  <data name="Project_NewName" xml:space="preserve">
+    <value>Neues Projekt</value>
+  </data>
+  <data name="Project_CreateOperation" xml:space="preserve">
+    <value>Projekt erstellen</value>
+  </data>
+  <data name="Project_SaveOperation" xml:space="preserve">
+    <value>Projekt speichern</value>
+  </data>
+  <data name="Project_ArchiveOperation" xml:space="preserve">
+    <value>Projekt archivieren</value>
+  </data>
+  <data name="Project_NotificationTitle" xml:space="preserve">
+    <value>Projekt</value>
+  </data>
+  <data name="Project_ArchiveTitle" xml:space="preserve">
+    <value>Archivieren</value>
+  </data>
+  <data name="Common_ServiceError" xml:space="preserve">
+    <value>Dienstfehler</value>
+  </data>
 </root>

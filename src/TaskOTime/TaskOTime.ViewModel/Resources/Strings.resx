@@ -488,4 +488,25 @@
   <data name="Project_Failed" xml:space="preserve">
     <value>The project operation failed: {0}</value>
   </data>
+  <data name="Project_NewName" xml:space="preserve">
+    <value>New project</value>
+  </data>
+  <data name="Project_CreateOperation" xml:space="preserve">
+    <value>Create project</value>
+  </data>
+  <data name="Project_SaveOperation" xml:space="preserve">
+    <value>Save project</value>
+  </data>
+  <data name="Project_ArchiveOperation" xml:space="preserve">
+    <value>Archive project</value>
+  </data>
+  <data name="Project_NotificationTitle" xml:space="preserve">
+    <value>Project</value>
+  </data>
+  <data name="Project_ArchiveTitle" xml:space="preserve">
+    <value>Archive</value>
+  </data>
+  <data name="Common_ServiceError" xml:space="preserve">
+    <value>Service error</value>
+  </data>
 </root>
