@@ -500,11 +500,13 @@ regression demonstrates why: it can reproduce accessible expected files perfectl
 without performing conversion, yet cannot earn formal verification.
 
 For independently reviewed **owned reference tools**, the separately labelled
-`reference-reviewed` lane can satisfy reference TOOL acceptance after exact-source
-approval, a fresh producer build and actual replay. It never sets formal
-`Verified=true`. See `..\Reference-Replay.md` for the runnable commands, approval
-contract, producer/binary provenance checks and limitations. Merely choosing this
-mode or providing a supplied binary does not establish approval or a pass.
+`reference-reviewed` lane performs local diagnostics after exact-source approval,
+a fresh build and actual replay. It sets neither `ReferenceVerified=true` nor
+formal `Verified=true`: post-build compiler/target files are both mutable, so
+matching hashes do not establish producer provenance. It cannot satisfy TOOL002
+or Golden acceptance. See `..\Reference-Replay.md` for commands, the approval
+contract and the double-overwrite regression. Sandbox producer signing is also
+disabled until trusted compiler capture exists outside submitted build control.
 
 Set `ASSESSMENT_REPLAY_PLAN` to an absolute JSON path **inside the private
 assessment tree**, not the candidate checkout. Plans, fixture inputs, expected

@@ -19,8 +19,8 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'OutputEvidence.ps1')
-if ($SignProducerProof -and (-not $SourceRoot -or $PrepareOnly -or $PSVersionTable.PSVersion.Major -lt 7)) {
-    throw 'Signing an actual producer proof requires producer mode, execution, and PowerShell 7 or later.'
+if ($SignProducerProof) {
+    throw 'Unsupported producer provenance: submitted MSBuild controls both compiler /out and TargetPath. Signing is disabled until compiler outputs are captured outside submitted build control.'
 }
 if (-not $PrepareOnly) {
     $feature = Get-CimInstance Win32_OptionalFeature -Filter "Name='Containers-DisposableClientVM'"
@@ -200,7 +200,7 @@ if (-not $process.HasExited) {
 if ((Get-Item -LiteralPath $output -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Untrusted export root after shutdown.' }
 if (Test-Path (Join-Path $payload 'forbidden-write.txt')) { throw 'Readonly mapping failed; no Sandbox acceptance is possible.' }
 if (-not $result.Success) { throw ('Owned Sandbox preflight failed: ' + ($result | ConvertTo-Json -Depth 8)) }
-$producerVerification=$null
+$producerObservation=$null
 $executionVerification=$null
 $signedProducerProof=$null
 if ($SourceRoot) {
@@ -234,7 +234,7 @@ if ($SourceRoot) {
         if (-not $full.StartsWith($guestRoot+'\',[StringComparison]::OrdinalIgnoreCase)) { throw 'Compiler output escapes the guest source workspace.' }
         return Join-Path $export $full.Substring($guestRoot.Length).TrimStart('\')
     }
-    $verified=@()
+    $observedTargets=@()
     if (@($result.Producer.Projects).Count -ne $Projects.Count) { throw 'Producer project count changed.' }
     foreach($project in $Projects) {
         $records=@($result.Producer.Projects | Where-Object Project -CEQ $project)
@@ -248,44 +248,13 @@ if ($SourceRoot) {
         $target=Map-GuestOutput $metadata.Properties.TargetPath $project
         $compiledHash=(Get-FileHash -LiteralPath $compiled -Algorithm SHA256).Hash
         $targetHash=(Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash
-        if ($compiledHash -ne $targetHash) { throw 'Target bytes do not match the compiler-produced bytes.' }
-        $verified+=@{ Project=$project; Target=$target; Sha256=$targetHash }
+        if ($compiledHash -ne $targetHash) { throw 'Reported build output files are inconsistent; neither is a trusted compiler capture.' }
+        $observedTargets+=@{ Project=$project; Target=$target; Sha256=$targetHash }
     }
-    $producerVerification=@{ SourceUnchanged=$true; CompilerTargets=$verified; Export=$export }
-    if ($SignProducerProof) {
-        $proof=[ordered]@{
-            Policy='taskotime-sandbox-producer-v1'
-            Scope='producer-source-build-only'
-            FormalVerified=$false
-            SourceFiles=(Get-TreeSnapshot $sourceCopy)
-            CompilerTargets=$verified
-            SdkVersion=$result.SdkVersion
-            RestrictedBuildExit=$result.RestrictedBuildExit
-            ControllerBoundary=$result.Boundary
-            ReadonlyPayload=$result.ReadonlyPayload
-            DefaultRoutes=$result.DefaultRoutes
-            ExpiresAt=[DateTimeOffset]::UtcNow.AddMinutes(30).ToString('O')
-        }
-        $bytes=[Text.Encoding]::UTF8.GetBytes(($proof | ConvertTo-Json -Depth 12 -Compress))
-        $key=[Security.Cryptography.RSA]::Create(3072)
-        try {
-            $signature=$key.SignData($bytes,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pss)
-            if(-not $key.VerifyData($bytes,$signature,[Security.Cryptography.HashAlgorithmName]::SHA256,[Security.Cryptography.RSASignaturePadding]::Pss)) {
-                throw 'Host producer signature self-verification failed.'
-            }
-            # Created only after the VM has stopped; this private key never leaves this host process.
-            $publicKey=Join-Path $run 'producer-public.pem'
-            [IO.File]::WriteAllText($publicKey,$key.ExportSubjectPublicKeyInfoPem())
-            $receipt=Join-Path $run 'producer-proof.json'
-            @{ PayloadBase64=[Convert]::ToBase64String($bytes); SignatureBase64=[Convert]::ToBase64String($signature) } |
-                ConvertTo-Json | Set-Content -LiteralPath $receipt -Encoding UTF8
-            $signedProducerProof=@{
-                Receipt=$receipt; PublicKey=$publicKey
-                PublicKeySha256=[Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($key.ExportSubjectPublicKeyInfo()))
-                Scope='producer-source-build-only'; FormalVerified=$false
-            }
-        }
-        finally { $key.Dispose() }
+    $producerObservation=@{
+        SourceUnchanged=$true; ConsistentBuildTargets=$observedTargets; Export=$export
+        CompilerProvenanceVerified=$false
+        Reason='Both observed output files and compiler arguments remain submitted-build-controlled; consistency is not compiler provenance.'
     }
 }
 if ($BinaryRoot) {
@@ -329,9 +298,10 @@ if ($BinaryRoot) {
     RestrictedBuildExit=$result.RestrictedBuildExit; Boundary=$result.Boundary
     Producer=$result.Producer
     Execution=$result.Execution
-    HostProducerVerification=$producerVerification
+    HostProducerVerification=$null
+    HostProducerObservation=$producerObservation
     HostExecutionVerification=$executionVerification
     SignedProducerProof=$signedProducerProof
     FormalVerified=$false
-    Note='Owned feasibility probe only. Guest controller isolation and host verification are still required for formal grading.'
+    Note='Diagnostic execution only. Producer compiler provenance and full replay acceptance are unverified; producer signing is disabled.'
 }

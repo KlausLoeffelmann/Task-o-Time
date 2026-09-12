@@ -206,17 +206,18 @@ the full untrusted build/scan must also run inside the external boundary.
 The README specifies request hashing, pinned RSA-PSS receipt verification and
 executor obligations. Missing isolation remains a formal acceptance blocker.
 `Sandbox\README.md` now documents a runnable Windows Sandbox producer/CLI
-execution primitive, verified with actual SDK and net472 WPF builds. Optional
-host-only signing is limited to actual producer/source-to-binary proof and is
-explicitly rejected as a full replay receipt. Full host replay-policy signing and
+execution primitive, exercised with actual SDK and net472 WPF builds. Producer
+signing is disabled: submitted MSBuild can replace both compared output files,
+so byte equality cannot establish source-to-binary provenance. Historical
+producer-only signatures must not be trusted. Full host replay-policy signing and
 compiler-input routing remain separate integration requirements; no completed
 formal grading is implied.
 For the source-reviewed owned Golden reference, `Reference-Replay.md` documents
 a separate runnable `reference-reviewed` path: exact-source independent approval,
-fresh evaluated producer builds and actual replay can satisfy reference TOOL
-acceptance. Supplied binaries and fixture-copying replacements cannot substitute
-for the approved producer. JSON/CSV explicitly distinguish this reference claim
-from formal candidate isolation; no other quality rule is waived.
+fresh evaluated builds and actual local replay provide diagnostics only.
+Both `ReferenceVerified` and `Verified` stay false; tracked payloads can replace
+both outputs after compilation without changing source. No reference TOOL002 or
+Golden acceptance is granted; no other quality rule is waived.
 Preparation tooling, expected outputs, logs and evaluator files are never
 candidate handover material. Export only application allowlisted files and the
 stage-appropriate candidate brief, without Git history or private support refs.

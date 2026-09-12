@@ -8,8 +8,11 @@ namespace Modernization.Analyzers.Tests;
 internal sealed record ReferenceApproval(string Purpose, string ReviewId, string Reviewer,
     string SourceRevision, string SourceHash, string[] Projects);
 public sealed record ReferenceBuildEvidence(string ReviewId, string Reviewer, string SourceRevision,
-    string ApprovedSourceHash, string BuildInputHash, string[] Commands, SortedDictionary<string, string> CompilerInputs,
-    SortedDictionary<string, string> BuiltArtifacts);
+    string ApprovedSourceHash, string BuildInputHash, string[] Commands, SortedDictionary<string, string> ReportedCompilerArgumentHashes,
+    SortedDictionary<string, string> ObservedBuildArtifacts)
+{
+    public bool CompilerProvenanceVerified => false;
+}
 
 // A reviewed-owned-source trust model, not adversarial isolation. An approval is
 // independent assessor custody and binds exact source; it is never inferred from a flag.
@@ -142,7 +145,7 @@ internal static class ReferenceReplay
                 var compilerOutput = Path.GetFullPath(compiled[5..].Trim('"'), Path.GetDirectoryName(copied)!);
                 if (!compilerOutput.StartsWith(source + "\\", StringComparison.OrdinalIgnoreCase) ||
                     !File.Exists(compilerOutput) || HashFile(compilerOutput) != HashFile(path))
-                    throw new InvalidDataException("Evaluated target does not match the freshly compiled producer output.");
+                    throw new InvalidDataException("Reported build output files are inconsistent; neither is a trusted compiler capture.");
                 compilerInputs[Path.GetRelativePath(source, copied)] =
                     Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(args)));
                 if (!outputs.TryAdd(Path.GetFileName(path), path))
@@ -177,11 +180,13 @@ internal static class ReferenceReplay
                 throw new InvalidDataException("Producer source or binary/dependencies changed during replay.");
             return local with
             {
-                ReferenceVerified = local.LocalEvidencePassed,
+                // The build controls both files being compared, including AfterTargets=Build.
+                // Source review permits local diagnostics, not a source-to-binary attestation.
+                ReferenceVerified = false,
                 ExecutionBoundary = "owned-reference-reviewed; NOT isolated",
                 Message = local.LocalEvidencePassed
-                    ? "Exact reviewed source was freshly built; only evaluated produced binaries were replayed. Owned-reference acceptance, NOT formal candidate isolation."
-                    : "Reviewed producer build succeeded but actual replay failed; TOOL002 remains mandatory.",
+                    ? "Reviewed-source build outputs passed local replay diagnostics, but compiler provenance is unverified. No reference or formal acceptance; TOOL002 remains mandatory."
+                    : "Reviewed-source build completed but local replay diagnostics failed; compiler provenance is unverified and TOOL002 remains mandatory.",
                 ReferenceBuild = new(approval.ReviewId, approval.Reviewer, approval.SourceRevision,
                     approval.SourceHash, buildInputHash, commands.ToArray(), compilerInputs, artifacts)
             };
