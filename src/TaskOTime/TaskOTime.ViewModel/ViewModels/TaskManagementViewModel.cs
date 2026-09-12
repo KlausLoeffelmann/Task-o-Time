@@ -8,7 +8,7 @@ using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class TaskManagementViewModel : ViewModelBase
+    public class TaskManagementViewModel : Localization.LocalizedViewModelBase
     {
 
         private TaskListViewModel _selectedTaskList;
@@ -193,7 +193,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return "Taken";
+                return Text("Main_Tasks");
             }
         }
 
@@ -201,7 +201,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return "Lists above, taken below – ready for later AppServer data.";
+                return Text("Task_PanelSummary");
             }
         }
 
@@ -211,7 +211,7 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (SelectedTaskList is null)
                 {
-                    return "Geen takenlijst geselecteerd.";
+                    return Text("Task_NoList");
                 }
 
                 return SelectedTaskList.ProgressSummary;
@@ -224,7 +224,7 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (SelectedTaskItem is null)
                 {
-                    return "No task selected.";
+                    return Text("Task_NoSelection");
                 }
 
                 return SelectedTaskItem.ActionHint;

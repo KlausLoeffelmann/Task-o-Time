@@ -1,43 +1,6 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
-    <sys:String x:Key="AppTitle">Task-o-Time</sys:String>
-    <sys:String x:Key="FileMenuHeader">_Bestand</sys:String>
-    <sys:String x:Key="MainDataMenuHeader">_Main Data</sys:String>
-    <sys:String x:Key="AnalysisMenuHeader">_Analyse</sys:String>
-    <sys:String x:Key="ExportDayMenuHeader">Export selected day as CSV</sys:String>
-    <sys:String x:Key="ExportPeriodMenuHeader">Periode als CSV exporteren</sys:String>
-    <sys:String x:Key="QuitMenuHeader">Exit</sys:String>
-    <sys:String x:Key="ToolsMenuHeader">_Tools</sys:String>
-    <sys:String x:Key="OptionsMenuHeader">Instellingen...</sys:String>
-    <sys:String x:Key="NewTaskButtonText">New task</sys:String>
-    <sys:String x:Key="EditTaskButtonText">Taak bewerken</sys:String>
-    <sys:String x:Key="NewTaskListButtonText">Nieuwe takenlijst</sys:String>
-    <sys:String x:Key="EditTaskListButtonText">Edit task list</sys:String>
-    <sys:String x:Key="StartTaskButtonText">Start task</sys:String>
-    <sys:String x:Key="CheckOutButtonText">Uitklokken</sys:String>
-    <sys:String x:Key="CompleteTaskButtonText">Complete task</sys:String>
-    <sys:String x:Key="PauseButtonText">Pause</sys:String>
-    <sys:String x:Key="DownTimeButtonText">Downtime</sys:String>
-    <sys:String x:Key="ErrandButtonText">Boodschap</sys:String>
-    <sys:String x:Key="ManageProjectsMenuHeader">Manage projects...</sys:String>
-    <sys:String x:Key="ManageTaskListsMenuHeader">Takenlijsten...</sys:String>
-    <sys:String x:Key="ManageTasksMenuHeader">Manage tasks...</sys:String>
-    <sys:String x:Key="ManageUsersAdminMenuHeader">Gebruikers/Admin...</sys:String>
-    <sys:String x:Key="DailyStatementMenuHeader">Daily statement...</sys:String>
-    <sys:String x:Key="WeeklyStatementMenuHeader">Weekoverzicht...</sys:String>
-    <sys:String x:Key="MonthlyStatementMenuHeader">Monthly statement...</sys:String>
-    <sys:String x:Key="TenantAdminStatisticsMenuHeader">Tenant statistics...</sys:String>
+    <!-- Legacy placeholder dialogs are outside the four localized surfaces. -->
     <sys:String x:Key="DialogCloseButtonText">Sluiten</sys:String>
-    <sys:String x:Key="TodayButtonText">Vandaag</sys:String>
-    <sys:String x:Key="YesterdayButtonText">Yesterday</sys:String>
-    <sys:String x:Key="AddTimeEntryButtonText">Add entry</sys:String>
-    <sys:String x:Key="EditTimeEntryButtonText">Bewerken</sys:String>
-    <sys:String x:Key="DeleteTimeEntryButtonText">Delete</sys:String>
-    <sys:String x:Key="InsertWorkBreakButtonText">Pauze toevoegen</sys:String>
-    <sys:String x:Key="InsertDownTimeButtonText">Add downtime</sys:String>
-    <sys:String x:Key="InsertErrandButtonText">Boodschap</sys:String>
-    <sys:String x:Key="InsertStopMarkButtonText">Stop marker</sys:String>
-    <sys:String x:Key="BookedDaysHeader">Days with bookings</sys:String>
-    <sys:String x:Key="CompleteRecordingTaskCheckBoxText">Taak wordt afgerond.</sys:String>
 </ResourceDictionary>

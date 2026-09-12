@@ -3,10 +3,11 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
 using TaskOTime.ViewModel.Base;
+using TaskOTime.ViewModel.Localization;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class VmMain : ViewModelBase
+    public class VmMain : LocalizedViewModelBase
     {
 
         private DateTime _selectedDate;
@@ -218,7 +219,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return SelectedDate.ToString("dddd, dd. MMMM yyyy");
+                return SelectedDate.ToString("dddd, dd. MMMM yyyy", LocalizationService.Current.Culture);
             }
         }
 
@@ -250,6 +251,8 @@ namespace TaskOTime.ViewModel.ViewModels
             }
 
             Options.RestoreMainWindowPlacement = updatedOptions.RestoreMainWindowPlacement;
+            Options.CultureName = updatedOptions.CultureName;
+            LocalizationService.Current.SetCulture(Options.CultureName);
             Options.SaturdayIsWorkday = updatedOptions.SaturdayIsWorkday;
             Options.SundayIsWorkday = updatedOptions.SundayIsWorkday;
             Options.BookedDateRangeUnit = updatedOptions.BookedDateRangeUnit;
@@ -333,7 +336,7 @@ namespace TaskOTime.ViewModel.ViewModels
             if (e.UseExistingBoundary)
             {
                 if (!e.Task.StartedAt.HasValue)
-                    throw new InvalidOperationException("Die Aufgabe hat keine Startzeit.");
+                    throw new InvalidOperationException(Text("Main_NoStart"));
                 TimeCollection.RecordTask(e.Task, e.Task.StartedAt.Value, e.CompletedAt, true);
                 SelectedDate = e.Task.StartedAt.Value.Date;
                 return;
@@ -350,11 +353,11 @@ namespace TaskOTime.ViewModel.ViewModels
                 TimeSpan start;
                 if (!TimeSpan.TryParse(ManualCompletionStartText, out start) || start < TimeSpan.Zero || start >= TimeSpan.FromDays(1d))
                 {
-                    throw new InvalidOperationException("Startzeit bitte als HH:mm eingeben.");
+                    throw new InvalidOperationException(Text("Booking_InvalidTime"));
                 }
                 if (!TimeSpan.TryParse(ManualCompletionDurationText, out duration) || duration <= TimeSpan.Zero)
                 {
-                    throw new InvalidOperationException("Dauer bitte als HH:mm eingeben.");
+                    throw new InvalidOperationException(Text("Booking_InvalidDuration"));
                 }
                 startTime = SelectedDate.Add(start);
             }

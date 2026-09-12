@@ -11,6 +11,7 @@ namespace TaskOTime.App
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            TaskOTime.ViewModel.Localization.LocalizationService.Current.SetCulture(TaskOTime.App.Properties.Settings.Default.CultureName);
             base.OnStartup(e);
             DispatcherUnhandledException += (_, args) =>
             {
@@ -28,14 +29,14 @@ namespace TaskOTime.App
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Task-o-Time – Start fehlgeschlagen", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, ViewModel.Localization.LocalizationService.Current["Login_StartupFailed"], MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown(1);
             }
         }
 
         private void ShowLogin()
         {
-            var dialog = new LoginWindow(login, services.ModeDescription);
+            var dialog = new LoginWindow(login, services.ModeDescription, services.ModeDescriptionKey);
             if (dialog.ShowDialog() != true)
             {
                 login.Logout();
@@ -59,7 +60,7 @@ namespace TaskOTime.App
             catch (Exception ex)
             {
                 login.Logout();
-                MessageBox.Show(ex.Message, "Arbeitsplatz konnte nicht geladen werden", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, ViewModel.Localization.LocalizationService.Current["Login_WorkspaceFailed"], MessageBoxButton.OK, MessageBoxImage.Error);
                 Dispatcher.BeginInvoke(new Action(ShowLogin));
             }
         }
