@@ -119,6 +119,14 @@ dotnet test $p --filter 'Category=RepositoryScan|Category=Modernization'
    compilation/execution, unsupported input and project idempotence still apply.
    Check source/binary/dependency stability afterwards.
 
+For a nondeterministic execution manifest, use the trusted per-case
+`EvidenceFile` contract in the replay README, for example
+`{"FileName":"migration-manifest.json","StatusProperty":"Status","SuccessValue":"succeeded"}`.
+Only that exact JSON file is separated from emitted source equality. Every run
+must have a successful status; its raw hash is retained. All other output is
+independently hashed/compared, never selected using a manifest's file list.
+The approval, input, source and binary hashes are not narrowed by this contract.
+
 Child processes receive a runtime/OS environment allowlist plus workspace-owned
 temporary, profile, CLI and NuGet state. The existing package cache is offered
 as a fallback; user credential/configuration environment variables are not

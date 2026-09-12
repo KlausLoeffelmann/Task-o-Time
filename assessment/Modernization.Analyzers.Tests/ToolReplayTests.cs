@@ -248,4 +248,75 @@ public sealed class ToolReplayTests : IDisposable
     {
         if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
     }
+
+    [Theory]
+    [InlineData("valid", true)]
+    [InlineData("undeclared", false)]
+    [InlineData("changed-source", false)]
+    [InlineData("extra-source", false)]
+    [InlineData("missing", false)]
+    [InlineData("failed", false)]
+    [InlineData("malformed", false)]
+    [InlineData("duplicate-status", false)]
+    [InlineData("repeat-failed", false)]
+    [InlineData("idempotent-failed", false)]
+    [InlineData("evidence-only", false)]
+    public async Task Declared_evidence_separates_execution_variability_not_source_correctness(string variant, bool passes)
+    {
+        var input = Folder("input"); var expected = Folder("expected");
+        const string source = "public class Example {}";
+        File.WriteAllText(Path.Combine(input, "Source.cs"), source);
+        File.WriteAllText(Path.Combine(expected, "Source.cs"), source);
+        var cli = BuildCli("""
+            using System;
+            using System.IO;
+            using System.Text.Json;
+            public class Entry {
+              public static int Main(string[] args) {
+                var variant=args[2];
+                Directory.CreateDirectory(args[1]);
+                if(variant!="evidence-only")
+                  File.Copy(Path.Combine(args[0],"Source.cs"), Path.Combine(args[1],"Source.cs"));
+                if(variant=="changed-source" && args[1].EndsWith("repeated"))
+                  File.WriteAllText(Path.Combine(args[1],"Source.cs"),"public class Changed {}");
+                if(variant=="extra-source") File.WriteAllText(Path.Combine(args[1],"Hidden.cs"),"public class Hidden {}");
+                var status=variant=="failed" || variant=="repeat-failed" && args[1].EndsWith("repeated") ||
+                  variant=="idempotent-failed" && args[1].EndsWith("idempotent") ? "failed" : "succeeded";
+                var json=JsonSerializer.Serialize(new { Status=status, Elapsed=Guid.NewGuid().ToString(), OutputFiles=new string[0] });
+                if(variant=="malformed") json="{";
+                if(variant=="duplicate-status") json="{\"Status\":\"failed\",\"Status\":\"succeeded\"}";
+                if(variant!="missing") File.WriteAllText(Path.Combine(args[1],"run.json"),json);
+                return 0;
+              }
+            }
+            """);
+        cli = cli with { Arguments = cli.Arguments.Append(variant).ToArray() };
+        var result = await ToolReplay.RunCase(new(variant, "project", cli, input, expected, Idempotent: true,
+            EvidenceFile: variant == "undeclared" ? null : new("run.json", "Status", "succeeded")), root);
+        Assert.Equal(passes, result.Passed);
+        if (passes)
+        {
+            Assert.Equal(3, result.ExecutionArtifacts.Length);
+            Assert.Equal(3, result.ExecutionArtifacts.Select(a => a.Sha256).Distinct().Count());
+            Assert.Equal(["initial", "repeat", "idempotent"], result.ExecutionArtifacts.Select(a => a.Run));
+            Assert.Equal(ToolReplay.HashTree(expected), result.OutputHash);
+            Assert.Equal("all-emitted-files-except-declared-evidence:run.json", result.OutputHashBasis);
+        }
+    }
+
+    [Theory]
+    [InlineData(@"..\run.json")]
+    [InlineData(@"sub\run.json")]
+    [InlineData(@"C:\run.json")]
+    [InlineData("*.json")]
+    [InlineData("Source.cs")]
+    [InlineData("settings.json")]
+    public void Evidence_declaration_cannot_hide_source_or_choose_arbitrary_paths(string file)
+    {
+        var expected = Folder("expected");
+        File.WriteAllText(Path.Combine(expected, "settings.json"), "{}");
+        var fixture = new ReplayCase("bad-declaration", "project", new("not-executed", []), "input", expected,
+            EvidenceFile: new(file, "Status", "succeeded"));
+        Assert.Throws<InvalidDataException>(() => ToolReplay.ValidateEvidenceDeclaration(fixture));
+    }
 }

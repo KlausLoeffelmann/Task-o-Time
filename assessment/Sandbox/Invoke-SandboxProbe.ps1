@@ -10,11 +10,15 @@ param(
     [string] $InputRoot,
     [string[]] $CommandArguments,
     [string] $ExpectedOutputRoot,
+    [string] $EvidenceFile,
+    [string] $EvidenceStatusProperty = 'Status',
+    [string] $EvidenceSuccessValue = 'succeeded',
     [switch] $PrepareOnly,
     [switch] $SignProducerProof,
     [ValidateRange(60,900)][int] $TimeoutSeconds = 240
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'OutputEvidence.ps1')
 if ($SignProducerProof -and (-not $SourceRoot -or $PrepareOnly -or $PSVersionTable.PSVersion.Major -lt 7)) {
     throw 'Signing an actual producer proof requires producer mode, execution, and PowerShell 7 or later.'
 }
@@ -98,6 +102,15 @@ function Get-TreeSnapshot([string]$root) {
     return ,$snapshot
 }
 $expectedSnapshot=$null
+if ($EvidenceFile) {
+    if ($PSVersionTable.PSVersion.Major -lt 7) { throw 'Evidence JSON validation requires PowerShell 7 or later.' }
+    if (-not $ExpectedOutputRoot -or [IO.Path]::GetFileName($EvidenceFile) -cne $EvidenceFile -or
+        $EvidenceFile.IndexOfAny([IO.Path]::GetInvalidFileNameChars()) -ge 0 -or
+        [IO.Path]::GetExtension($EvidenceFile) -ine '.json' -or
+        [string]::IsNullOrWhiteSpace($EvidenceStatusProperty) -or [string]::IsNullOrWhiteSpace($EvidenceSuccessValue)) {
+        throw 'Evidence separation requires an exact top-level JSON file, status contract and host expected tree.'
+    }
+}
 if ($ExpectedOutputRoot) {
     if (-not $BinaryRoot) { throw 'Expected output comparison requires a CLI execution job.' }
     $expected=(Resolve-Path $ExpectedOutputRoot).Path.TrimEnd('\')
@@ -108,6 +121,9 @@ if ($ExpectedOutputRoot) {
         }
     }
     $expectedSnapshot=Get-TreeSnapshot $expected
+    if ($EvidenceFile -and (Test-Path -LiteralPath (Join-Path $expected $EvidenceFile))) {
+        throw 'Evidence declaration would hide an expected source/configuration file.'
+    }
     if ($expectedSnapshot.Count -eq 0) { throw 'Expected positive output must not be an empty fixture.' }
 }
 $document = New-Object Xml.XmlDocument
@@ -278,11 +294,19 @@ if ($BinaryRoot) {
     $exportSnapshot=Get-TreeSnapshot $export
     $actual=Join-Path $export 'output'
     $matched=$false
+    $executionEvidence=$null
     if($null -ne $expectedSnapshot) {
         if($result.Execution.ExitCode -ne 0 -or -not (Test-Path -LiteralPath $actual -PathType Container)) {
             throw 'CLI did not successfully emit the expected output.'
         }
         $actualSnapshot=Get-TreeSnapshot $actual
+        if ($EvidenceFile) {
+            $matches=@($actualSnapshot.Keys | Where-Object { $_ -ieq $EvidenceFile })
+            if($matches.Count -ne 1) { throw 'Missing or ambiguous declared execution evidence.' }
+            $executionEvidence=Read-ExecutionEvidence $actual $EvidenceFile $EvidenceStatusProperty $EvidenceSuccessValue $actualSnapshot
+            [void]$actualSnapshot.Remove($matches[0])
+            if($actualSnapshot.Count -eq 0) { throw 'Evidence-only output is not a transformation.' }
+        }
         if($actualSnapshot.Count -ne $expectedSnapshot.Count) { throw 'CLI emitted a different file set.' }
         foreach($path in $expectedSnapshot.Keys) {
             if(-not $actualSnapshot.ContainsKey($path) -or $actualSnapshot[$path] -ne $expectedSnapshot[$path]) {
@@ -291,7 +315,11 @@ if ($BinaryRoot) {
         }
         $matched=$true
     }
-    $executionVerification=@{ ExitCode=$result.Execution.ExitCode; Export=$export; HostExpectedBytesMatched=$matched }
+    $executionVerification=@{
+        ExitCode=$result.Execution.ExitCode; Export=$export; HostExpectedBytesMatched=$matched
+        ExecutionEvidence=$executionEvidence
+        OutputHashBasis=$(if($EvidenceFile) { 'all-emitted-files-except-declared-evidence:'+$EvidenceFile } else { 'all-emitted-files' })
+    }
 }
 [pscustomobject]@{
     Artifacts=$run; SdkVersion=$result.SdkVersion; FrameworkClr=$result.FrameworkClr

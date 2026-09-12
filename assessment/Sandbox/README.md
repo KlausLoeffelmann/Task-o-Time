@@ -114,6 +114,19 @@ No expected file or directory is sent to the guest. This script's comparison is
 byte-exact; the existing evaluator's Roslyn-normalized comparison is a separate
 layer, not an implied exemption for differing manifests or source.
 
+For a trusted declared execution manifest, PowerShell 7+ accepts
+`-EvidenceFile migration-manifest.json -EvidenceStatusProperty Status -EvidenceSuccessValue succeeded`
+together with `-ExpectedOutputRoot`. The filename must be exact, top-level JSON
+and absent from the expected source tree. Host-only `OutputEvidence.ps1` checks
+the JSON object and unique successful status; returned `ExecutionEvidence`
+retains its raw SHA256. Only that file is removed from byte equality; every
+other emitted file remains checked independently, not selected by `OutputFiles`.
+Empty output, missing/malformed/failed evidence, or unexpected source still fail.
+The declaration/expectations are never included in the guest job. This is one
+execution check, not deterministic-rerun or full-receipt acceptance. The JSON
+parser has matching C#/PowerShell regression coverage, including BOM, duplicate
+status properties and misleading empty manifest file lists.
+
 Inspections are bounded to 256 MiB per file, 1 GiB total and 100,000 files.
 Unexpected/missing results, startup failures, timeout, stale/forged transport,
 source changes, output substitutions and comparison failures remain failures.

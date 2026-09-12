@@ -190,6 +190,11 @@ A rich companion fixture beside a converter that emits an empty class is not
 conversion acceptance; the replay negative regression exercises that exact case.
 
 See the analyzer README's replay contract for private plans and fixtures.
+Its optional trusted `EvidenceFile` declaration separates one exact execution
+JSON artifact from source equality, validates its success status on every run,
+and retains raw artifact hashes. All other output remains independently checked;
+manifest file lists cannot select scope or hide defective source. No declaration
+means no exclusion, and input/source/binary integrity hashes are unchanged.
 Formal replay now defaults to a **signed receipt from a separately trusted
 isolated executor**; this bundle does not supply or provision that executor.
 Explicit `ASSESSMENT_REPLAY_EXECUTION=local-reviewed` is only for source-reviewed

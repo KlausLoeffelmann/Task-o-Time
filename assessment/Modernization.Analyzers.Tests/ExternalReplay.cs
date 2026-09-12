@@ -81,6 +81,7 @@ internal static class ExternalReplay
         }
         foreach (var fixture in plan.Cases)
         {
+            ToolReplay.ValidateEvidenceDeclaration(fixture);
             hashes["input:" + fixture.Name] = ToolReplay.HashTree(ToolReplay.TrustedPath(fixture.InputDirectory));
             if (!fixture.Unsupported)
                 hashes["expected:" + fixture.Name] = ToolReplay.HashTree(ToolReplay.TrustedPath(
@@ -134,6 +135,7 @@ internal static class ExternalReplay
                     required.AddRange(["frozen-expectation-comparison", "deterministic-rerun", "output-compilation"]);
                     if (fixture.BehaviorFile != null) required.Add("behavior");
                     if (fixture.Idempotent) required.Add("idempotent-rerun");
+                    if (fixture.EvidenceFile != null) required.Add("declared-evidence-schema");
                 }
                 if (!result.Evidence.Passed || required.Except(result.Checks, StringComparer.Ordinal).Any() ||
                     result.Evidence.InputHash != ToolReplay.HashTree(ToolReplay.TrustedPath(fixture.InputDirectory)) ||
@@ -143,6 +145,16 @@ internal static class ExternalReplay
                     !fixture.Unsupported && (result.Evidence.ExitCode != 0 || result.Evidence.OutputHash.Length != 64 ||
                         !result.Evidence.OutputHash.All(Uri.IsHexDigit)))
                     throw new InvalidDataException("Executor checks failed or missing for " + fixture.Name);
+                if (!fixture.Unsupported && fixture.EvidenceFile is { } contract)
+                {
+                    var runs = fixture.Idempotent ? new[] { "initial", "repeat", "idempotent" } : ["initial", "repeat"];
+                    var artifacts = result.Evidence.ExecutionArtifacts;
+                    if (result.Evidence.OutputHashBasis != ToolReplay.OutputBasis(contract) ||
+                        artifacts.Length != runs.Length || artifacts.Select(a => a.Run).Distinct(StringComparer.Ordinal).Count() != runs.Length ||
+                        artifacts.Any(a => !runs.Contains(a.Run, StringComparer.Ordinal) || a.FileName != contract.FileName ||
+                            a.Status != contract.SuccessValue || a.Sha256.Length != 64 || !a.Sha256.All(Uri.IsHexDigit)))
+                        throw new InvalidDataException("Missing or invalid declared execution-evidence records for " + fixture.Name);
+                }
             }
             return new(true, attestation.Cases.Select(c => c.Evidence).ToArray(),
                 "Verified signed external replay receipt; executor=" + attestation.Executor +
