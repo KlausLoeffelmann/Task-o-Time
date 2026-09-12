@@ -124,6 +124,27 @@ the original 33 collection plus 30 AppServer tests. A second run,
 is evidence for language conversion, not a substitute for the coordinator's
 latest safe-SQL-fixture checkpoint.
 
+### Accepted S1 checkpoint replay
+
+After the coordinator accepted **`6ca206f` / `modernization-S1-net472`**, its
+complete `src\TaskOTime` was copied without bin/obj into
+`artifacts\s1-6ca206f-input`. The following exact invocation produced the
+integration handoff:
+
+```powershell
+dotnet bin\Debug\net10.0\TaskOTime.Migration.dll convert-language --input artifacts\s1-6ca206f-input --output artifacts\s2-6ca206f-csharp --project TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.vbproj --project TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj --restore
+dotnet build artifacts\s2-6ca206f-csharp\TaskOTime.slnx --verbosity quiet -p:NuGetAudit=false -nr:false
+```
+
+All 40 production sources converted. Full solution build: **zero warnings and
+errors**. Original suites: **33/33 collection, 30/30 AppServer, 15/15 isolated
+SQL integration**, all without skips. For the Framework path-length workaround,
+the unchanged built test directories were copied to `artifacts\s2t`, `s2s`,
+and `s2i` and executed with `dotnet vstest` plus matching `--TestAdapterPath`.
+The SQL fixture was inspected before execution: it uses GUID-named databases,
+ownership markers and validated schema batches. No old fixed-name reset helper
+was run. The canonical candidate tree was not modified.
+
 The original tests pass against the converted graph: **33/33
 TimeTrackingServices.Tests and 30/30 AppServer.Tests**. At deeply nested paths,
 the Framework MSTest runner reported that
