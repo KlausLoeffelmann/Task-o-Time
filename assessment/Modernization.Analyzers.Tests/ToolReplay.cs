@@ -9,16 +9,20 @@ using ExternalEvaluation;
 namespace Modernization.Analyzers.Tests;
 
 internal sealed record ReplayCommand(string Executable, string[] Arguments);
+internal sealed record EvidenceFileContract(string FileName, string StatusProperty, string SuccessValue);
 internal sealed record ReplayCase(string Name, string Kind, ReplayCommand Command, string InputDirectory,
     string? ExpectedDirectory, string? BehaviorFile = null, bool Unsupported = false,
-    bool Idempotent = false, bool Checkpoint = false);
+    bool Idempotent = false, bool Checkpoint = false, EvidenceFileContract? EvidenceFile = null);
 internal sealed record ReplayPlan(string[] Projects, ReplayCase[] Cases,
     string[]? SourceRoots = null, string[]? ArtifactRoots = null);
 public sealed record ReplayEvidence(string Name, bool Passed, string Message, string InputHash,
     string OutputHash, string Command, int ExitCode, string StandardOutput, string StandardError)
 {
     public SortedDictionary<string, string> ToolArtifactHashes { get; init; } = new(StringComparer.Ordinal);
+    public ExecutionArtifact[] ExecutionArtifacts { get; init; } = [];
+    public string OutputHashBasis { get; init; } = "all-emitted-files";
 }
+public sealed record ExecutionArtifact(string FileName, string Run, string Sha256, string Status);
 public sealed record ReplayResult(bool Verified, ReplayEvidence[] Cases, string Message)
 {
     public bool LocalEvidencePassed { get; init; }
@@ -108,8 +112,10 @@ internal static class ToolReplay
         (int Code, string Output, string Error) run = (-1, "", "");
         var command = fixture.Command.Executable + " " + string.Join(" ", fixture.Command.Arguments);
         var tools = new SortedDictionary<string, string>(StringComparer.Ordinal);
+        var evidence = new List<ExecutionArtifact>();
         try
         {
+            ValidateEvidenceDeclaration(fixture);
             // Freeze expectations before invoking even reviewed local code. This catches
             // persistent corruption, not read access or a modify-and-restore attack.
             var expected = fixture.Unsupported ? null :
@@ -141,20 +147,26 @@ internal static class ToolReplay
             {
                 if (run.Code != 0) throw new InvalidDataException("CLI failed.");
                 if (!Directory.Exists(output)) throw new InvalidDataException("CLI emitted no output.");
-                CompareSnapshot(expectedSnapshot!, output);
-                after = HashTree(output);
+                if (fixture.EvidenceFile != null) evidence.Add(ReadExecutionArtifact(output, fixture.EvidenceFile, "initial"));
+                CompareSnapshot(expectedSnapshot!, output, fixture.EvidenceFile);
+                after = HashOutputTree(output, fixture.EvidenceFile);
                 if (fixture.BehaviorFile != null)
                     await VerifyBehavior(output, behavior!);
                 var repeated = Path.Combine(work, "repeated");
                 var second = await Execute(fixture.Command, input, repeated, work);
-                if (second.Code != 0 || HashTree(repeated) != after)
+                if (second.Code == 0 && fixture.EvidenceFile != null)
+                    evidence.Add(ReadExecutionArtifact(repeated, fixture.EvidenceFile, "repeat"));
+                if (second.Code != 0 || HashOutputTree(repeated, fixture.EvidenceFile) != after)
                     throw new InvalidDataException("Repeated conversion is not deterministic.");
                 if (HashTree(input) != before) throw new InvalidDataException("Repeated CLI modified its input.");
                 if (fixture.Idempotent)
                 {
                     var idempotent = Path.Combine(work, "idempotent");
+                    var inputHash = HashTree(output);
                     var third = await Execute(fixture.Command, output, idempotent, work);
-                    if (third.Code != 0 || HashTree(idempotent) != after || HashTree(output) != after)
+                    if (third.Code == 0 && fixture.EvidenceFile != null)
+                        evidence.Add(ReadExecutionArtifact(idempotent, fixture.EvidenceFile, "idempotent"));
+                    if (third.Code != 0 || HashOutputTree(idempotent, fixture.EvidenceFile) != after || HashTree(output) != inputHash)
                         throw new InvalidDataException("Project migration is not idempotent.");
                 }
             }
@@ -163,12 +175,15 @@ internal static class ToolReplay
                 throw new InvalidDataException("CLI executable artifacts changed during replay.");
             CheckExpectations();
             return new(fixture.Name, true, "Local output checks passed; no isolation claim.", before, after, command, run.Code, run.Output, run.Error)
-                { ToolArtifactHashes = tools };
+                { ToolArtifactHashes = tools, ExecutionArtifacts = evidence.ToArray(),
+                    OutputHashBasis = OutputBasis(fixture.EvidenceFile) };
         }
         catch (Exception error)
         {
             return new(fixture.Name, false, error.GetType().Name + ": " + error.Message,
-                before, after, command, run.Code, run.Output, run.Error) { ToolArtifactHashes = tools };
+                before, after, command, run.Code, run.Output, run.Error)
+                { ToolArtifactHashes = tools, ExecutionArtifacts = evidence.ToArray(),
+                    OutputHashBasis = OutputBasis(fixture.EvidenceFile) };
         }
         finally { Directory.Delete(work, recursive: true); }
     }
@@ -271,15 +286,61 @@ internal static class ToolReplay
     internal static string HashTree(string directory) => Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(
         string.Join("\n", Files(directory).Select(f => f.Key + ":" +
             Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f.Value))))))));
-    internal static void CompareTrees(string expected, string actual)
+    internal static void ValidateEvidenceDeclaration(ReplayCase fixture)
     {
-        CompareSnapshot(Snapshot(expected), actual);
+        if (fixture.EvidenceFile is not { } contract) return;
+        if (string.IsNullOrWhiteSpace(contract.FileName) || Path.GetFileName(contract.FileName) != contract.FileName ||
+            contract.FileName.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 ||
+            !Path.GetExtension(contract.FileName).Equals(".json", StringComparison.OrdinalIgnoreCase) ||
+            string.IsNullOrWhiteSpace(contract.StatusProperty) || string.IsNullOrWhiteSpace(contract.SuccessValue))
+            throw new InvalidDataException("Evidence must be one exact top-level JSON filename with an explicit status contract.");
+        if (fixture.ExpectedDirectory != null && File.Exists(Path.Combine(TrustedPath(fixture.ExpectedDirectory), contract.FileName)))
+            throw new InvalidDataException("Evidence declaration would hide a file in the trusted expected source tree.");
+    }
+    internal static string OutputBasis(EvidenceFileContract? contract) =>
+        contract == null ? "all-emitted-files" : "all-emitted-files-except-declared-evidence:" + contract.FileName;
+    internal static ExecutionArtifact ReadExecutionArtifact(string directory, EvidenceFileContract contract, string run)
+    {
+        var files = Files(directory);
+        var matches = files.Where(f => f.Key.Equals(contract.FileName, StringComparison.OrdinalIgnoreCase)).ToArray();
+        if (matches.Length != 1) throw new InvalidDataException("Missing or ambiguous declared execution evidence: " + contract.FileName);
+        var bytes = File.ReadAllBytes(matches[0].Value);
+        var hash = Convert.ToHexString(SHA256.HashData(bytes));
+        using var reader = new StreamReader(new MemoryStream(bytes), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        using var document = JsonDocument.Parse(reader.ReadToEnd());
+        if (document.RootElement.ValueKind != JsonValueKind.Object ||
+            document.RootElement.EnumerateObject().Count(p => p.Name == contract.StatusProperty) != 1 ||
+            !document.RootElement.TryGetProperty(contract.StatusProperty, out var status) ||
+            status.ValueKind != JsonValueKind.String || status.GetString() != contract.SuccessValue)
+            throw new InvalidDataException("Execution evidence status failed: " + contract.FileName + "; sha256=" + hash);
+        return new(contract.FileName, run, hash, status.GetString()!);
+    }
+    private static SortedDictionary<string, string> OutputFiles(string directory, EvidenceFileContract? contract)
+    {
+        var files = Files(directory);
+        if (contract != null)
+        {
+            var matches = files.Keys.Where(path => path.Equals(contract.FileName, StringComparison.OrdinalIgnoreCase)).ToArray();
+            if (matches.Length != 1) throw new InvalidDataException("Missing or ambiguous declared execution evidence.");
+            files.Remove(matches[0]);
+        }
+        if (files.Count == 0) throw new InvalidDataException("No emitted source/output files remain after evidence separation.");
+        return files;
+    }
+    internal static string HashOutputTree(string directory, EvidenceFileContract? contract) =>
+        Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(string.Join("\n",
+            OutputFiles(directory, contract).Select(f => f.Key + ":" + Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(f.Value))))))));
+    internal static void CompareTrees(string expected, string actual, EvidenceFileContract? contract = null)
+    {
+        if (contract != null && File.Exists(Path.Combine(expected, contract.FileName)))
+            throw new InvalidDataException("Evidence declaration would hide expected source.");
+        CompareSnapshot(Snapshot(expected), actual, contract);
     }
     private static SortedDictionary<string, byte[]> Snapshot(string directory) =>
         new(Files(directory).ToDictionary(f => f.Key, f => File.ReadAllBytes(f.Value)), StringComparer.Ordinal);
-    private static void CompareSnapshot(SortedDictionary<string, byte[]> a, string actual)
+    private static void CompareSnapshot(SortedDictionary<string, byte[]> a, string actual, EvidenceFileContract? contract = null)
     {
-        var b = Files(actual);
+        var b = OutputFiles(actual, contract);
         if (!a.Keys.SequenceEqual(b.Keys)) throw new InvalidDataException("Emitted file set differs from trusted checkpoint.");
         foreach (var key in a.Keys)
         {

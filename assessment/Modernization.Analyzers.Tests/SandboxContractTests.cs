@@ -11,6 +11,54 @@ namespace Modernization.Analyzers.Tests;
 [Trait("Category", "AnalyzerUnit")]
 public sealed class SandboxContractTests
 {
+    [Theory]
+    [InlineData("""{"Status":"succeeded","OutputFiles":[]}""", true)]
+    [InlineData("""{"Status":"failed"}""", false)]
+    [InlineData("""{"Status":"failed","Status":"succeeded"}""", false)]
+    [InlineData("""{"status":"succeeded"}""", false)]
+    [InlineData("""{"Status":true}""", false)]
+    [InlineData("""[{"Status":"succeeded"}]""", false)]
+    [InlineData("{", false)]
+    public async Task Host_evidence_validation_matches_replay_schema_without_starting_a_guest(string json, bool succeeds)
+    {
+        var root = Path.Combine(EvaluatorConfiguration.ArtifactRoot, "sandbox-evidence-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var file = Path.Combine(root, "run.json");
+            File.WriteAllText(file, json, new System.Text.UTF8Encoding(true));
+            var replayError = Record.Exception(() => ToolReplay.ReadExecutionArtifact(root,
+                new("run.json", "Status", "succeeded"), "initial"));
+            Assert.Equal(succeeds, replayError == null);
+            var helper = Path.Combine(EvaluatorConfiguration.AssessmentRoot, "Sandbox", "OutputEvidence.ps1");
+            var start = new ProcessStartInfo("pwsh")
+            {
+                UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true
+            };
+            start.ArgumentList.Add("-NoProfile");
+            start.ArgumentList.Add("-NonInteractive");
+            start.ArgumentList.Add("-Command");
+            start.ArgumentList.Add("$ErrorActionPreference='Stop'; . '" + helper.Replace("'", "''") +
+                "'; $root='" + root.Replace("'", "''") + "'; $hash=(Get-FileHash (Join-Path $root 'run.json')).Hash; " +
+                "Read-ExecutionEvidence $root 'run.json' 'Status' 'succeeded' @{'run.json'=$hash} | ConvertTo-Json -Compress");
+            using var process = Process.Start(start)!;
+            var output = process.StandardOutput.ReadToEndAsync();
+            var error = process.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try { await process.WaitForExitAsync(timeout.Token); }
+            catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw; }
+            Assert.True((process.ExitCode == 0) == succeeds, await error);
+            if (succeeds)
+            {
+                using var result = JsonDocument.Parse(await output);
+                Assert.Equal(Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(File.ReadAllBytes(file))),
+                    result.RootElement.GetProperty("Sha256").GetString());
+                Assert.Equal("succeeded", result.RootElement.GetProperty("Status").GetString());
+            }
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
     [Fact]
     public void Guest_native_helper_compiles_as_Framework_compatible_CSharp5_without_execution()
     {

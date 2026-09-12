@@ -74,6 +74,7 @@ internal static class ReferenceReplay
             throw new InvalidDataException("Review approval project set differs from the replay plan.");
         foreach (var fixture in plan.Cases)
         {
+            ToolReplay.ValidateEvidenceDeclaration(fixture);
             foreach (var path in new[] { fixture.InputDirectory, fixture.ExpectedDirectory, fixture.BehaviorFile }.OfType<string>())
                 if (Path.GetFullPath(path).StartsWith(root.TrimEnd('\\') + "\\", StringComparison.OrdinalIgnoreCase))
                     throw new InvalidDataException("Reviewed producer source must not contain private replay inputs/expectations.");

@@ -134,6 +134,53 @@ public sealed class ExternalReplayTests : IDisposable
     }
 
     [Theory]
+    [InlineData("valid", true)]
+    [InlineData("missing-check", false)]
+    [InlineData("missing-record", false)]
+    [InlineData("duplicate-run", false)]
+    [InlineData("failed-status", false)]
+    [InlineData("bad-hash", false)]
+    [InlineData("wrong-basis", false)]
+    [InlineData("changed-contract", false)]
+    public void Signed_evidence_contract_binds_schema_and_every_execution_record(string variant, bool verified)
+    {
+        var plan = Plan();
+        var contract = new EvidenceFileContract("run.json", "Status", "succeeded");
+        plan = plan with { Cases = plan.Cases.Select(c => c.Unsupported ? c : c with { EvidenceFile = contract }).ToArray() };
+        var challenge = Guid.NewGuid().ToString("N");
+        var attestation = Attestation(plan, challenge);
+        attestation = attestation with
+        {
+            Cases = attestation.Cases.Select(c =>
+            {
+                var fixture = plan.Cases.Single(f => f.Name == c.Evidence.Name);
+                if (fixture.Unsupported) return c;
+                var runs = fixture.Idempotent ? new[] { "initial", "repeat", "idempotent" } : ["initial", "repeat"];
+                var artifacts = runs.Select(run => new ExecutionArtifact("run.json", run, new string('A', 64), "succeeded")).ToArray();
+                if (variant == "missing-record") artifacts = artifacts.Skip(1).ToArray();
+                if (variant == "duplicate-run") artifacts[1] = artifacts[0];
+                if (variant == "failed-status") artifacts[0] = artifacts[0] with { Status = "failed" };
+                if (variant == "bad-hash") artifacts[0] = artifacts[0] with { Sha256 = "invalid" };
+                return c with
+                {
+                    Checks = variant == "missing-check" ? c.Checks : c.Checks.Append("declared-evidence-schema").ToArray(),
+                    Evidence = c.Evidence with
+                    {
+                        ExecutionArtifacts = artifacts,
+                        OutputHashBasis = variant == "wrong-basis" ? "all-emitted-files" : ToolReplay.OutputBasis(contract)
+                    }
+                };
+            }).ToArray()
+        };
+        using var key = RSA.Create(3072);
+        var signed = Sign(attestation, key);
+        if (variant == "changed-contract")
+            plan = plan with { Cases = plan.Cases.Select(c => c with { EvidenceFile = contract with { FileName = "other.json" } }).ToArray() };
+        var result = ExternalReplay.Verify(plan, policy, challenge, signed, key.ExportSubjectPublicKeyInfoPem());
+        Assert.Equal(verified, result.Verified);
+    }
+
+    [Theory]
     [InlineData(true)]
     [InlineData(false)]
     public async Task Absent_or_uncompilable_declared_projects_fail_before_replay(bool missing)

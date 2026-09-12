@@ -436,9 +436,35 @@ event wiring before accepting a real converter. Review full source graph and
 clean project builds separately; a small behavioral fixture does not certify WPF
 or SQL behavior.
 
+An optional **trusted per-case** declaration separates execution evidence from
+source-output equality:
+
+```json
+"EvidenceFile": {
+  "FileName": "migration-manifest.json",
+  "StatusProperty": "Status",
+  "SuccessValue": "succeeded"
+}
+```
+
+This names one exact top-level JSON file, not a glob/path or a candidate-provided
+ignore list. It cannot name a file present in the trusted expected source tree.
+Every successful initial/repeated/idempotent run must emit a JSON object with
+exactly one declared status property containing the exact success string.
+Each raw artifact SHA256, status and run identity is recorded in
+`ExecutionArtifacts`; timing/temp-name fields may differ between runs.
+`OutputHashBasis` explicitly names the separation. `OutputHash` independently
+hashes **every other emitted file**, including unexpected files, without reading
+`OutputFiles` or any other manifest field to choose scope. Empty source output
+still fails. Input/source/binary hashes always include every applicable file,
+including input evidence; idempotent execution must not mutate its input manifest.
+Without a declaration, all emitted files retain the original equality rules.
+Unsupported-input failure/no-partial-output requirements are unchanged.
+
 Each case copies fresh private inputs, invokes the actual CLI with a timeout,
 rejects source mutation, compares its complete emitted file set/content against
-the trusted expected tree (C# whitespace normalized), and compares byte hashes
+the trusted expected tree (apart from separately validated declared evidence;
+C# whitespace normalized), and compares byte hashes
 on a repeated independent invocation. Project idempotence replays emitted output
 as input. Unsupported cases require nonzero exit, a diagnostic and no partial
 output. Behavior compiles actual emitted C# with the trusted program and runs a
@@ -552,6 +578,10 @@ positive cases additionally require `frozen-expectation-comparison`,
 `deterministic-rerun`, `output-compilation`, plus `behavior` and
 `idempotent-rerun` when applicable. Unsupported cases require
 `unsupported-diagnostic` and `no-partial-output`, a nonzero exit and diagnostics.
+Declared evidence additionally requires `declared-evidence-schema`, the exact
+`OutputHashBasis`, and signed `ExecutionArtifacts` entries for `initial`, `repeat`,
+and (when applicable) `idempotent`, each with the declared filename/status and
+raw SHA256. The declaration itself is bound into the immutable request hash.
 The verifier rechecks current immutable request bindings and expiry. Issue a
 fresh challenge per evaluation and retain its signed receipt in private custody.
 Unsigned `sandbox=true`/`isolated=true`, wrong keys, stale challenges, mutated
