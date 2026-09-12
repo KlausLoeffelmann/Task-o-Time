@@ -197,6 +197,11 @@ application stage targets. Application inventory cannot be exempted, and
 unknown external projects fail closed. `Category=ProjectInventory` exercises
 discovery read-only without MSBuild. Compilation/replay uses owned copies or
 isolation, never another owner's output directories.
+Evaluated build-only project references (`ReferenceOutputAssembly=false`) remain
+loaded and source-checked but are not required compiler references. Test process
+helpers are classified through build-only dependency edges, not helper names;
+trusted production roots and shared production dependencies retain production
+grading. Helper framework targets remain visible and stage-checked.
 Its optional trusted `EvidenceFile` declaration separates one exact execution
 JSON artifact from source equality, validates its success status on every run,
 and retains raw artifact hashes. All other output remains independently checked;

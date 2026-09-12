@@ -142,4 +142,33 @@ public sealed class StagePolicyTests
         var compilation = AnalyzerTests.Compile("C#", "public class Candidate { public int Value { get; set => field = value; } }");
         Assert.DoesNotContain(compilation.GetDiagnostics(), d => d.Severity == Microsoft.CodeAnalysis.DiagnosticSeverity.Error);
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Build_only_test_helpers_are_classified_by_edges_and_shared_production_dependencies_stay_production(bool shared)
+    {
+        const string root = @"C:\candidate";
+        var compilation = AnalyzerTests.Compile("C#", "public class AnyName {}");
+        LoadedProject Project(string directory, bool test, params (string Path, bool Compiler)[] references)
+        {
+            var path = root + "\\" + directory + @"\Module.csproj";
+            var xml = new System.Xml.Linq.XElement("Project", new System.Xml.Linq.XAttribute("Test", test),
+                references.Select(r => new System.Xml.Linq.XElement("ProjectReference",
+                    new System.Xml.Linq.XAttribute("Path", r.Path), new System.Xml.Linq.XAttribute("ReferenceOutputAssembly", r.Compiler))));
+            return new(path, directory, "", compilation, test, false, [], [new InputFile(path + ".assessment", xml.ToString())],
+                State: new(path, "C#", test, false, true, "net10.0", ".NETCoreApp", "v10.0", "", "Debug", "Debug"));
+        }
+        var helper = Project("Unrelated.Process", false);
+        var checks = Project("Checks", true, (helper.Path, false));
+        var misleadingName = Project("RealProduction.TestHost", false);
+        var app = shared ? Project("Application", false, (helper.Path, false)) : Project("Application", false);
+        var classified = CompilerInputLoader.ClassifyTestSupport([helper, checks, misleadingName, app], root, [app.Path]);
+        Assert.Equal(!shared, classified.Single(p => p.Path == helper.Path).IsTest);
+        Assert.Equal(!shared, classified.Single(p => p.Path == helper.Path).State!.Test);
+        Assert.False(classified.Single(p => p.Path == misleadingName.Path).IsTest);
+        Assert.False(classified.Single(p => p.Path == app.Path).IsTest);
+        Assert.False(CompilerInputLoader.ClassifyTestSupport([helper, checks], root, [helper.Path])
+            .Single(p => p.Path == helper.Path).IsTest);
+    }
 }

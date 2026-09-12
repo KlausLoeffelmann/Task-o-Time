@@ -84,4 +84,96 @@ public sealed class SourceReferenceTests
         Assert.Throws<InvalidOperationException>(() => CompilerInputLoader.ResolveSourceProject(CompilerRefPath, [library],
             [new([CompilerRefPath], [other.Path])]));
     }
+
+    [Theory]
+    [InlineData(null, true)]
+    [InlineData("", true)]
+    [InlineData("true", true)]
+    [InlineData("False", false)]
+    [InlineData(" false ", false)]
+    public void Evaluated_build_only_metadata_does_not_relax_required_compiler_references(string? value, bool required)
+    {
+        var item = new Dictionary<string, string> { ["FullPath"] = ProjectPath };
+        if (value != null) item["ReferenceOutputAssembly"] = value;
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(new { ProjectReference = new[] { item } }));
+        var declared = CompilerInputLoader.ReadProjectReferences(json.RootElement, @"C:\fixture");
+        Assert.Equal(required, Assert.Single(declared).ReferenceOutputAssembly);
+        var dependency = Library();
+        void Validate() => CompilerInputLoader.ValidateCompilerReferences("Consumer", declared, [dependency], []);
+        if (required) Assert.Throws<InvalidOperationException>(Validate);
+        else Validate();
+        CompilerInputLoader.ValidateCompilerReferences("Consumer", declared, [dependency], [dependency]);
+    }
+
+    [Fact]
+    public void Invalid_evaluated_reference_metadata_and_mixed_duplicate_declarations_fail_closed()
+    {
+        using var json = JsonDocument.Parse(JsonSerializer.Serialize(new
+        {
+            ProjectReference = new[] { new { FullPath = ProjectPath, ReferenceOutputAssembly = "not-a-boolean" } }
+        }));
+        Assert.Throws<InvalidDataException>(() => CompilerInputLoader.ReadProjectReferences(json.RootElement, @"C:\fixture"));
+        Assert.Throws<InvalidOperationException>(() => CompilerInputLoader.ValidateCompilerReferences("Consumer",
+            [new(ProjectPath, false), new(ProjectPath, true)], [Library()], []));
+    }
+
+    [Theory]
+    [InlineData("net10.0")]
+    [InlineData("net472")]
+    public async Task Actual_evaluated_build_only_reference_loads_source_without_injecting_host_assembly(string framework)
+    {
+        var root = Path.Combine(ExternalEvaluation.EvaluatorConfiguration.ArtifactRoot, "build-only-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            void Write(string path, string text)
+            {
+                path = Path.Combine(root, path);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, text);
+            }
+            Write("Directory.Build.props", "<Project/>");
+            Write("Directory.Build.targets", "<Project/>");
+            var package = framework == "net472" ?
+                """<ItemGroup><PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all"/></ItemGroup>""" : "";
+            Write(@"Helper\Utility.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework>
+                <OutputType>Exe</OutputType><AssemblyName>Independent.Process</AssemblyName></PropertyGroup></Project>
+                """.Replace("net10.0", framework).Replace("</Project>", package + "</Project>"));
+            Write(@"Helper\Program.cs", "public static class Program { public static int Main() => 0; }");
+            Write(@"Checks\Fixture.vbproj", """
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework>
+                <IsTestProject>true</IsTestProject></PropertyGroup><ItemGroup>
+                <ProjectReference Include="..\Helper\Utility.csproj">
+                  <ReferenceOutputAssembly Condition="'$(Configuration)' == 'Debug'">false</ReferenceOutputAssembly>
+                </ProjectReference></ItemGroup></Project>
+                """.Replace("net10.0", framework).Replace("</Project>", package + "</Project>"));
+            Write(@"Checks\Fixture.vb", "Public Class Fixture\nEnd Class");
+            var path = Path.Combine(root, "Checks", "Fixture.vbproj");
+            var start = new System.Diagnostics.ProcessStartInfo("dotnet")
+            {
+                WorkingDirectory = root, UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true
+            };
+            foreach (var argument in new[] { "build", path, "--verbosity", "quiet", "-nodeReuse:false", "-p:UseSharedCompilation=false" })
+                start.ArgumentList.Add(argument);
+            using var process = System.Diagnostics.Process.Start(start)!;
+            var stdout = process.StandardOutput.ReadToEndAsync();
+            var stderr = process.StandardError.ReadToEndAsync();
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            try { await process.WaitForExitAsync(timeout.Token); }
+            catch (OperationCanceledException) { process.Kill(entireProcessTree: true); throw; }
+            Assert.True(process.ExitCode == 0, await stdout + await stderr);
+            var loader = new CompilerInputLoader(Path.Combine(root, "compiler-inputs"));
+            var loaded = await loader.Load(path);
+            Assert.Equal(2, loader.Projects.Count);
+            Assert.EndsWith(framework == "net472" ? ".exe" : ".dll",
+                Assert.Single(loader.Projects, p => p.Name == "Independent.Process").OutputPath);
+            Assert.All(loader.Projects, p => Assert.DoesNotContain(p.Compilation.GetDiagnostics(), d => d.Severity == DiagnosticSeverity.Error));
+            Assert.DoesNotContain(loaded.Compilation.ReferencedAssemblyNames, name => name.Name == "Independent.Process");
+            var metadata = Evidence.Xml(Assert.Single(loaded.AdditionalFiles, file => file.Path == path + ".assessment"));
+            Assert.Equal("false", Assert.Single(metadata.Descendants("ProjectReference")).Attribute("ReferenceOutputAssembly")!.Value);
+            Assert.All(CompilerInputLoader.ClassifyTestSupport(loader.Projects, root), p => Assert.True(p.IsTest));
+        }
+        finally { Directory.Delete(root, true); }
+    }
 }

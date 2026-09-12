@@ -84,6 +84,22 @@ and `packages` directories are ignored case-insensitively; `tests`/`Fixtures` ar
 not skipped. Application test projects still belong to the application target
 inventory, even when written in VB.
 
+Evaluated `ProjectReference` metadata distinguishes compiler dependencies from
+build/process dependencies. An explicit `ReferenceOutputAssembly=false` keeps
+the referenced project loaded, source-checked and in the evaluated inventory,
+but does not require or inject its assembly into the consumer's compiler inputs.
+Absent/empty metadata defaults to a required compiler reference; malformed
+values and genuinely omitted compiler references fail closed. The evaluated
+flag is retained on project-reference graph edges.
+
+Build-only edges from test projects identify test-only process helpers without
+relying on names such as `TestHost`/`CaptureHost`. Their ordinary compiler
+dependencies are not automatically exempted. Trusted production roots and all
+projects reachable from production/tool code, including build-only dependencies,
+remain production regardless of test-like names or shared test use. Classification
+updates both report metadata and analyzer project metadata. Test-only helper
+targets still participate in the application/test stage framework inventory.
+
 Optional trusted `BuildProperties` select each declared project's evaluated
 configuration (including validation harness overrides); infrastructure/compiler
 skips and injected property lists are rejected. They participate in compiler

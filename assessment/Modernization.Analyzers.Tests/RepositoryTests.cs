@@ -106,14 +106,16 @@ public sealed class RepositoryTests
             ProjectRoles.ValidateInventory(discovered, root, roles);
             var loader = new CompilerInputLoader(Path.Combine(EvaluatorConfiguration.ArtifactRoot, "compiler-inputs"),
                 EvaluatorConfiguration.BuildConfiguration, policy.Identity, roles);
+            var productionRoots = new List<string>();
             foreach (var directory in new[] { "TaskOTime.App" })
             {
                 var projectPath = Directory.EnumerateFiles(Path.Combine(root, directory), "*.*proj")
                     .Single(p => Path.GetExtension(p) is ".csproj" or ".vbproj");
                 await loader.Load(projectPath);
+                productionRoots.Add(projectPath);
             }
             await LoadProjectSet(discovered, roles.Keys, loader.Load);
-            var loaded = CompilerInputLoader.ClassifyTestSupport(loader.Projects, root);
+            var loaded = CompilerInputLoader.ClassifyTestSupport(loader.Projects, root, productionRoots);
             ProjectRoles.ValidateInventory(loaded.Select(p => p.Path), root, roles);
             ProjectRoles.ValidateDependencies(loaded);
             evaluated.AddRange(loaded.Select(p => p.State!).Where(p => p != null));

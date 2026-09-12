@@ -15,6 +15,7 @@ internal sealed record LoadedProject(string Path, string Name, string OutputPath
     bool IsTest, bool IsTooling, string[] GeneratedPaths, AdditionalText[] AdditionalFiles, string? TargetRefPath = null,
     ProjectState? State = null);
 internal sealed record EvaluatedAssemblyReference(string[] AssemblyPaths, string[] SourceProjects);
+internal sealed record EvaluatedProjectReference(string Path, bool ReferenceOutputAssembly);
 internal sealed class SourceCompilationException(string project, IEnumerable<Diagnostic> diagnostics)
     : Exception("Source compilation failed for " + project)
 {
@@ -88,8 +89,9 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
         var items = json.RootElement.GetProperty("Items");
         var properties = json.RootElement.GetProperty("Properties");
         var dependencies = new List<LoadedProject>();
-        foreach (var reference in items.GetProperty("ProjectReference").EnumerateArray())
-            dependencies.Add(await Load(reference.GetProperty("FullPath").GetString()!));
+        var projectReferences = ReadProjectReferences(items, directory);
+        foreach (var reference in projectReferences)
+            dependencies.Add(await Load(reference.Path));
         var vb = Path.GetExtension(projectPath).Equals(".vbproj", StringComparison.OrdinalIgnoreCase);
         var arguments = items.GetProperty(vb ? "VbcCommandLineArgs" : "CscCommandLineArgs")
             .EnumerateArray().Select(a => a.GetProperty("Identity").GetString()!).ToArray();
@@ -116,11 +118,7 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             }
             else references.Add(MetadataReference.CreateFromFile(referencePath, reference.Properties));
         }
-        foreach (var dependency in dependencies.Except(replaced))
-        {
-            // A missing compiler reference is evidence of broken inputs, not permission to guess a reference.
-            throw new InvalidOperationException($"Compiler input for {projectPath} omits project reference {dependency.OutputPath}");
-        }
+        ValidateCompilerReferences(projectPath, projectReferences, dependencies, replaced);
         // Unlike C#, VB's /nostdlib removes System.dll, not its implicit core library.
         // The command-line driver adds mscorlib from /sdkpath after parsing the reference switches.
         if (vb && properties.GetProperty("TargetFrameworkIdentifier").GetString() == ".NETFramework" &&
@@ -183,7 +181,8 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             items.GetProperty("PackageReference").EnumerateArray().Select(a =>
                 new XElement("Package", new XAttribute("Name", a.GetProperty("Identity").GetString()!),
                     new XAttribute("Version", a.TryGetProperty("Version", out var v) ? v.GetString() ?? "" : ""))),
-            dependencies.Select(d => new XElement("ProjectReference", new XAttribute("Path", d.Path))),
+            projectReferences.Select(r => new XElement("ProjectReference", new XAttribute("Path", r.Path),
+                new XAttribute("ReferenceOutputAssembly", r.ReferenceOutputAssembly))),
             items.GetProperty("EmbeddedResource").EnumerateArray().Where(a =>
                 Path.GetExtension(a.GetProperty("FullPath").GetString()!).Equals(".resx", StringComparison.OrdinalIgnoreCase))
                 .Select(a => new XElement("Resource", new XAttribute("Path", a.GetProperty("FullPath").GetString()!),
@@ -215,23 +214,79 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             Value("TargetPlatformIdentifier"), Value("Configuration"), Value("Configurations"));
     }
 
-    internal static LoadedProject[] ClassifyTestSupport(IEnumerable<LoadedProject> projects, string sourceRoot)
+    internal static EvaluatedProjectReference[] ReadProjectReferences(JsonElement items, string directory) =>
+        items.GetProperty("ProjectReference").EnumerateArray().Select(reference =>
+        {
+            var value = reference.TryGetProperty("ReferenceOutputAssembly", out var metadata) ? metadata.GetString() : null;
+            var compilerReference = true;
+            if (!string.IsNullOrWhiteSpace(value) && !bool.TryParse(value.Trim(), out compilerReference))
+                throw new InvalidDataException("Invalid evaluated ReferenceOutputAssembly metadata: " + value);
+            return new EvaluatedProjectReference(Path.GetFullPath(reference.GetProperty("FullPath").GetString()!, directory),
+                compilerReference);
+        }).ToArray();
+
+    internal static void ValidateCompilerReferences(string projectPath, IEnumerable<EvaluatedProjectReference> declared,
+        IEnumerable<LoadedProject> dependencies, IEnumerable<LoadedProject> replaced)
+    {
+        var required = declared.Where(r => r.ReferenceOutputAssembly).Select(r => r.Path).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var dependency in dependencies.Except(replaced).Where(d => required.Contains(d.Path)))
+            throw new InvalidOperationException($"Compiler input for {projectPath} omits project reference {dependency.OutputPath}");
+    }
+
+    internal static LoadedProject[] ClassifyTestSupport(IEnumerable<LoadedProject> projects, string sourceRoot,
+        IEnumerable<string>? productionRoots = null)
     {
         var all = projects.ToDictionary(p => p.Path, StringComparer.OrdinalIgnoreCase);
+        IEnumerable<(LoadedProject Project, bool BuildOnly)> Dependencies(LoadedProject project)
+        {
+            foreach (var file in project.AdditionalFiles.Where(f => f.Path == project.Path + ".assessment"))
+            foreach (var reference in Evidence.Xml(file).Descendants("ProjectReference"))
+                if (reference.Attribute("Path")?.Value is { } path && all.TryGetValue(path, out var dependency))
+                    yield return (dependency, reference.Attribute("ReferenceOutputAssembly")?.Value
+                        .Equals("false", StringComparison.OrdinalIgnoreCase) == true);
+        }
         bool InTestDirectory(string path) => Path.GetRelativePath(sourceRoot, path).Split(Path.DirectorySeparatorChar)
             .SkipLast(1).Any(s => s.EndsWith("Tests", StringComparison.OrdinalIgnoreCase));
+        // Build-only test edges identify process helpers without treating their compiler dependencies as test-only.
+        var testHelpers = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var testPending = new Stack<LoadedProject>(all.Values.Where(p => p.IsTest || InTestDirectory(p.Path)));
+        var testVisited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        while (testPending.TryPop(out var test))
+        {
+            if (!testVisited.Add(test.Path)) continue;
+            foreach (var dependency in Dependencies(test).Where(r => r.BuildOnly))
+            {
+                testHelpers.Add(dependency.Project.Path);
+                testPending.Push(dependency.Project);
+            }
+        }
         var production = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-        var pending = new Stack<LoadedProject>(all.Values.Where(p => !p.IsTest && !InTestDirectory(p.Path)));
+        var pending = new Stack<LoadedProject>(all.Values.Where(p => p.IsTooling && !p.IsTest ||
+            !p.IsTest && !InTestDirectory(p.Path) && !testHelpers.Contains(p.Path)));
+        foreach (var path in productionRoots ?? [])
+            pending.Push(all.TryGetValue(path, out var root) ? root :
+                throw new InvalidDataException("Missing trusted production root: " + path));
         while (pending.TryPop(out var current))
         {
             if (!production.Add(current.Path)) continue;
-            foreach (var file in current.AdditionalFiles.Where(f => f.Path == current.Path + ".assessment"))
-            foreach (var reference in Evidence.Xml(file).Descendants("ProjectReference"))
-                if (reference.Attribute("Path")?.Value is { } path && all.TryGetValue(path, out var dependency))
-                    pending.Push(dependency);
+            foreach (var dependency in Dependencies(current)) pending.Push(dependency.Project);
         }
-        return all.Values.Select(p => !p.IsTest && !p.IsTooling && InTestDirectory(p.Path) && !production.Contains(p.Path)
-            ? p with { IsTest = true, State = p.State == null ? null : p.State with { Test = true } } : p).ToArray();
+        return all.Values.Select(p =>
+        {
+            var test = !production.Contains(p.Path) && (p.IsTest || !p.IsTooling && (InTestDirectory(p.Path) || testHelpers.Contains(p.Path)));
+            if (test == p.IsTest) return p;
+            return p with
+            {
+                IsTest = test, State = p.State == null ? null : p.State with { Test = test },
+                AdditionalFiles = p.AdditionalFiles.Select(file =>
+                {
+                    if (file.Path != p.Path + ".assessment") return file;
+                    var xml = Evidence.Xml(file);
+                    xml.Root!.SetAttributeValue("Test", test);
+                    return new InputFile(file.Path, xml.ToString());
+                }).ToArray()
+            };
+        }).ToArray();
     }
 
     internal static EvaluatedAssemblyReference[] ReadEvaluatedReferences(JsonElement items, string directory)
