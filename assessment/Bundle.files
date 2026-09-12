@@ -40,4 +40,9 @@ Modernization.Analyzers.Tests\ExternalReplayTests.cs
 Modernization.Analyzers.Tests\ReferenceReplay.cs
 Modernization.Analyzers.Tests\ReferenceReplayTests.cs
 Modernization.Analyzers.Tests\ReplayRequestTests.cs
+Modernization.Analyzers.Tests\SandboxContractTests.cs
+Sandbox\Invoke-SandboxProbe.ps1
+Sandbox\GuestProbe.ps1
+Sandbox\RestrictedProcess.cs
+Sandbox\README.md
 Modernization.Analyzers.Tests\README.md
