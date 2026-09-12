@@ -62,7 +62,7 @@
   <data name="FileMenuHeader" xml:space="preserve">
     <value>_Archivo</value>
   </data>
-  <data name="MasterDataMenuHeader" xml:space="preserve">
+  <data name="MainDataMenuHeader" xml:space="preserve">
     <value>_Datos maestros</value>
   </data>
   <data name="AnalysisMenuHeader" xml:space="preserve">

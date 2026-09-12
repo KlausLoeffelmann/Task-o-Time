@@ -546,7 +546,7 @@
                 <MenuItem Header="{loc:Loc Main_Logout}" Click="OnLogoutClick" />
                 <MenuItem Header="{loc:Loc QuitMenuHeader}" Click="OnQuitMenuItemClick" />
             </MenuItem>
-            <MenuItem Header="{loc:Loc MasterDataMenuHeader}">
+            <MenuItem Header="{loc:Loc MainDataMenuHeader}">
                 <MenuItem Header="{loc:Loc ManageProjectsMenuHeader}"
                           Command="{Binding ManageProjectsCommand}" />
                 <MenuItem Header="{loc:Loc NewTaskListButtonText}"
