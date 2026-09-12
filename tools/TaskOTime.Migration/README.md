@@ -73,6 +73,8 @@ Three narrow adapters address reproduced upstream gaps:
 Project/solution-reference and linked-source edits use `XDocument`, not regex.
 All source/project destinations are checked for existing files, directories and
 duplicate targets before any converted project/source/XAML is written.
+Removed VB-only XML properties are removed with their preceding indentation,
+preserving comments and avoiding whitespace-only lines in emitted projects.
 Namespaces, field modifiers, comments, business behavior and MVVM defects are
 not "cleaned up." No product-specific type names occur in adapter logic.
 
@@ -161,6 +163,9 @@ review fixes. All **178 application output hashes remained identical** to the
 handoff above; no generated application changes are required. The new manifest
 additionally confirms that all 11 service and 29 ViewModel emitted sources were
 present in their respective actual C# compiler invocations.
+The subsequent XML-trivia fix changes only the two generated `.csproj` files:
+their parsed XML is identical, and the orphaned whitespace-only lines are gone.
+This reproduces the coordinator's format-only cleanup without source changes.
 
 The original tests pass against the converted graph: **33/33
 TimeTrackingServices.Tests and 30/30 AppServer.Tests**. At deeply nested paths,

@@ -43,7 +43,7 @@ internal static class ProjectEdits
             if (mapping.TryGetValue(relative, out var newProject) && relative.EndsWith(".vbproj", StringComparison.OrdinalIgnoreCase)) {
                 var ns = xml.Root!.Name.Namespace;
                 foreach (var element in xml.Descendants().Where(e => e.Name.LocalName is "OptionStrict" or "OptionExplicit" or "OptionInfer" or "OptionCompare" or "MyType" or "VBRuntime").ToArray())
-                    element.Remove();
+                    RemoveWithIndentation(element);
                 foreach (var element in xml.Descendants().Where(e => e.Name.LocalName == "Import"))
                     element.Attribute("Project")!.Value = element.Attribute("Project")!.Value.Replace("Microsoft.VisualBasic.targets", "Microsoft.CSharp.targets", StringComparison.OrdinalIgnoreCase);
                 foreach (var element in xml.Descendants().Where(e => e.Name.LocalName is "DependentUpon" or "LastGenOutput"))
@@ -56,7 +56,7 @@ internal static class ProjectEdits
                         if (defines is null) property.Parent.Add(defines = new XElement(ns + "DefineConstants"));
                         defines.Value += ";" + (property.Name.LocalName == "DefineDebug" ? "DEBUG" : "TRACE");
                     }
-                    property.Remove();
+                    RemoveWithIndentation(property);
                 }
                 var group = new XElement(ns + "PropertyGroup", new XElement(ns + "LangVersion", "13.0"),
                     new XElement(ns + "DefaultItemExcludes", "$(DefaultItemExcludes);**\\*.vb"));
@@ -86,6 +86,13 @@ internal static class ProjectEdits
             if (!targets.Add(relative) || File.Exists(fullPath) || Directory.Exists(fullPath))
                 throw new MigrationException("FILE_COLLISION", $"Refusing to overwrite destination '{target}' from '{source}'.");
         }
+    }
+
+    private static void RemoveWithIndentation(XElement element)
+    {
+        if (element.PreviousNode is XText text && string.IsNullOrWhiteSpace(text.Value))
+            text.Remove();
+        element.Remove();
     }
 
     private static void QualifyXaml(string projectDirectory, string rootNamespace)

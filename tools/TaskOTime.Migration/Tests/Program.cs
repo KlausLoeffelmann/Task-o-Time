@@ -20,6 +20,11 @@ var conversion = await Convert(input, output);
 Require(conversion.Code == 0, conversion.Text);
 var collection = File.ReadAllText(Path.Combine(output, "Canary", "Collection.cs"));
 var view = File.ReadAllText(Path.Combine(output, "Canary", "Probe.xaml.cs"));
+var emittedProject = File.ReadAllText(Path.Combine(output, "Canary", "Canary.csproj"));
+Require(!emittedProject.Split('\n').Any(line => line.TrimEnd('\r').Length > 0 && string.IsNullOrWhiteSpace(line)),
+    "removing VB properties left whitespace-only project lines");
+Require(emittedProject.Contains("Preserve this project comment while removing VB-specific properties."),
+    "project trivia removed together with VB options");
 Require(collection.Contains("IList.this[") && !collection.Contains("IList.get_Item"), "actual emitted explicit indexer");
 Require(collection.Contains("IReadOnlyList<string>.this[") && !collection.Contains("IReadOnlyList<string>.get_Item"),
     "second explicit interface indexer was not repaired");
