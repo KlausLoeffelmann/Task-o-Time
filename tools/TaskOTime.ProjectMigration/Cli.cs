@@ -13,10 +13,11 @@ public static class Cli
             if (args.Length == 0 || args is ["--help"])
             {
                 output.WriteLine("""
-                    ProjectMigration 1.0.0 (local .NET 10 MSBuild; trusted workspaces only)
+                    ProjectMigration 1.1.2 (local .NET 10 MSBuild; trusted workspaces only)
                     inspect --source <workspace> [--configuration Debug,Release] [--platform AnyCPU]
                     normalize-framework --target net472 --source <workspace> --output <new-workspace> [--dry-run]
                     convert-projects --sdk-style --source <workspace> --output <new-workspace> [--dry-run]
+                    prepare-net10 --source <workspace> --output <new-workspace> [--dry-run]
                     retarget --framework net10.0 --wpf-framework net10.0-windows --source <workspace> --output <new-workspace> [--dry-run]
                     All commands emit deterministic JSON to stdout. Mutations save migration-manifest.json.
                     --dryrun is an alias for --dry-run. Output must not exist or overlap source.
@@ -47,7 +48,7 @@ public sealed record Options(string Command, string Source, string? Output, bool
     public static Options Parse(string[] args)
     {
         var command = args[0];
-        if (command is not ("inspect" or "normalize-framework" or "convert-projects" or "retarget"))
+        if (command is not ("inspect" or "normalize-framework" or "convert-projects" or "prepare-net10" or "retarget"))
             throw new ArgumentException($"Unknown command '{command}'. Use --help.");
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         var flags = new HashSet<string>(StringComparer.Ordinal);

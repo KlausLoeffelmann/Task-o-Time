@@ -9,6 +9,146 @@ Directory.CreateDirectory(workspace);
 var passed = 0;
 try
 {
+    Test("preparation rejects unpreserved reference, embedding, and copy-layout semantics", () =>
+    {
+        var failures = new List<string>();
+        void Reject(string name, string source, string code)
+        {
+            var destination = source + "-output";
+            using var stdout = new StringWriter();
+            using var stderr = new StringWriter();
+            var exit = Cli.Run(["prepare-net10", "--source", source, "--output", destination], stdout, stderr);
+            if (exit != 2 || Directory.Exists(destination))
+            {
+                failures.Add($"{name}: exit={exit}, published={Directory.Exists(destination)}");
+                return;
+            }
+            if (stdout.ToString().Length == 0)
+            {
+                failures.Add($"{name}: unexpected exception: {stderr}");
+                return;
+            }
+            using var result = JsonDocument.Parse(stdout.ToString());
+            if (!result.RootElement.GetProperty("Diagnostics").EnumerateArray().Any(d =>
+                    d.GetProperty("Severity").GetString() == "error" && d.GetProperty("Code").GetString() == code))
+                failures.Add($"{name}: missing {code} diagnostic");
+        }
+
+        foreach (var configuration in new[] { "Debug", "Release" })
+        {
+            var source = Path.Combine(workspace, "updated-reference-" + configuration);
+            Write(source, "Aliases.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+                <ItemGroup>
+                  <PackageReference Include="EntityFramework" Version="6.5.1" />
+                  <Reference Include="EntityFramework">
+                    <HintPath>$(NuGetPackageRoot)entityframework\6.5.1\lib\net45\EntityFramework.dll</HintPath><Private>True</Private>
+                  </Reference>
+                  <Reference Update="EntityFramework" Condition="'$(Configuration)' == '{configuration}'"><Aliases>efalias</Aliases></Reference>
+                </ItemGroup></Project>
+                """);
+            Write(source, "AliasConsumer.cs", "extern alias efalias; public class AliasConsumer : efalias::System.Data.Entity.DbContext { }");
+            Reject(configuration + " evaluated aliases", source, "unreviewed-reference-removal");
+        }
+
+        const string schema = """
+            <edmx:Edmx xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx">
+              <edmx:Runtime>
+                <edmx:ConceptualModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" Namespace="Independent" /></edmx:ConceptualModels>
+                <edmx:StorageModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl" Namespace="Independent.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" /></edmx:StorageModels>
+                <edmx:Mappings><Mapping xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs" Space="C-S" /></edmx:Mappings>
+              </edmx:Runtime>
+            </edmx:Edmx>
+            """;
+        var embeddedSource = Path.Combine(workspace, "embedded-edmx");
+        Write(embeddedSource, "ModelProject\\Embedded.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+            """);
+        var embedded = XDocument.Parse(schema);
+        XNamespace edmx = "http://schemas.microsoft.com/ado/2009/11/edmx";
+        embedded.Root!.Add(new XElement(edmx + "Designer", new XElement(edmx + "Connection",
+            new XElement(edmx + "DesignerInfoPropertySet", new XElement(edmx + "DesignerProperty",
+                new XAttribute("Name", "MetadataArtifactProcessing"), new XAttribute("Value", "EmbedInOutputAssembly"))))));
+        Write(embeddedSource, "ModelProject\\Model\\Independent.edmx", embedded.ToString());
+        Write(embeddedSource, "ModelProject\\App.config", """<configuration><connectionStrings><add name="Model" connectionString="metadata=res://*/Model.Independent.csdl|res://*/Model.Independent.ssdl|res://*/Model.Independent.msl" /></connectionStrings></configuration>""");
+        Reject("embedded EDMX", embeddedSource, "unsupported-edmx-embedding");
+
+        foreach (var wrongSource in new[] { false, true })
+        {
+            var source = Path.Combine(workspace, wrongSource ? "wrong-metadata-source" : "relocated-metadata");
+            Write(source, "Models\\Models.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework>
+                <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath></PropertyGroup>
+                <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+                """);
+            Write(source, "Models\\Model\\Independent.edmx", schema);
+            var producer = wrongSource ? "Unrelated" : "Models";
+            var destination = wrongSource ? "Model" : "ConfiguredSchemaFolder";
+            Write(source, "Consumer\\Consumer.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+                <ItemGroup><ProjectReference Include="..\Models\Models.csproj" /></ItemGroup>
+                <Target Name="MetadataDeployment" AfterTargets="Build">
+                  <ItemGroup><Metadata Include="..\{producer}\bin\$(Configuration)\Model\Independent.csdl" /></ItemGroup>
+                  <Copy SourceFiles="@(Metadata)" DestinationFolder="$(OutDir){destination}" SkipUnchangedFiles="true" />
+                </Target></Project>
+                """);
+            Reject(wrongSource ? "unrelated producer" : "custom metadata destination", source, "unreviewed-metadata-target");
+        }
+        foreach (var variant in new[]
+                 {
+                     (Name: "existing-unreferenced", Reference: "", Properties: ""),
+                     (Name: "different-local-model", Reference: "", Properties: ""),
+                     (Name: "private-reference", Reference: """<ProjectReference Include="..\Models\Models.csproj"><Private>false</Private></ProjectReference>""", Properties: ""),
+                     (Name: "release-private-reference", Reference: """<ProjectReference Include="..\Models\Models.csproj"><Private Condition="'$(Configuration)' == 'Release'">false</Private></ProjectReference>""", Properties: ""),
+                     (Name: "configuration-override", Reference: """<ProjectReference Include="..\Models\Models.csproj"><SetConfiguration>Configuration=Release</SetConfiguration></ProjectReference>""", Properties: ""),
+                     (Name: "disabled-child-copy", Reference: """<ProjectReference Include="..\Models\Models.csproj" />""", Properties: "<_GetChildProjectCopyToOutputDirectoryItems>false</_GetChildProjectCopyToOutputDirectoryItems>"),
+                     (Name: "disabled-transitive-copy", Reference: """<ProjectReference Include="..\Bridge\Bridge.csproj" />""", Properties: "<MSBuildCopyContentTransitively>false</MSBuildCopyContentTransitively>")
+                 })
+        {
+            var source = Path.Combine(workspace, variant.Name);
+            Write(source, "Models\\Models.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework>
+                <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath></PropertyGroup>
+                <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+                """);
+            Write(source, "Models\\Model\\Independent.edmx", schema);
+            Write(source, "Bridge\\Bridge.csproj", """
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+                <ItemGroup><ProjectReference Include="..\Models\Models.csproj" /></ItemGroup></Project>
+                """);
+            Write(source, "Consumer\\Consumer.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework>{variant.Properties}</PropertyGroup>
+                <ItemGroup>{variant.Reference}</ItemGroup>
+                <Target Name="MetadataDeployment" AfterTargets="Build">
+                  <ItemGroup><Metadata Include="..\Models\bin\$(Configuration)\Model\Independent.csdl" /></ItemGroup>
+                  <Copy SourceFiles="@(Metadata)" DestinationFolder="$(OutDir)Model" SkipUnchangedFiles="true" />
+                </Target></Project>
+                """);
+            if (variant.Name == "different-local-model")
+            {
+                var consumer = XDocument.Load(Path.Combine(source, "Consumer\\Consumer.csproj"));
+                consumer.Root!.Add(new XElement("ItemGroup", new XElement("EntityDeploy", new XAttribute("Include", "Model\\Independent.edmx"))));
+                Write(source, "Consumer\\Consumer.csproj", consumer.ToString());
+                Write(source, "Consumer\\Model\\Independent.edmx", schema);
+            }
+            Reject(variant.Name, source, "unreviewed-metadata-target");
+        }
+        var filesystemSource = Path.Combine(workspace, "root-filesystem-edmx");
+        Write(filesystemSource, "Filesystem.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+            """);
+        embedded.Descendants(edmx + "DesignerProperty").Single().SetAttributeValue("Value", "CopyToOutputDirectory");
+        Write(filesystemSource, "Model\\Independent.edmx", embedded.ToString());
+        Run(0, "prepare-net10", "--source", filesystemSource, "--output", filesystemSource + "-output");
+        Check(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    });
+    if (args is ["--preparation-safety"])
+    {
+        Console.WriteLine($"PASS: preparation safety regressions; artifacts: {workspace}");
+        return 0;
+    }
     var original = Path.Combine(workspace, "original");
     Write(original, "Library\\Library.csproj", """
         <Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
@@ -197,6 +337,218 @@ try
         Check(!Directory.Exists(output), "failed verification published output");
         Check(!Directory.GetDirectories(workspace, "*.projectmigration-*").Any(), "failed verification left staging output");
     });
+    Test("framework-conditioned dependencies and metadata cannot silently disappear", () =>
+    {
+        foreach (var kind in new[] { "Reference", "PackageReference" })
+            foreach (var metadataOnly in new[] { false, true })
+            {
+                var source = Path.Combine(workspace, $"conditioned-{kind}-{metadataOnly}");
+                var output = source + "-out";
+                var item = new XElement(kind, new XAttribute("Include", "Independent.Dependency"));
+                if (kind == "PackageReference") item.Add(new XAttribute("Version", "1.2.3"));
+                var condition = new XAttribute("Condition", "'$(TargetFramework)' == 'net461'");
+                if (metadataOnly) item.Add(new XElement("IndependentCustomMetadata", condition, "must-survive"));
+                else item.Add(condition);
+                var xml = new XElement("Project", new XAttribute("Sdk", "Microsoft.NET.Sdk"),
+                    new XElement("PropertyGroup", new XElement("TargetFramework", "net461")),
+                    new XElement("ItemGroup", item));
+                Write(source, "Conditioned.csproj", xml.ToString());
+                var result = Run(2, "normalize-framework", "--target", "net472", "--source", source, "--output", output);
+                Check(result.RootElement.GetProperty("Diagnostics").EnumerateArray().Any(d =>
+                    d.GetProperty("Code").GetString() == "output-dependency-mismatch" &&
+                    d.GetProperty("Message").GetString()!.Contains(kind)), $"missing {kind} mismatch diagnostic");
+                Check(!Directory.Exists(output), "conditioned dependency loss published output");
+            }
+    });
+    Test("explicit desktop assembly references establish SDK flags and compile after retargeting", () =>
+    {
+        foreach (var wpf in new[] { true, false })
+        {
+            var source = Path.Combine(workspace, wpf ? "explicit-wpf" : "explicit-forms");
+            var output = source + "-modern";
+            var assembly = wpf ? "PresentationFramework" : "System.Windows.Forms";
+            var flag = wpf ? "UseWPF" : "UseWindowsForms";
+            Write(source, "Desktop.csproj", $"""
+                <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+                <ItemGroup><Reference Include="{assembly}" /></ItemGroup></Project>
+                """);
+            Write(source, "Desktop.cs", wpf
+                ? "public class DesktopCanary : System.Windows.Window { public System.Windows.Controls.Button Value = new System.Windows.Controls.Button(); }"
+                : "public class DesktopCanary : System.Windows.Forms.Form { public System.Windows.Forms.Button Value = new System.Windows.Forms.Button(); }");
+            Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", source, "--output", output);
+            var xml = XDocument.Load(Path.Combine(output, "Desktop.csproj"));
+            Check(xml.Descendants(flag).Single().Value == "true", $"{flag} not established");
+            Check(xml.Descendants("TargetFramework").Single().Value == "net10.0-windows", "desktop framework not selected");
+            Check(!xml.Descendants("Reference").Any(), "obsolete desktop assembly reference retained");
+            Build(Path.Combine(output, "Desktop.csproj"));
+            var again = Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", output, "--output", output + "-again");
+            Check(again.RootElement.GetProperty("ChangedFiles").GetArrayLength() == 0, "desktop retarget not idempotent");
+            var originalXml = XDocument.Load(Path.Combine(source, "Desktop.csproj"));
+            originalXml.Root!.Element("PropertyGroup")!.Add(new XElement(flag, "false"));
+            Write(source, "Desktop.csproj", originalXml.ToString());
+            Run(2, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", source, "--output", output + "-conflict");
+        }
+    });
+    Test("restored MSTest adapter assets remain package-provided across normalization", () =>
+    {
+        var source = Path.Combine(workspace, "restored-mstest");
+        var output = source + "-normalized";
+        Write(source, "RestoredTests.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk">
+              <PropertyGroup><TargetFramework>net461</TargetFramework></PropertyGroup>
+              <ItemGroup>
+                <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" />
+                <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.2.0" />
+                <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
+                <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+                <ProjectReference Include="Nested\Nested.vbproj" />
+                <Reference Include="Microsoft.VisualStudio.TestPlatform.TestFramework">
+                  <HintPath>$(NuGetPackageRoot)mstest.testframework\2.2.10\lib\net45\Microsoft.VisualStudio.TestPlatform.TestFramework.dll</HintPath>
+                  <Private>True</Private>
+                </Reference>
+              </ItemGroup>
+            </Project>
+            """);
+        Write(source, "Nested\\Nested.vbproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net461</TargetFramework></PropertyGroup>
+            <ItemGroup><PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" /></ItemGroup></Project>
+            """);
+        Write(source, "Nested\\Canary.vb", "Public Class NestedCanary\nEnd Class");
+        Write(source, "Canary.cs", """
+            using Microsoft.VisualStudio.TestTools.UnitTesting;
+            [TestClass] public class IndependentCanary {
+                [TestMethod] public void Preserved() { Assert.AreEqual(4, 2 + 2); }
+            }
+            """);
+        Build(Path.Combine(source, "RestoredTests.csproj"));
+        var assets = Path.Combine(source, "obj\\project.assets.json");
+        var assetsBefore = File.ReadAllBytes(assets);
+        var result = Run(0, "normalize-framework", "--target", "net472", "--source", source, "--output", output);
+        var packageItems = result.RootElement.GetProperty("Projects").EnumerateArray()
+            .Single(p => p.GetProperty("Path").GetString() == "RestoredTests.csproj").GetProperty("Evaluations")[0]
+            .GetProperty("Items").GetProperty("None").EnumerateArray().Where(i =>
+                i.GetProperty("DefiningProjectFullPath").GetString()!.StartsWith("{nuget}\\mstest.testadapter\\", StringComparison.OrdinalIgnoreCase)).ToArray();
+        Check(packageItems.Length >= 4, "fixture did not reproduce imported MSTest adapter None assets");
+        Check(assetsBefore.SequenceEqual(File.ReadAllBytes(assets)), "source restore state changed");
+        Check(Directory.GetFiles(output, "*.dll", SearchOption.AllDirectories).Length == 0, "package binaries copied into emitted source");
+        Build(Path.Combine(output, "RestoredTests.csproj"));
+        Check(Directory.GetFiles(Path.Combine(output, "bin"), "Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.dll", SearchOption.AllDirectories).Length > 0,
+            "normal restore/build did not deploy the test adapter");
+        var again = Run(0, "normalize-framework", "--target", "net472", "--source", output, "--output", output + "-again");
+        Check(again.RootElement.GetProperty("ChangedFiles").GetArrayLength() == 0, "restored normalization not idempotent");
+        var prepared = output + "-prepared";
+        // Remove only the fixture's deliberately Framework-specific assembly reference before
+        // modern retargeting; PackageReference remains the assembly resolution contract.
+        var modernInput = XDocument.Load(Path.Combine(output, "RestoredTests.csproj"));
+        modernInput.Descendants("Reference").Remove();
+        Write(output, "RestoredTests.csproj", modernInput.ToString());
+        Run(0, "prepare-net10", "--source", output, "--output", prepared);
+        var modern = output + "-modern";
+        Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", prepared, "--output", modern);
+        Build(Path.Combine(modern, "RestoredTests.csproj"));
+        var modernAgain = Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", modern, "--output", modern + "-again");
+        Check(modernAgain.RootElement.GetProperty("ChangedFiles").GetArrayLength() == 0, "restored modern test-host output type broke idempotence");
+        var xml = XDocument.Load(Path.Combine(source, "RestoredTests.csproj"));
+        xml.Root!.Add(new XElement("ItemGroup", new XElement("None",
+            new XAttribute("Include", "$(NuGetPackageRoot)mstest.testadapter\\2.2.10\\build\\_common\\Microsoft.VisualStudio.TestPlatform.MSTest.TestAdapter.dll"),
+            new XElement("Link", "ExplicitExternal.dll"))));
+        Write(source, "RestoredTests.csproj", xml.ToString());
+        var rejected = Run(2, "normalize-framework", "--target", "net472", "--source", source, "--output", source + "-explicit-external");
+        Check(rejected.RootElement.GetProperty("Diagnostics").EnumerateArray().Any(d => d.GetProperty("Code").GetString() == "external-item"),
+            "explicit package-cache link was incorrectly treated as package-provided");
+        xml.Root!.Elements("ItemGroup").Last().Remove();
+        xml.Descendants("PackageReference").Single(e => (string?)e.Attribute("Include") == "MSTest.TestAdapter")
+            .Add(new XAttribute("Condition", "'$(TargetFramework)' == 'net461'"));
+        Write(source, "RestoredTests.csproj", xml.ToString());
+        var lostAdapter = Run(2, "normalize-framework", "--target", "net472", "--source", source, "--output", source + "-lost-adapter");
+        Check(lostAdapter.RootElement.GetProperty("Diagnostics").EnumerateArray().Any(d =>
+            d.GetProperty("Code").GetString() == "output-dependency-mismatch" &&
+            d.GetProperty("Message").GetString()!.Contains("PackageReference")),
+            "package-asset exemption hid loss of the conditioned adapter dependency");
+    });
+    Test("modern preparation generates structured EDMX output and transitive publish content", () =>
+    {
+        var source = Path.Combine(workspace, "edmx-source");
+        Write(source, "Models\\Models.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /><EntityDeploy Include="Other\Second.edmx" /></ItemGroup></Project>
+            """);
+        Write(source, "Consumer\\Consumer.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><ProjectReference Include="..\Bridge\Bridge.csproj" /></ItemGroup>
+            <Target Name="OldMetadataCopy" AfterTargets="Build">
+              <ItemGroup><LegacyMetadata Include="..\Models\bin\$(Configuration)\net472\Model\Independent.csdl" /></ItemGroup>
+              <Copy SourceFiles="@(LegacyMetadata)" DestinationFolder="$(OutDir)Model" SkipUnchangedFiles="true" />
+            </Target></Project>
+            """);
+        Write(source, "Bridge\\Bridge.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><ProjectReference Include="..\Models\Models.csproj"><ReferenceOutputAssembly>false</ReferenceOutputAssembly></ProjectReference></ItemGroup></Project>
+            """);
+        const string model = """
+            <edmx:Edmx xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx"><edmx:Runtime>
+              <edmx:ConceptualModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" Namespace="Independent" xmlns:test="urn:fixture" test:note="semi;colon" /></edmx:ConceptualModels>
+              <edmx:StorageModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl" Namespace="Independent.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" /></edmx:StorageModels>
+              <edmx:Mappings><Mapping xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs" Space="C-S" /></edmx:Mappings>
+            </edmx:Runtime></edmx:Edmx>
+            """;
+        Write(source, "Models\\Model\\Independent.edmx", model);
+        Write(source, "Models\\Other\\Second.edmx", model);
+        var prepared = source + "-prepared";
+        Run(0, "prepare-net10", "--source", source, "--output", prepared);
+        var replay = Run(0, "prepare-net10", "--source", prepared, "--output", prepared + "-again");
+        Check(replay.RootElement.GetProperty("ChangedFiles").GetArrayLength() == 0, "preparation is not idempotent");
+        var modern = source + "-modern";
+        Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", prepared, "--output", modern);
+        var consumer = Path.Combine(modern, "Consumer\\Consumer.csproj");
+        Build(consumer);
+        var publish = Path.Combine(workspace, "edmx-publish");
+        RunDotnet("publish", consumer, "--nologo", "--verbosity", "quiet", "--output", publish);
+        foreach (var folder in new[] { Path.Combine(modern, "Consumer\\bin\\Debug\\net10.0"), publish })
+            foreach (var name in new[] { "Model\\Independent", "Other\\Second" })
+            {
+                Check(XDocument.Load(Path.Combine(folder, name + ".csdl")).Root!.Attribute(XName.Get("note", "urn:fixture"))!.Value == "semi;colon", "conceptual XML/semicolons changed");
+                Check(XDocument.Load(Path.Combine(folder, name + ".ssdl")).Root!.Attribute("Provider")!.Value == "System.Data.SqlClient", "provider identity changed");
+                Check(XDocument.Load(Path.Combine(folder, name + ".msl")).Root!.Attribute("Space")!.Value == "C-S", "mapping identity changed");
+            }
+        var generated = Path.Combine(modern, "Models\\obj\\Debug\\net10.0\\EntityMetadata\\Model\\Independent.csdl");
+        var timestamp = File.GetLastWriteTimeUtc(generated);
+        Build(consumer);
+        Check(timestamp == File.GetLastWriteTimeUtc(generated), "unchanged EDMX was regenerated");
+    });
+    Test("a consumer's identical linked EDMX supplies metadata without a producer reference", () =>
+    {
+        var source = Path.Combine(workspace, "linked-own-metadata");
+        Write(source, "Models\\Models.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework>
+            <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="Model\Independent.edmx" /></ItemGroup></Project>
+            """);
+        Write(source, "Models\\Model\\Independent.edmx", """
+            <edmx:Edmx xmlns:edmx="http://schemas.microsoft.com/ado/2009/11/edmx"><edmx:Runtime>
+              <edmx:ConceptualModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm" Namespace="Independent" /></edmx:ConceptualModels>
+              <edmx:StorageModels><Schema xmlns="http://schemas.microsoft.com/ado/2009/11/edm/ssdl" Namespace="Independent.Store" Provider="System.Data.SqlClient" ProviderManifestToken="2008" /></edmx:StorageModels>
+              <edmx:Mappings><Mapping xmlns="http://schemas.microsoft.com/ado/2009/11/mapping/cs" Space="C-S" /></edmx:Mappings>
+            </edmx:Runtime></edmx:Edmx>
+            """);
+        Write(source, "Consumer\\Consumer.csproj", """
+            <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net472</TargetFramework></PropertyGroup>
+            <ItemGroup><EntityDeploy Include="..\Models\Model\Independent.edmx" Link="Model\Independent.edmx" /></ItemGroup>
+            <Target Name="OldMetadataCopy" AfterTargets="Build">
+              <ItemGroup><Metadata Include="..\Models\bin\$(Configuration)\Model\Independent.*" /></ItemGroup>
+              <Copy SourceFiles="@(Metadata)" DestinationFolder="$(TargetDir)Model\" SkipUnchangedFiles="true" />
+            </Target></Project>
+            """);
+        var prepared = source + "-prepared";
+        Run(0, "prepare-net10", "--source", source, "--output", prepared);
+        var modern = source + "-modern";
+        Run(0, "retarget", "--framework", "net10.0", "--wpf-framework", "net10.0-windows", "--source", prepared, "--output", modern);
+        Build(Path.Combine(modern, "Consumer\\Consumer.csproj"));
+        Check(!Directory.Exists(Path.Combine(modern, "Models\\bin")), "fixture unexpectedly built the unreferenced producer");
+        foreach (var extension in new[] { ".csdl", ".ssdl", ".msl" })
+            Check(File.Exists(Path.Combine(modern, "Consumer\\bin\\Debug\\net10.0\\Model\\Independent" + extension)),
+                "consumer-local metadata was not generated");
+    });
     Console.WriteLine($"PASS: {passed} regression scenarios; artifacts: {workspace}");
     return 0;
 }
@@ -245,6 +597,9 @@ static void Check(bool condition, string message)
 }
 
 static void Build(string project)
+    => RunDotnet("build", project, "--nologo", "--verbosity", "quiet");
+
+static void RunDotnet(params string[] arguments)
 {
     var start = new ProcessStartInfo("dotnet")
     {
@@ -253,7 +608,7 @@ static void Build(string project)
         UseShellExecute = false,
         WorkingDirectory = AppContext.BaseDirectory
     };
-    foreach (var argument in new[] { "build", project, "--nologo", "--verbosity", "quiet" }) start.ArgumentList.Add(argument);
+    foreach (var argument in arguments) start.ArgumentList.Add(argument);
     using var process = Process.Start(start)!;
     var stdout = process.StandardOutput.ReadToEndAsync();
     var stderr = process.StandardError.ReadToEndAsync();

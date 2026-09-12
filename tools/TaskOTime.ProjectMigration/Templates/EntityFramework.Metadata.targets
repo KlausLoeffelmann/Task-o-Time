@@ -1,0 +1,51 @@
+<Project>
+  <PropertyGroup>
+    <_EntitySchemaTransform><![CDATA[<xsl:stylesheet version="1.0" xmlns:xsl="http://www.w3.org/1999/XSL/Transform">
+      <xsl:output method="xml" encoding="utf-8" indent="yes"/>
+      <xsl:param name="section"/>
+      <xsl:template match="/">
+        <xsl:variable name="schema" select="/*[local-name()='Edmx']/*[local-name()='Runtime']/*[local-name()=$section]/*"/>
+        <xsl:if test="count($schema)!=1"><xsl:message terminate="yes">EDMX must contain exactly one runtime schema for the requested section.</xsl:message></xsl:if>
+        <xsl:copy-of select="$schema"/>
+      </xsl:template>
+    </xsl:stylesheet>]]></_EntitySchemaTransform>
+  </PropertyGroup>
+  <Target Name="_GenerateEntityFrameworkMetadataFiles"
+          Condition="'@(EntityModel)' != ''"
+          Inputs="%(EntityModel.Identity);$(MSBuildThisFileFullPath)"
+          Outputs="$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).csdl;$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).ssdl;$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).msl">
+    <MakeDir Directories="$([System.IO.Path]::GetDirectoryName('$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).csdl'))" />
+    <XslTransformation XmlInputPaths="%(EntityModel.Identity)" XslContent="$(_EntitySchemaTransform)"
+                       Parameters="&lt;Parameter Name='section' Value='ConceptualModels' /&gt;"
+                       OutputPaths="$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).csdl" />
+    <XslTransformation XmlInputPaths="%(EntityModel.Identity)" XslContent="$(_EntitySchemaTransform)"
+                       Parameters="&lt;Parameter Name='section' Value='StorageModels' /&gt;"
+                       OutputPaths="$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).ssdl" />
+    <XslTransformation XmlInputPaths="%(EntityModel.Identity)" XslContent="$(_EntitySchemaTransform)"
+                       Parameters="&lt;Parameter Name='section' Value='Mappings' /&gt;"
+                       OutputPaths="$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).msl" />
+    <ItemGroup>
+      <FileWrites Include="$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).csdl;$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).ssdl;$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).msl" />
+    </ItemGroup>
+  </Target>
+  <Target Name="GenerateEntityFrameworkMetadata" BeforeTargets="AssignTargetPaths"
+          DependsOnTargets="_GenerateEntityFrameworkMetadataFiles" Condition="'@(EntityModel)' != ''">
+    <ItemGroup>
+      <Content Include="$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).csdl">
+        <TargetPath>%(EntityModel.MetadataPath).csdl</TargetPath>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </Content>
+      <Content Include="$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).ssdl">
+        <TargetPath>%(EntityModel.MetadataPath).ssdl</TargetPath>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </Content>
+      <Content Include="$(IntermediateOutputPath)EntityMetadata\%(EntityModel.MetadataPath).msl">
+        <TargetPath>%(EntityModel.MetadataPath).msl</TargetPath>
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      </Content>
+    </ItemGroup>
+  </Target>
+</Project>
