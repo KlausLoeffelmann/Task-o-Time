@@ -211,7 +211,11 @@ contract (`9d8470b`) identifies the unnamed Options language selector by
 `SelectedValuePath=Name`, and `DisplayMemberPath=NativeName`. Culture is committed
 only on OK; changing the clone is not itself a live-language operation.
 The theme contract requires `ThemeChanged` as `EventHandler`, enum selection,
-and observable disposal via `IsDisposed` or `_disposed`. These ideal integration
+and the confirmed private `bool disposed` (`3777b21`, startup wiring `c452cb1`).
+App's private `themes` field is discovered by its exact service type; the host
+checks its disposal flag after real application/dispatcher shutdown. It does not
+call `SetTheme` after shutdown: dispatcher cancellation could mask whether the
+service's disposal guard was reached. These ideal integration
 contracts still require verification against the parent's final built output;
 unsupported signatures are failures, not skipped feature checks.
 
@@ -233,6 +237,8 @@ dotnet run --project StaSmoke -- --startup-self-test timeout
 
 The standard host self-test also checks the exact Options selector with all four
 `CultureInfo` items and rejects missing languages/incompatible value paths.
+The synthetic theme lifetime check accepts only a true private boolean disposal
+flag and rejects false, missing and incorrectly typed state.
 The synthetic core check exercises InitializeComponent/OnStartup/OnExit, the
 nested modal dispatcher sequence, UI credential entry, option bindings,
 in-memory settings save/reload and the booking callback. It is labelled

@@ -218,9 +218,14 @@ internal sealed class IdealStartupProbe
     internal void VerifyDisposedByApplication()
     {
         themeChanged.RemoveEventHandler(theme, themeHandler);
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        var disposed = theme.GetType().GetProperty("IsDisposed", flags)?.GetValue(theme)
-            ?? theme.GetType().GetField("_disposed", flags)?.GetValue(theme);
-        WpfProbe.Assert(disposed is true, "Product OnExit did not expose a disposed startup ThemeService (IsDisposed/_disposed).");
+        VerifyThemeDisposed(theme);
+    }
+
+    internal static void VerifyThemeDisposed(object instance)
+    {
+        // SetTheme may fail on the stopped dispatcher before reaching its disposal guard.
+        var field = instance.GetType().GetField("disposed", BindingFlags.Instance | BindingFlags.NonPublic);
+        WpfProbe.Assert(field?.FieldType == typeof(bool) && field.GetValue(instance) is true,
+            "Product OnExit did not set the startup ThemeService's private bool disposed.");
     }
 }
