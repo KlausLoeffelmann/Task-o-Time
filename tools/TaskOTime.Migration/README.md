@@ -114,13 +114,28 @@ modified. Full repeated application conversion produced **177 identical
 source/output file hashes**. Private manifests live under
 `artifacts\bulk-verified` and `artifacts\bulk-repeat`.
 
-The existing VB `TimeTrackingServices.Tests` project compiles against the
-converted graph, but the installed MSTest runner fails before executing tests
-because `MSTestAdapter.PlatformServices.Interface, Version=14.0.0.0` cannot be
-loaded. This is **not** counted as passing application regression coverage.
-The independent converter fixture runner executes successfully and does not
-depend on that adapter. Database integration and full application visual
-acceptance are separate parent-stage gates, not claimed by this CLI.
+The original tests pass against the converted graph: **33/33
+TimeTrackingServices.Tests and 30/30 AppServer.Tests**. At deeply nested paths,
+the Framework MSTest runner reported that
+`MSTestAdapter.PlatformServices.Interface, Version=14.0.0.0` could not be loaded
+even though the assembly was present. Copying the identical built output to a
+shorter owned artifact directory resolved the path-length limitation without
+source, dependency or test changes:
+
+```powershell
+dotnet build artifacts\bulk-verified\TaskOTime.TimeTrackingServices.Tests\TaskOTime.TimeTrackingServices.Tests.vbproj
+Copy-Item artifacts\bulk-verified\TaskOTime.TimeTrackingServices.Tests\bin\Debug\net472 artifacts\t -Recurse
+dotnet vstest artifacts\t\TaskOTime.TimeTrackingServices.Tests.dll --TestAdapterPath:artifacts\t
+
+dotnet build artifacts\bulk-verified\TaskOTime.AppServer.Tests\TaskOTime.AppServer.Tests.csproj
+Copy-Item artifacts\bulk-verified\TaskOTime.AppServer.Tests\bin\Debug\net461 artifacts\s -Recurse
+dotnet vstest artifacts\s\TaskOTime.AppServer.Tests.dll --TestAdapterPath:artifacts\s
+```
+
+Use fresh `t`/`s` destinations. On normalized inputs, AppServer's output target
+is `net472` instead. Database integration and full application visual acceptance
+remain separate parent-stage gates, not claimed by this CLI. Never execute the
+old fixed-name SQL reset helper copied from the original graph.
 
 ## Explicit limitations / reviewed exceptions
 
