@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+﻿<?xml version="1.0" encoding="utf-8"?><Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net472</TargetFramework>
@@ -9,7 +9,7 @@
   <ItemGroup>
     <PackageReference Include="EntityFramework" Version="6.5.1" />
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
-    <ProjectReference Include="..\TaskOTime.ViewModel\TaskOTime.ViewModel.vbproj" />
+    <ProjectReference Include="..\TaskOTime.ViewModel\TaskOTime.ViewModel.csproj" />
     <ProjectReference Include="..\TaskOTime.AppServer\TaskOTime.AppServer.csproj" />
     <ProjectReference Include="..\TaskOTime.DataLayer\TaskOTime.DataLayer.csproj" />
     <Reference Include="System.Configuration" />
@@ -20,8 +20,6 @@
       <TaskOTimeEntityMetadata Include="$(MSBuildProjectDirectory)\..\TaskOTime.DataLayer\bin\$(Configuration)\Model\TaskOTime.ssdl" />
       <TaskOTimeEntityMetadata Include="$(MSBuildProjectDirectory)\..\TaskOTime.DataLayer\bin\$(Configuration)\Model\TaskOTime.msl" />
     </ItemGroup>
-    <Copy SourceFiles="@(TaskOTimeEntityMetadata)"
-          DestinationFolder="$(OutDir)Model"
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(TaskOTimeEntityMetadata)" DestinationFolder="$(OutDir)Model" SkipUnchangedFiles="true" />
   </Target>
 </Project>
