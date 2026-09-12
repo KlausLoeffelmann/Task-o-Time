@@ -343,6 +343,14 @@ sets only the child process's production-mode connection, resolves application
 dependencies, authenticates (including required temporary-password change), and
 checks the original ListView identity, categories and dialog construction in
 construction mode. The genuine-startup path is described above.
+Both managed and native dependencies resolve through the application's
+`AssemblyDependencyResolver`; this includes the deployed SQL client's `sni.dll`.
+Loading only managed dependencies is insufficient when the application runs
+inside a separate host. Resolver callbacks are removed during host teardown.
+Product-stack first-chance exceptions include their underlying cause in the
+child log to diagnose product-caught startup errors/native error dialogs.
+These diagnostics alone are not pass/fail verdicts; the UI assertions, finite
+deadline and child exit still determine the result.
 Its own config registers the existing EF6 SQL provider but contains no default
 connection or database initializer; EF assemblies resolve from the application
 output rather than an unrelated host EF6 dependency.
@@ -367,15 +375,27 @@ password state; it does not promise rollback. `FixtureRunner` owns creation,
 seeding and disposal; the host itself cannot create/adopt/drop a database.
 Never reuse demo credentials/data.
 
+### Actual S3 core startup evidence
+
+The genuine **core** startup run passed against candidate `d157288` Debug
+`net10.0-windows` output, using a private modern FixtureRunner with EF6 6.5.2 and
+the candidate's unchanged legacy API. It exercised actual App startup,
+forced-password UI, Main/Options, a real SQL booking, settings isolation,
+logout/dispatcher shutdown and verified deletion of the owned database.
+The first attempt exposed the private host's missing native SQL dependency
+resolution, not an application assertion failure; the fixed host passed.
+All failed attempts also verified owned database cleanup after child termination.
+Logs and the candidate binary hash are in ignored `artifacts\s3-startup-summary.json`
+and its referenced log. This is core startup evidence, not a stage tag/promotion
+or ideal-feature/complete visual acceptance.
+
 ### Remaining migration/integration work
 
-- Run real `startup --required-features core` against freshly built S3 .NET 10
-  product output. S0
-  Framework output is explicitly rejected; a passing host self-test is not a
-  migrated-application smoke pass.
+- S0 Framework output remains explicitly rejected by the startup host; synthetic
+  self-tests are never substituted for migrated-application startup.
 - Run `startup --required-features ideal` after confirming the integrated
-  reflection contracts. Neither real .NET 10 startup gate has been executed in
-  this tooling packet. Framework `fixture-check` proves SQL/service/process
+  reflection contracts. The ideal .NET 10 startup gate has not been executed.
+  Framework `fixture-check` proves SQL/service/process
   lifecycle, not migrated desktop behavior.
 - Port additional booking/command-strip SQL probes and theme/localization visual
   checks as those application interfaces stabilize. The implemented startup

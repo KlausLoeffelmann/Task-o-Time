@@ -1,6 +1,7 @@
 using System.Collections;
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
@@ -64,6 +65,15 @@ internal sealed class StartupDriver
             throw new InvalidOperationException("Genuine startup requires the application's OnStartup override.");
         var app = (Application)Activator.CreateInstance(contract.App)!;
         var driver = new StartupDriver(app, contract, viewModels, user, password, ideal, settings, timeoutSeconds, verifyBooking);
+        void TraceProductException(object? sender, FirstChanceExceptionEventArgs args)
+        {
+            if (args.Exception.StackTrace?.Contains("TaskOTime.App.", StringComparison.Ordinal) == true)
+                Console.Error.WriteLine("Product first-chance diagnostic (not a verdict): " +
+                    args.Exception.GetType().FullName + ": " + args.Exception.Message +
+                    " | Cause: " + args.Exception.GetBaseException().GetType().FullName + ": " +
+                    args.Exception.GetBaseException().Message);
+        }
+        AppDomain.CurrentDomain.FirstChanceException += TraceProductException;
         try
         {
             var initialize = contract.App.GetMethod("InitializeComponent", Type.EmptyTypes)
@@ -83,6 +93,7 @@ internal sealed class StartupDriver
         }
         finally
         {
+            AppDomain.CurrentDomain.FirstChanceException -= TraceProductException;
             driver.timer.Stop();
             if (!app.Dispatcher.HasShutdownStarted)
             {

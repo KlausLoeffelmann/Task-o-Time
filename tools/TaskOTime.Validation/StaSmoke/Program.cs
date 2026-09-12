@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Loader;
 using System.Text.Json;
 using System.Windows;
@@ -126,10 +127,16 @@ internal static class Program
             }
             return path is null ? null : context.LoadFromAssemblyPath(path);
         }
+        IntPtr ResolveNative(Assembly requestingAssembly, string name)
+        {
+            var path = resolver.ResolveUnmanagedDllToPath(name);
+            return path is null ? IntPtr.Zero : NativeLibrary.Load(path);
+        }
         Application? app = null;
         dynamic? login = null;
         var windows = new List<Window>();
         AssemblyLoadContext.Default.Resolving += Resolve;
+        AssemblyLoadContext.Default.ResolvingUnmanagedDll += ResolveNative;
         try
         {
             Environment.SetEnvironmentVariable("TASKOTIME_MODE", "Production");
@@ -192,6 +199,7 @@ internal static class Program
             finally
             {
                 AssemblyLoadContext.Default.Resolving -= Resolve;
+                AssemblyLoadContext.Default.ResolvingUnmanagedDll -= ResolveNative;
                 Environment.CurrentDirectory = oldDirectory;
                 Environment.SetEnvironmentVariable("TASKOTIME_MODE", oldMode);
                 Environment.SetEnvironmentVariable("TASKOTIME_CONNECTION_STRING", oldConnection);
