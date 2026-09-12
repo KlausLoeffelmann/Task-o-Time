@@ -188,7 +188,22 @@ internal static class MigrationToolAnalysis
         private ISymbol? Owner(IOperation value) => Evidence.Model(compilation, value.Syntax.SyntaxTree).GetEnclosingSymbol(value.Syntax.SpanStart);
         internal bool InCalledBody(IOperation value, IMethodSymbol method) =>
             Reachable(value) && SymbolEqualityComparer.Default.Equals(Owner(value), method.OriginalDefinition) &&
-            !Ancestors(value).Any(o => o is IConditionalOperation or ILoopOperation);
+            !Ancestors(value).Any(o => o is IConditionalOperation or ILoopOperation) && GuaranteedContinuationTo(value);
+
+        private static bool GuaranteedContinuationTo(IOperation value)
+        {
+            static bool MayLeave(IOperation operation) =>
+                operation is not (ILocalFunctionOperation or IAnonymousFunctionOperation) &&
+                (operation is IReturnOperation or IThrowOperation or IBranchOperation or ILoopOperation ||
+                    operation.ChildOperations.Any(MayLeave));
+            for (var current = value; current.Parent != null; current = current.Parent)
+            {
+                if (current.Parent is ILocalFunctionOperation or IAnonymousFunctionOperation or IMethodBodyOperation) break;
+                if (current.Parent is IBlockOperation block &&
+                    block.Operations.TakeWhile(o => !ReferenceEquals(o, current)).Any(MayLeave)) return false;
+            }
+            return true;
+        }
 
         private static IEnumerable<IOperation> Ancestors(IOperation value)
         {
@@ -271,6 +286,42 @@ internal static class MigrationToolAnalysis
             return connected && origins.Count == 1 && !origins.Contains("?") ? origins.Single() : null;
         }
 
+        private bool UnreliableLaunchMutation(ISymbol symbol, IOperation use)
+        {
+            var aliases = new HashSet<ISymbol>(SymbolEqualityComparer.Default) { symbol };
+            bool Alias(IOperation operation) => Symbol(operation) is { } candidate && aliases.Contains(candidate);
+            bool Arguments(IOperation operation) =>
+                Unwrap(operation) is IPropertyReferenceOperation { Property.Name: "ArgumentList", Instance: { } start } && Alias(start);
+            bool changed;
+            do
+            {
+                changed = false;
+                foreach (var definition in definitions)
+                    if (definition.Value.Any(Alias)) changed |= aliases.Add(definition.Key);
+                foreach (var call in operations.OfType<IInvocationOperation>().Where(Reachable)
+                    .Where(c => c.TargetMethod.DeclaringSyntaxReferences.Length > 0))
+                    foreach (var argument in call.Arguments.Where(a => a.Parameter != null && Alias(a.Value)))
+                        changed |= aliases.Add(argument.Parameter!);
+            } while (changed);
+            if (operations.OfType<IAssignmentOperation>().Where(Reachable).Any(assignment =>
+                assignment.Target is IPropertyReferenceOperation { Instance: { } receiver } property &&
+                (Alias(receiver) && property.Property.Name is "FileName" or "Arguments" ||
+                    Arguments(receiver)))) return true;
+            foreach (var call in operations.OfType<IInvocationOperation>().Where(Reachable))
+            {
+                if (call.TargetMethod.DeclaringSyntaxReferences.Length == 0 && call.Arguments.Any(a => Alias(a.Value)) &&
+                    !(call.TargetMethod.ContainingType.ToDisplayString() == "System.Diagnostics.Process" &&
+                        call.TargetMethod.Name == "Start")) return true;
+                if (call.Instance != null && Arguments(call.Instance) &&
+                    (call.TargetMethod.Name != "Add" || call.Arguments.Length != 1 ||
+                        !SymbolEqualityComparer.Default.Equals(Owner(call), Owner(use)) ||
+                        call.Syntax.SpanStart >= use.Syntax.SpanStart)) return true;
+            }
+            // Collection aliases/escapes are not modeled as ordered ArgumentList updates.
+            return definitions.Any(d => d.Value.Any(Arguments)) ||
+                operations.OfType<IInvocationOperation>().Where(Reachable).Any(c => c.Arguments.Any(a => Arguments(a.Value)));
+        }
+
         private string? LaunchValue(IOperation value, Dictionary<ISymbol, Bound> environment,
             HashSet<(SyntaxTree, int, int, OperationKind)> seen, int depth = 0)
         {
@@ -289,6 +340,9 @@ internal static class MigrationToolAnalysis
             }
             if (Symbol(value) is { } symbol)
             {
+                if (SymbolEqualityComparer.Default.Equals(value.Type,
+                    compilation.GetTypeByMetadataName("System.Diagnostics.ProcessStartInfo")) &&
+                    UnreliableLaunchMutation(symbol, value)) return null;
                 if (definitions.TryGetValue(symbol, out var values))
                 {
                     if (values.Count != 1 || Next(values[0]) is not { } initial) return null;
@@ -318,10 +372,17 @@ internal static class MigrationToolAnalysis
             }
             if (value is IObjectCreationOperation creation &&
                 SymbolEqualityComparer.Default.Equals(creation.Type, compilation.GetTypeByMetadataName("System.Diagnostics.ProcessStartInfo")))
-                return Join("ProcessStartInfo", creation.Arguments.Select(a => a.Value).Concat(
-                    creation.Initializer?.Initializers.OfType<ISimpleAssignmentOperation>()
-                        .Where(a => a.Target is IPropertyReferenceOperation { Property.Name: "FileName" or "Arguments" })
-                        .Select(a => a.Value) ?? []));
+            {
+                var file = creation.Arguments.FirstOrDefault(a => a.Parameter?.Ordinal == 0)?.Value;
+                var arguments = creation.Arguments.FirstOrDefault(a => a.Parameter?.Ordinal == 1)?.Value;
+                foreach (var assignment in creation.Initializer?.Initializers.OfType<ISimpleAssignmentOperation>() ?? [])
+                    if (assignment.Target is IPropertyReferenceOperation initializedProperty)
+                    {
+                        if (initializedProperty.Property.Name == "FileName") file = assignment.Value;
+                        if (initializedProperty.Property.Name == "Arguments") arguments = assignment.Value;
+                    }
+                return file == null ? null : Join("ProcessStartInfo", arguments == null ? [file] : [file, arguments]);
+            }
             if (value is IPropertyReferenceOperation property && property.Property.DeclaringSyntaxReferences.Length == 0)
                 return property.Instance == null ? property.Property.ToDisplayString() :
                     Join(property.Property.ToDisplayString(), [property.Instance]);
