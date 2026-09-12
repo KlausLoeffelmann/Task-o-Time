@@ -98,6 +98,16 @@ Evaluated `ReferenceOutputAssembly=false` edges remain in the loaded build graph
 and their sources are checked, but do not require a compiler assembly reference.
 Build-only dependencies of test projects are classified as test harnesses unless
 a production consumer reaches them; a helper-like filename alone grants no role.
+Project-shaped conversion inputs can have an explicit trusted
+`Discovery/FixtureData` role in `ScenarioScope.xml`, with `Owner` and `Root`
+paths relative to the candidate source root. The owner must compile as a test/tool,
+the root must be its proper subtree, and evaluated `None`/`Content` source data
+must be present without overlapping the owner's compiled inputs. Only standalone
+discovery is suppressed: declared producer projects and every project-reference
+dependency are still loaded and checked, even inside a fixture-data root.
+Neither a directory named `Fixtures` nor an unevaluated exclusion grants this
+role. Existing generated-artifact discovery exclusions are case-insensitive;
+explicit producer roots and reference edges still take precedence.
 
 The reports are `Artifacts\Reports\<stage>-<mode>-<configuration>\roslyn-diagnostics.json` and
 `repository-assessment.csv` in the same directory (or the configured artifact root),

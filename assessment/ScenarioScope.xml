@@ -11,6 +11,10 @@
     <Root>.</Root>
     <Root>..\..\tools</Root>
     <Root>..\..\tooling</Root>
+    <!-- Converter inputs are project-shaped data, compiled only in their test/replay
+         contexts. A declared producer or project-reference dependency always wins. -->
+    <FixtureData Owner="..\..\tools\TaskOTime.Migration\Tests\TaskOTime.Migration.Tests.csproj"
+                 Root="..\..\tools\TaskOTime.Migration\Tests\Fixtures" />
   </Discovery>
   <Localization NeutralLanguage="en">
     <RequiredLanguage>de</RequiredLanguage>

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Xml.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
@@ -26,6 +27,122 @@ public sealed class SourceReferenceTests
     {
         using var metadata = JsonDocument.Parse(json);
         Assert.Equal(expected, CompilerInputLoader.RequiresCompilerReference(metadata.RootElement));
+    }
+
+    [Trait("Category", "AnalyzerUnit")]
+    public sealed class FixtureRoleTests : IDisposable
+    {
+        private readonly string root = Path.Combine(AppContext.BaseDirectory, "test-results", nameof(FixtureRoleTests), Guid.NewGuid().ToString("N"));
+        private string FileIn(string path, string content = "<Project/>")
+        {
+            var full = Path.Combine(root, path);
+            Directory.CreateDirectory(Path.GetDirectoryName(full)!);
+            File.WriteAllText(full, content);
+            return full;
+        }
+        private LoadedProject Project(string path, bool test = false, string[]? data = null) =>
+            new(path, "Independent", "", AnalyzerTests.Compile(LanguageNames.CSharp, "public class Valid {}"),
+                test, false, [], [], SourceDataPaths: data);
+
+        [Theory]
+        [InlineData("data")]
+        [InlineData("declared")]
+        [InlineData("referenced")]
+        public async Task Trusted_owned_fixture_data_is_not_a_standalone_producer_but_real_roots_and_edges_override(string use)
+        {
+            var ownerPath = FileIn(@"Harness\Harness.csproj");
+            var fixturePath = FileIn(@"Harness\Samples\Input\Input.vbproj");
+            var dataPath = FileIn(@"Harness\Samples\Input\Input.vb", "Intentionally invalid conversion input");
+            var producerPath = FileIn(@"Producer\Producer.csproj");
+            var role = new FixtureDataRole(ownerPath, Path.Combine(root, @"Harness\Samples"));
+            var owner = Project(ownerPath, test: true, data: [dataPath]);
+            var fixture = Project(fixturePath) with {
+                Compilation = AnalyzerTests.Compile(LanguageNames.CSharp, "public class Valid {}")
+                    .AddSyntaxTrees(CSharpSyntaxTree.ParseText("class Broken { MissingType value; }"))
+            };
+            var calls = new List<string>();
+            async Task<LoadedProject> Load(string path)
+            {
+                calls.Add(path);
+                if (path == ownerPath) return owner;
+                if (path == fixturePath) return fixture;
+                if (use == "referenced")
+                {
+                    var dependency = await Load(fixturePath);
+                    var errors = dependency.Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error);
+                    throw new SourceCompilationException(fixturePath, errors);
+                }
+                return Project(path);
+            }
+            Task Scan() => RepositoryTests.LoadProjectSet([fixturePath, ownerPath, producerPath],
+                use == "declared" ? [fixturePath] : [], Load, [role]);
+            if (use == "data")
+            {
+                await Scan();
+                Assert.DoesNotContain(fixturePath, calls);
+                Assert.Contains(ownerPath, calls);
+                Assert.Contains(producerPath, calls);
+            }
+            else
+            {
+                await Assert.ThrowsAsync<SourceCompilationException>(Scan);
+                Assert.Contains(fixturePath, calls);
+            }
+        }
+
+        [Theory]
+        [InlineData("no-policy")]
+        [InlineData("no-data")]
+        [InlineData("compiled-source")]
+        [InlineData("not-owner")]
+        public async Task Fixture_names_alone_or_invalid_role_evidence_cannot_hide_projects(string variant)
+        {
+            var ownerPath = FileIn(@"Tests\Tests.csproj");
+            var fixturePath = FileIn(@"Tests\Fixtures\Input\Input.csproj");
+            var data = FileIn(@"Tests\Fixtures\Input\Input.cs", "public class Input {}");
+            var role = new FixtureDataRole(ownerPath, Path.Combine(root, @"Tests\Fixtures"));
+            var owner = Project(ownerPath, test: variant != "not-owner", data: variant == "no-data" ? [] : [data]);
+            if (variant == "compiled-source") owner = owner with {
+                Compilation = owner.Compilation.AddSyntaxTrees(CSharpSyntaxTree.ParseText("public class Input {}", path: data))
+            };
+            var calls = new List<string>();
+            Task<LoadedProject> Load(string path) { calls.Add(path); return Task.FromResult(path == ownerPath ? owner : Project(path)); }
+            Task Scan() => RepositoryTests.LoadProjectSet([ownerPath, fixturePath], [], Load, variant == "no-policy" ? [] : [role]);
+            if (variant == "no-policy")
+            {
+                await Scan();
+                Assert.Contains(fixturePath, calls);
+            }
+            else await Assert.ThrowsAsync<InvalidDataException>(Scan);
+        }
+
+        [Fact]
+        public async Task Artifact_discovery_is_case_insensitive_but_explicit_producers_are_always_loaded()
+        {
+            var rootProject = FileIn("Root.csproj");
+            var artifact = FileIn(@"artifacts\Saved\Input.csproj");
+            var fixture = FileIn(@"Fixtures\Real.csproj");
+            var found = RepositoryTests.DiscoverProjects(root).ToArray();
+            Assert.Contains(rootProject, found);
+            Assert.Contains(fixture, found);
+            Assert.DoesNotContain(artifact, found);
+            var calls = new List<string>();
+            await RepositoryTests.LoadProjectSet(found, [artifact], path => { calls.Add(path); return Task.FromResult(Project(path)); });
+            Assert.Contains(artifact, calls);
+        }
+
+        [Fact]
+        public void Fixture_roles_are_explicit_trusted_policy_with_canonical_paths()
+        {
+            var roles = FixtureDataRole.Read(XDocument.Parse("""
+              <ScenarioScope><Discovery><FixtureData Owner="Harness\Runner.csproj" Root="Harness\Samples"/></Discovery></ScenarioScope>
+              """), root);
+            Assert.Equal(Path.Combine(root, @"Harness\Runner.csproj"), Assert.Single(roles).Owner);
+            Assert.False(FixtureDataRole.Contains(Path.Combine(root, "Samples"), Path.Combine(root, @"SamplesOther\Input.csproj")));
+            Assert.Throws<InvalidDataException>(() => FixtureDataRole.Read(XDocument.Parse(
+                "<ScenarioScope><Discovery><FixtureData Root=\"Samples\"/></Discovery></ScenarioScope>"), root));
+        }
+        public void Dispose() { if (Directory.Exists(root)) Directory.Delete(root, recursive: true); }
     }
 
     [Theory]

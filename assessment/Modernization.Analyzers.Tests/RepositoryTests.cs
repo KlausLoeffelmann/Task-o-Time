@@ -110,7 +110,8 @@ public sealed class RepositoryTests
                 await loader.Load(projectPath);
             }
             await LoadProjectSet(EvaluatorConfiguration.DiscoveryRoots.SelectMany(DiscoverProjects),
-                ToolReplay.DeclaredProjects, loader.Load);
+                ToolReplay.DeclaredProjects, loader.Load,
+                FixtureDataRole.Read(System.Xml.Linq.XDocument.Load(Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml")), root));
             var loaded = CompilerInputLoader.ClassifyTestSupport(loader.Projects, root);
             evaluated.AddRange(loaded.Select(p => p.State!).Where(p => p != null));
             diagnostics.AddRange(loaded.Where(p => p.IsTest).SelectMany(p =>
@@ -305,12 +306,24 @@ public sealed class RepositoryTests
     private static string FindRoot() => EvaluatorConfiguration.SourceRoot;
     private static string ReportRoot => Path.Combine(EvaluatorConfiguration.ArtifactRoot, "Reports", StagePolicy.Current.Identity);
     internal static async Task LoadProjectSet(IEnumerable<string> discovered, IEnumerable<string> declared,
-        Func<string, Task<LoadedProject>> load)
+        Func<string, Task<LoadedProject>> load, IEnumerable<FixtureDataRole>? fixtureRoles = null)
     {
         var required = declared.Select(Path.GetFullPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var roles = (fixtureRoles ?? []).Where(role => Directory.Exists(role.Root)).ToArray();
+        foreach (var role in roles)
+        {
+            if (!File.Exists(role.Owner)) throw new InvalidDataException("Missing trusted fixture-data owner: " + role.Owner);
+            var owner = await load(role.Owner);
+            var errors = owner.Compilation.GetDiagnostics().Where(d => d.Severity == DiagnosticSeverity.Error).ToArray();
+            if (errors.Length > 0) throw new SourceCompilationException(role.Owner, errors);
+            role.Validate(owner);
+        }
         foreach (var project in discovered.Concat(required).Select(Path.GetFullPath)
             .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.Ordinal))
         {
+            // Only standalone discovery is suppressed. The loader still follows every
+            // project-reference edge, and declared producers are never fixture data.
+            if (!required.Contains(project) && roles.Any(role => FixtureDataRole.Contains(role.Root, project))) continue;
             if (!File.Exists(project) || Path.GetExtension(project).ToLowerInvariant() is not (".csproj" or ".vbproj"))
                 throw new InvalidDataException("Missing or unsupported declared/discovered project: " + project);
             var loaded = await load(project);
@@ -321,7 +334,7 @@ public sealed class RepositoryTests
             }
         }
     }
-    private static IEnumerable<string> DiscoverProjects(string root)
+    internal static IEnumerable<string> DiscoverProjects(string root)
     {
         if (Path.GetFullPath(root).TrimEnd('\\').Equals(EvaluatorConfiguration.AssessmentRoot.TrimEnd('\\'), StringComparison.OrdinalIgnoreCase))
             yield break;
@@ -331,7 +344,7 @@ public sealed class RepositoryTests
         foreach (var directory in Directory.EnumerateDirectories(root).Order(StringComparer.Ordinal))
         {
             var name = Path.GetFileName(directory);
-            if (name.StartsWith('.') || name is "bin" or "obj" or "Artifacts" or "packages") continue;
+            if (name.StartsWith('.') || new[] { "bin", "obj", "Artifacts", "packages" }.Contains(name, StringComparer.OrdinalIgnoreCase)) continue;
             foreach (var project in DiscoverProjects(directory)) yield return project;
         }
     }
