@@ -347,6 +347,11 @@ Both managed and native dependencies resolve through the application's
 `AssemblyDependencyResolver`; this includes the deployed SQL client's `sni.dll`.
 Loading only managed dependencies is insufficient when the application runs
 inside a separate host. Resolver callbacks are removed during host teardown.
+The host pins shared Options and Logging abstractions to the application's
+10.0.0 versions. Its SQL client otherwise loads 9.x dependencies before product
+startup, preventing the application's localization provider from loading into
+the same assembly context. These are host dependency constraints, not replacement
+product localization services.
 Product-stack first-chance exceptions include their underlying cause in the
 child log to diagnose product-caught startup errors/native error dialogs.
 These diagnostics alone are not pass/fail verdicts; the UI assertions, finite
