@@ -17,7 +17,13 @@ namespace TaskOTime.App
         public IAdminMasterDataService Admin { get; private set; }
         public IUserAdministrationService Users { get; private set; }
         public ITimeBookingService Bookings { get; private set; }
-        public string ModeDescription { get; private set; }
+        private string customModeDescription;
+        public string ModeDescriptionKey { get; private set; }
+        public string ModeDescription
+        {
+            get => ModeDescriptionKey == null ? customModeDescription : ViewModel.Localization.LocalizationService.Current[ModeDescriptionKey];
+            private set => customModeDescription = value;
+        }
         private Func<TaskOTimeContext> contextFactory;
         private TenantDto configuredTenant;
 
@@ -30,7 +36,7 @@ namespace TaskOTime.App
                 string.Equals(mode, "LocalDemo", StringComparison.OrdinalIgnoreCase))
             {
                 factory = TaskOTimeContextFactory.Create;
-                description = "Lokale SQL-demo – LocalDB-database TaskOTime. Wijzigingen worden permanent in de database opgeslagen.";
+                description = "Login_ModeDemo";
             }
             else if (string.Equals(mode, "Production", StringComparison.OrdinalIgnoreCase))
             {
@@ -39,7 +45,7 @@ namespace TaskOTime.App
                     throw new InvalidOperationException("Production benötigt TASKOTIME_CONNECTION_STRING für eine eingerichtete Task-o-Time-Datenbank.");
                 var entityConnection = ResolveProductionConnection(connection);
                 factory = () => TaskOTimeContextFactory.Create(entityConnection);
-                description = "Productiediensten – geconfigureerde SQL Server-database. Wijzigingen worden permanent in de database opgeslagen.";
+                description = "Login_ModeProduction";
             }
             else
             {
@@ -54,7 +60,7 @@ namespace TaskOTime.App
                 Admin = new AdminMasterDataService(factory, hasher),
                 Users = new UserAdministrationService(factory, hasher),
                 Bookings = new TimeBookingService(factory, hasher),
-                ModeDescription = description,
+                ModeDescriptionKey = description,
                 contextFactory = factory
             };
         }

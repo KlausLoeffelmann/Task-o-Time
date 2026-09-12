@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Threading;
 using System.Linq;
@@ -6,6 +7,7 @@ using TaskOTime.AppServer.Models;
 using TaskOTime.ViewModel.Views;
 using TaskOTime.App.Properties;
 using TaskOTime.ViewModel.ViewModels;
+using TaskOTime.ViewModel.Localization;
 
 namespace TaskOTime.App;
 
@@ -26,7 +28,8 @@ public partial class MainWindow : Window
         _services = services;
         _session = session;
         InitializeComponent();
-        Title += " – " + session.UserIdent + " – " + services.ModeDescription;
+        UpdateLocalizedTitle(null, null);
+        PropertyChangedEventManager.AddHandler(LocalizationService.Current, UpdateLocalizedTitle, string.Empty);
         DataContext = _viewModel;
         _viewModel.DialogRequested += OnDialogRequested;
         _viewModel.OptionsRequested += OnOptionsRequested;
@@ -48,6 +51,11 @@ public partial class MainWindow : Window
     }
 
     public bool LogoutRequested { get; private set; }
+
+    private void UpdateLocalizedTitle(object sender, PropertyChangedEventArgs e)
+    {
+        Title = LocalizationService.Current["AppTitle"] + " – " + _session.UserIdent + " – " + _services.ModeDescription;
+    }
 
     private void OnLogoutClick(object sender, RoutedEventArgs e)
     {
@@ -169,6 +177,7 @@ public partial class MainWindow : Window
     private void LoadOptions()
     {
         var options = _viewModel.Options;
+        options.CultureName = Settings.Default.CultureName;
         options.RestoreMainWindowPlacement = Settings.Default.RestoreMainWindowPlacement;
         options.SaturdayIsWorkday = Settings.Default.SaturdayIsWorkday;
         options.SundayIsWorkday = Settings.Default.SundayIsWorkday;
@@ -179,6 +188,7 @@ public partial class MainWindow : Window
 
     private static void SaveOptions(AppOptionsViewModel options)
     {
+        Settings.Default.CultureName = options.CultureName;
         Settings.Default.RestoreMainWindowPlacement = options.RestoreMainWindowPlacement;
         Settings.Default.SaturdayIsWorkday = options.SaturdayIsWorkday;
         Settings.Default.SundayIsWorkday = options.SundayIsWorkday;

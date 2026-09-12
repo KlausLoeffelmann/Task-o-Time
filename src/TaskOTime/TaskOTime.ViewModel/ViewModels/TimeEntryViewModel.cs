@@ -1,5 +1,7 @@
 using System;
 using System.Globalization;
+using System.ComponentModel;
+using TaskOTime.ViewModel.Localization;
 using ActiveDevelop.TimeTrackingServices;
 
 namespace TaskOTime.ViewModel.ViewModels
@@ -38,7 +40,10 @@ namespace TaskOTime.ViewModel.ViewModels
             _title = title;
             _description = description;
             MarkerKind = markerKind;
+            PropertyChangedEventManager.AddHandler(LocalizationService.Current, OnCultureChanged, string.Empty);
         }
+
+        private void OnCultureChanged(object sender, PropertyChangedEventArgs e) => OnPropertyChanged(string.Empty);
 
         public TimeEntryMarkerKind MarkerKind { get; private set; }
 
@@ -101,7 +106,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return EntryTime.ToString("HH:mm", CultureInfo.CurrentCulture);
+                return EntryTime.ToString("HH:mm", LocalizationService.Current.Culture);
             }
         }
 
@@ -129,24 +134,24 @@ namespace TaskOTime.ViewModel.ViewModels
                 {
                     case TimeEntryMarkerKind.WorkBreak:
                         {
-                            return "Pauze";
+                            return LocalizationService.Current["PauseButtonText"];
                         }
                     case TimeEntryMarkerKind.StopMark:
                         {
-                            return "Stop marker";
+                            return LocalizationService.Current["InsertStopMarkButtonText"];
                         }
                     case TimeEntryMarkerKind.DownTime:
                         {
-                            return "Downtime";
+                            return LocalizationService.Current["DownTimeButtonText"];
                         }
                     case TimeEntryMarkerKind.Errand:
                         {
-                            return "Boodschap";
+                            return LocalizationService.Current["ErrandButtonText"];
                         }
 
                     default:
                         {
-                            return "Time booking";
+                            return LocalizationService.Current["Booking_Title"];
                         }
                 }
             }
@@ -247,7 +252,7 @@ namespace TaskOTime.ViewModel.ViewModels
             var absoluteDuration = duration.Duration();
             int totalHours = (int)Math.Round(Math.Floor(absoluteDuration.TotalHours));
 
-            return string.Format(CultureInfo.CurrentCulture, "{0}{1:0}:{2:00} h", sign, totalHours, absoluteDuration.Minutes);
+            return string.Format(LocalizationService.Current.Culture, "{0}{1:0}:{2:00} h", sign, totalHours, absoluteDuration.Minutes);
         }
 
         // '' <summary>

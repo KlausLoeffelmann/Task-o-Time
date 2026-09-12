@@ -6,7 +6,7 @@ using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class TaskListViewModel : ViewModelBase
+    public class TaskListViewModel : Localization.LocalizedViewModelBase
     {
 
         private string _title;
@@ -68,7 +68,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return $"{OpenTaskCount} open · {DoneTaskCount} completed";
+                return Text("Task_Progress", OpenTaskCount, DoneTaskCount);
             }
         }
 

@@ -7,7 +7,9 @@
         xmlns:data="clr-namespace:System.Windows.Data;assembly=PresentationFramework"
         xmlns:vm="clr-namespace:TaskOTime.ViewModel.ViewModels;assembly=TaskOTime.ViewModel"
         mc:Ignorable="d"
-        Title="{StaticResource AppTitle}"
+        xmlns:loc="clr-namespace:TaskOTime.ViewModel.Localization;assembly=TaskOTime.ViewModel"
+        Language="{loc:Culture}"
+        Title="{loc:Loc AppTitle}"
         MinHeight="640"
         MinWidth="820"
         Height="760"
@@ -241,9 +243,9 @@
                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}">
                 <Border.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{StaticResource NewTaskListButtonText}"
+                        <MenuItem Header="{loc:Loc NewTaskListButtonText}"
                                   Command="{Binding PlacementTarget.Tag.NewTaskListCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="{StaticResource EditTaskListButtonText}"
+                        <MenuItem Header="{loc:Loc EditTaskListButtonText}"
                                   Command="{Binding PlacementTarget.Tag.EditTaskListCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
                     </ContextMenu>
                 </Border.ContextMenu>
@@ -275,15 +277,15 @@
                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}">
                 <Border.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{StaticResource NewTaskButtonText}"
+                        <MenuItem Header="{loc:Loc NewTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.NewTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="{StaticResource EditTaskButtonText}"
+                        <MenuItem Header="{loc:Loc EditTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.EditTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="{StaticResource StartTaskButtonText}"
+                        <MenuItem Header="{loc:Loc StartTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.StartTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="{StaticResource CompleteTaskButtonText}"
+                        <MenuItem Header="{loc:Loc CompleteTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.CompleteTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="More to do"
+                        <MenuItem Header="{loc:Loc Main_More}"
                                   Command="{Binding PlacementTarget.Tag.MoreToDoCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
                     </ContextMenu>
                 </Border.ContextMenu>
@@ -447,12 +449,12 @@
                         <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
-                                   Text="until next" />
+                                   Text="{loc:Loc Main_UntilNext}" />
                         <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
                                    Margin="0,6,0,0"
-                                   Text="sinds vorige" />
+                                   Text="{loc:Loc Main_SincePrevious}" />
                         <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
@@ -488,7 +490,7 @@
                                Foreground="{StaticResource AccentBrush}"
                                FontWeight="SemiBold"
                                Margin="0,0,0,6"
-                               Text="Lists" />
+                               Text="{loc:Loc Main_Lists}" />
                     <ListBox Grid.Row="3"
                              MaxHeight="170"
                              ItemTemplate="{StaticResource TaskListTemplate}"
@@ -503,13 +505,13 @@
                                    Text="{Binding SelectedListSummary}" />
                         <TextBlock Foreground="{StaticResource AccentBrush}"
                                    FontWeight="SemiBold"
-                                   Text="Taken" />
+                                   Text="{loc:Loc Main_Tasks}" />
                     </DockPanel>
 
                     <CheckBox Grid.Row="5"
                               Foreground="{StaticResource MutedForegroundBrush}"
                               Margin="0,0,0,6"
-                              Content="{StaticResource CompleteRecordingTaskCheckBoxText}"
+                              Content="{loc:Loc CompleteRecordingTaskCheckBoxText}"
                               IsChecked="{Binding CompleteRecordingOnNextTimeEntry}" />
 
                     <ListBox Grid.Row="6"
@@ -536,38 +538,38 @@
         </Grid.RowDefinitions>
 
         <Menu Grid.Row="0">
-            <MenuItem Header="{StaticResource FileMenuHeader}">
-                <MenuItem Header="{StaticResource ExportDayMenuHeader}"
+            <MenuItem Header="{loc:Loc FileMenuHeader}">
+                <MenuItem Header="{loc:Loc ExportDayMenuHeader}"
                           Command="{Binding ExportSelectedDayCommand}" />
-                <MenuItem Header="{StaticResource ExportPeriodMenuHeader}"
+                <MenuItem Header="{loc:Loc ExportPeriodMenuHeader}"
                           Command="{Binding ExportPeriodCommand}" />
-                <MenuItem Header="Afmelden" Click="OnLogoutClick" />
-                <MenuItem Header="{StaticResource QuitMenuHeader}" Click="OnQuitMenuItemClick" />
+                <MenuItem Header="{loc:Loc Main_Logout}" Click="OnLogoutClick" />
+                <MenuItem Header="{loc:Loc QuitMenuHeader}" Click="OnQuitMenuItemClick" />
             </MenuItem>
-            <MenuItem Header="{StaticResource MasterDataMenuHeader}">
-                <MenuItem Header="{StaticResource ManageProjectsMenuHeader}"
+            <MenuItem Header="{loc:Loc MasterDataMenuHeader}">
+                <MenuItem Header="{loc:Loc ManageProjectsMenuHeader}"
                           Command="{Binding ManageProjectsCommand}" />
-                <MenuItem Header="{StaticResource NewTaskListButtonText}"
+                <MenuItem Header="{loc:Loc NewTaskListButtonText}"
                           Command="{Binding TaskManagement.NewTaskListCommand}" />
-                <MenuItem Header="{StaticResource ManageTaskListsMenuHeader}"
+                <MenuItem Header="{loc:Loc ManageTaskListsMenuHeader}"
                           Command="{Binding ManageTaskListsCommand}" />
-                <MenuItem Header="{StaticResource ManageTasksMenuHeader}"
+                <MenuItem Header="{loc:Loc ManageTasksMenuHeader}"
                           Command="{Binding ManageTasksCommand}" />
-                <MenuItem Header="{StaticResource ManageUsersAdminMenuHeader}"
+                <MenuItem Header="{loc:Loc ManageUsersAdminMenuHeader}"
                           Command="{Binding ManageUsersAdminCommand}" />
             </MenuItem>
-            <MenuItem Header="{StaticResource AnalysisMenuHeader}">
-                <MenuItem Header="{StaticResource DailyStatementMenuHeader}"
+            <MenuItem Header="{loc:Loc AnalysisMenuHeader}">
+                <MenuItem Header="{loc:Loc DailyStatementMenuHeader}"
                           Command="{Binding ShowDailyStatementCommand}" />
-                <MenuItem Header="{StaticResource WeeklyStatementMenuHeader}"
+                <MenuItem Header="{loc:Loc WeeklyStatementMenuHeader}"
                           Command="{Binding ShowWeeklyStatementCommand}" />
-                <MenuItem Header="{StaticResource MonthlyStatementMenuHeader}"
+                <MenuItem Header="{loc:Loc MonthlyStatementMenuHeader}"
                           Command="{Binding ShowMonthlyStatementCommand}" />
-                <MenuItem Header="{StaticResource TenantAdminStatisticsMenuHeader}"
+                <MenuItem Header="{loc:Loc TenantAdminStatisticsMenuHeader}"
                           Command="{Binding ShowTenantAdminStatisticsCommand}" />
             </MenuItem>
-            <MenuItem Header="{StaticResource ToolsMenuHeader}">
-                <MenuItem Header="{StaticResource OptionsMenuHeader}"
+            <MenuItem Header="{loc:Loc ToolsMenuHeader}">
+                <MenuItem Header="{loc:Loc OptionsMenuHeader}"
                           Command="{Binding OptionsCommand}" />
             </MenuItem>
         </Menu>
@@ -575,25 +577,25 @@
         <Border Grid.Row="1" Background="{StaticResource CommandBackgroundBrush}" Padding="8,3">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                <Button Command="{Binding TaskManagement.NewTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="New task">
+                <Button Command="{Binding TaskManagement.NewTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc NewTaskButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.EditTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Taak bewerken">
+                <Button Command="{Binding TaskManagement.EditTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc EditTaskButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.NewTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Nieuwe takenlijst">
+                <Button Command="{Binding TaskManagement.NewTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc NewTaskListButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.EditTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Edit task list">
+                <Button Command="{Binding TaskManagement.EditTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc EditTaskListButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.StartTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Start task">
+                <Button Command="{Binding TaskManagement.StartTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc StartTaskButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripCheckOutButton"
                         Click="OnCommandStripCheckOutClick"
                         Style="{StaticResource CommandStripIconButtonStyle}"
-                        ToolTip="{StaticResource CheckOutButtonText}">
+                        ToolTip="{loc:Loc CheckOutButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <StackPanel Orientation="Horizontal"
@@ -602,7 +604,7 @@
                     <TextBlock VerticalAlignment="Center"
                                Foreground="{StaticResource MenuForegroundBrush}"
                                Margin="0,0,4,0"
-                               Text="Start" />
+                               Text="{loc:Loc Main_Start}" />
                     <TextBox MinWidth="72"
                              Width="72"
                              Margin="0,0,4,0"
@@ -610,31 +612,31 @@
                     <TextBlock VerticalAlignment="Center"
                                Foreground="{StaticResource MenuForegroundBrush}"
                                Margin="0,0,4,0"
-                               Text="Duur" />
+                               Text="{loc:Loc Main_Duration}" />
                     <TextBox MinWidth="72"
                              Width="72"
                              Margin="0,0,4,0"
                              Text="{Binding ManualCompletionDurationText, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
-                <Button Command="{Binding TaskManagement.CompleteTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Complete task">
+                <Button Command="{Binding TaskManagement.CompleteTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc CompleteTaskButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripWorkBreakButton"
                         Click="OnCommandStripWorkBreakClick"
                         Style="{StaticResource CommandStripIconButtonStyle}"
-                        ToolTip="{StaticResource PauseButtonText}">
+                        ToolTip="{loc:Loc PauseButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripDownTimeButton"
                         Click="OnCommandStripDownTimeClick"
                         Style="{StaticResource CommandStripIconButtonStyle}"
-                        ToolTip="{StaticResource DownTimeButtonText}">
+                        ToolTip="{loc:Loc DownTimeButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripErrandButton"
                         Click="OnCommandStripErrandClick"
                         Style="{StaticResource CommandStripIconButtonStyle}"
-                        ToolTip="{StaticResource ErrandButtonText}">
+                        ToolTip="{loc:Loc ErrandButtonText}">
                     <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                 </Button>
                 </StackPanel>
@@ -680,18 +682,18 @@
 
                     <TextBlock Grid.Row="0"
                                Style="{StaticResource SectionHeaderTextStyle}"
-                               Text="Date" />
+                               Text="{loc:Loc Main_Date}" />
 
                     <StackPanel Grid.Row="1"
                                 Margin="0,0,0,10"
                                 Orientation="Horizontal">
                         <Button Command="{Binding TodayCommand}"
-                                ToolTip="{StaticResource TodayButtonText}">
+                                ToolTip="{loc:Loc TodayButtonText}">
                             <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                         </Button>
                         <Button Command="{Binding YesterdayCommand}"
                                 Margin="0"
-                                ToolTip="{StaticResource YesterdayButtonText}">
+                                ToolTip="{loc:Loc YesterdayButtonText}">
                             <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                         </Button>
                     </StackPanel>
@@ -774,7 +776,7 @@
 
                     <StackPanel Grid.Row="3">
                        <TextBlock Style="{StaticResource SectionHeaderTextStyle}"
-                                  Text="{StaticResource BookedDaysHeader}" />
+                                  Text="{loc:Loc BookedDaysHeader}" />
                        <ListBox Background="{StaticResource ListItemBackgroundBrush}"
                                 BorderBrush="{StaticResource PanelBorderBrush}"
                                 Foreground="{StaticResource ListItemForegroundBrush}"
@@ -839,32 +841,32 @@
 
                         <WrapPanel Grid.Row="3" Margin="0,0,0,10">
                             <Button Command="{Binding TimeCollection.AddCommand}"
-                                    ToolTip="{StaticResource AddTimeEntryButtonText}">
+                                    ToolTip="{loc:Loc AddTimeEntryButtonText}">
                                 <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.EditCommand}"
-                                    ToolTip="{StaticResource EditTimeEntryButtonText}">
+                                    ToolTip="{loc:Loc EditTimeEntryButtonText}">
                                 <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.DeleteCommand}"
-                                    ToolTip="{StaticResource DeleteTimeEntryButtonText}">
+                                    ToolTip="{loc:Loc DeleteTimeEntryButtonText}">
                                 <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.InsertWorkBreakCommand}"
-                                    ToolTip="{StaticResource InsertWorkBreakButtonText}">
+                                    ToolTip="{loc:Loc InsertWorkBreakButtonText}">
                                 <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.InsertDownTimeCommand}"
-                                    ToolTip="{StaticResource InsertDownTimeButtonText}">
+                                    ToolTip="{loc:Loc InsertDownTimeButtonText}">
                                 <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.InsertErrandCommand}"
-                                    ToolTip="{StaticResource InsertErrandButtonText}">
+                                    ToolTip="{loc:Loc InsertErrandButtonText}">
                                 <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.InsertStopMarkCommand}"
                                     Margin="0"
-                                    ToolTip="{StaticResource InsertStopMarkButtonText}">
+                                    ToolTip="{loc:Loc InsertStopMarkButtonText}">
                                 <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
                             </Button>
                         </WrapPanel>
@@ -905,19 +907,19 @@
             </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Target: " />
+                    <TextBlock Text="{loc:Loc Main_Target}" />
                     <TextBlock Text="{Binding TargetTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Geboekt: " />
+                    <TextBlock Text="{loc:Loc Main_Booked}" />
                     <TextBlock Text="{Binding BookedTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Open: " />
+                    <TextBlock Text="{loc:Loc Main_Open}" />
                     <TextBlock Text="{Binding RemainingTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
                 </StackPanel>
             </StatusBarItem>
