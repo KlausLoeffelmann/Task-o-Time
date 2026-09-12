@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?><Window x:Class="TaskOTime.ViewModel.Views.MainDataWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:TaskOTime.ViewModel.Views" Title="Task-o-Time Verwaltungsarbeitsplatz" Height="760" Width="1180" Background="#FFE7E9EC" FontFamily="Segoe UI">
+<?xml version="1.0" encoding="utf-8"?><Window x:Class="TaskOTime.ViewModel.Views.MainDataWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="clr-namespace:TaskOTime.ViewModel.Views" xmlns:loc="clr-namespace:TaskOTime.ViewModel.Localization" Language="{loc:Culture}" Title="{loc:Loc MainData_Title}" Height="760" Width="1180" Background="#FFE7E9EC" FontFamily="Segoe UI">
     <Grid Margin="7">
         <Grid.RowDefinitions>
             <RowDefinition Height="58" />
@@ -13,12 +13,12 @@
         </Border>
         <TabControl x:Name="WorkspaceTabs" SelectedIndex="{Binding SelectedTab, Mode=TwoWay}" x:FieldModifier="public" Grid.Row="1" Margin="0,9,0,4" Background="WhiteSmoke">
             <TabItem Header="Mandanten / Benutzer"><local:TenantUserView x:Name="TenantUserScreen" DataContext="{Binding TenantUsers}" x:FieldModifier="public" /></TabItem>
-            <TabItem Header="Projects"><local:ProjectView x:Name="ProjectScreen" DataContext="{Binding Projects}" x:FieldModifier="public" /></TabItem>
+            <TabItem Header="{loc:Loc Project_Title}"><local:ProjectView x:Name="ProjectScreen" DataContext="{Binding Projects}" x:FieldModifier="public" /></TabItem>
             <TabItem Header="Aufgaben"><local:TaskWorkView x:Name="TaskScreen" DataContext="{Binding Tasks}" x:FieldModifier="public" /></TabItem>
             <TabItem Header="Kategorien &amp; Anhänge"><local:CollaborationView x:Name="CollaborationScreen" DataContext="{Binding Collaboration}" x:FieldModifier="public" /></TabItem>
         </TabControl>
         <StatusBar Grid.Row="2" Background="#FFD9E3F0">
-            <TextBlock x:Name="ApplicationStatusLabel" x:FieldModifier="public" Text="Bereit." Foreground="DarkSlateBlue" />
+            <TextBlock x:Name="ApplicationStatusLabel" x:FieldModifier="public" Text="{loc:Loc Project_Ready}" Foreground="DarkSlateBlue" />
         </StatusBar>
     </Grid>
 </Window>

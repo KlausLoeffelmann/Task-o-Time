@@ -18,6 +18,9 @@ using TaskOTime.AppServer.Models;
 using TaskOTime.AppServer.Services;
 using TaskOTime.ViewModel.Localization;
 using TaskOTime.ViewModel.ViewModels;
+using TaskOTime.ViewModel;
+using TaskOTime.ViewModel.Views;
+using TaskOTime.TimeTrackingServices.Tests.Doubles;
 
 namespace TaskOTime.Localization.Tests
 {
@@ -223,6 +226,105 @@ namespace TaskOTime.Localization.Tests
         }
 
         [TestMethod]
+        public void OpenProjectMainDataViewRefreshesLabelsAndPersistedStatusInEveryLanguage() => OnUi(() =>
+        {
+            var fixture = new ProjectFixture();
+            var window = new MainDataWindow { DataContext = fixture.Main };
+            window.Show();
+            try
+            {
+                var project = fixture.Main.Projects;
+                project.ProjectName = "Customer supplied name";
+                project.SaveCommand.Execute(null);
+                var selectedId = project.SelectedProject.IdProject;
+                var notifications = fixture.Interaction.Messages.Count;
+                foreach (var culture in new[] { "de", "nl", "es", "en", "fr-FR" })
+                {
+                    Localizer.SetCulture(culture);
+                    Flush();
+                    Assert.AreEqual(Localizer["MainData_Title"], window.Title);
+                    Assert.AreEqual(Localizer["Project_Heading"], window.ProjectScreen.HeadingLabel.Content);
+                    Assert.AreEqual(Localizer["Project_Selected"], window.ProjectScreen.AssignmentLabel.Text);
+                    Assert.AreEqual(Localizer["Project_Updated"], ((TextBlock)window.ProjectScreen.FindName("StatusLabel")).Text);
+                    Assert.AreEqual(Localizer["Project_Save"], window.ProjectScreen.SaveButton.Content);
+                    Assert.AreEqual(Localizer.Language, window.ProjectScreen.Language);
+                    Assert.AreEqual(selectedId, project.SelectedProject.IdProject);
+                    Assert.AreEqual("Customer supplied name", window.ProjectScreen.ProjectNameTextBox.Text);
+                    Assert.AreEqual(notifications, fixture.Interaction.Messages.Count);
+                }
+            }
+            finally { window.Close(); }
+        });
+
+        [TestMethod]
+        public void ProjectValidationAndServiceFailuresRetainKeysAndDraftsAcrossCultureChanges() => OnUi(() =>
+        {
+            var fixture = new ProjectFixture();
+            var project = fixture.Main.Projects;
+            var selected = project.SelectedProject;
+            var originalName = selected.ProjectName;
+            project.ProjectName = " ";
+            project.SaveCommand.Execute(null);
+            Assert.AreEqual(Localizer["Project_NameRequired"], project.OperationStatusText);
+            Localizer.SetCulture("nl");
+            Assert.AreEqual("Voer een projectnaam in.", project.OperationStatusText);
+            Assert.AreSame(selected, project.SelectedProject);
+            Assert.AreEqual(originalName, selected.ProjectName);
+
+            project.ProjectName = "Unsaved draft";
+            fixture.Services.FailMutations = true;
+            project.SaveCommand.Execute(null);
+            StringAssert.Contains(project.OperationStatusText, "Project opslaan mislukt");
+            var messageCount = fixture.Interaction.Messages.Count;
+            Localizer.SetCulture("es");
+            StringAssert.Contains(project.OperationStatusText, "Guardar proyecto");
+            Assert.IsFalse(project.OperationStatusText.Contains("Project opslaan"));
+            Assert.AreEqual(messageCount, fixture.Interaction.Messages.Count);
+            Assert.AreEqual("Unsaved draft", project.ProjectName);
+            Assert.AreEqual(originalName, selected.ProjectName);
+            Assert.AreSame(selected, project.SelectedProject);
+        });
+
+        [TestMethod]
+        public void ProjectCreateAndArchiveLocalizeNotificationsButKeepIdentifiersInvariant() => OnUi(() =>
+        {
+            var fixture = new ProjectFixture();
+            var project = fixture.Main.Projects;
+            Localizer.SetCulture("de");
+            project.NewCommand.Execute(null);
+            Assert.AreEqual("Neues Projekt", project.SelectedProject.ProjectName);
+            Assert.AreEqual("NEW", project.SelectedProject.ProjectIdentifier);
+            var created = project.SelectedProject;
+            project.ArchiveCommand.Execute(null);
+            Assert.IsFalse(project.Projects.Contains(created));
+            Assert.AreEqual("Projekt archiviert.", project.OperationStatusText);
+            Assert.AreEqual("Archivieren", fixture.Interaction.Messages.Last().Title);
+            Localizer.SetCulture("nl");
+            Assert.AreEqual("Project gearchiveerd.", project.OperationStatusText);
+            project.SelectedProject = null;
+            Assert.AreEqual("Geen toewijzingen", project.AssignmentText);
+        });
+
+        private sealed class ProjectFixture
+        {
+            public TestApplicationServices Services { get; } = new TestApplicationServices();
+            public RecordingInteraction Interaction { get; } = new RecordingInteraction();
+            public MainDataViewModel Main { get; }
+            public ProjectFixture()
+            {
+                var store = new ServiceWorkspace(Services.Tenant, Services.ActingUserId, Services, Services, Services);
+                Main = new MainDataViewModel(store, 1, Interaction);
+            }
+        }
+
+        private sealed class RecordingInteraction : IMaintenanceInteraction
+        {
+            public List<(string Message, string Title)> Messages { get; } = new List<(string, string)>();
+            public void Notify(string message, string title) => Messages.Add((message, title));
+            public bool Confirm(string message, string title) => throw new NotSupportedException();
+        }
+
+        [TestMethod]
         public void OptionsDraftCancelAndApplyPreserveTransactionalSemantics() => OnUi(() =>
         {
             var main = new VmMain();
@@ -310,6 +412,24 @@ namespace TaskOTime.Localization.Tests
 
         [MethodImpl(MethodImplOptions.NoInlining)]
         private static WeakReference CreateDiscardedViewModel() => new WeakReference(new AppOptionsViewModel());
+
+        [TestMethod]
+        public void SharedWorkspaceAndCultureDoNotRetainDiscardedProjectEditors() => OnUi(() =>
+        {
+            var services = new TestApplicationServices();
+            var store = new ServiceWorkspace(services.Tenant, services.ActingUserId, services, services, services);
+            var reference = CreateDiscardedProject(store);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            Assert.IsFalse(reference.IsAlive);
+            Localizer.SetCulture("de");
+            GC.KeepAlive(store);
+        });
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference CreateDiscardedProject(ServiceWorkspace store) =>
+            new WeakReference(new ProjectViewModel(store, new RecordingInteraction()));
 
         private sealed class AuthenticationStub : IAuthenticationService
         {

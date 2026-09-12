@@ -14,8 +14,11 @@
     <PackageReference Include="MSTest.TestAdapter" Version="2.2.10" />
     <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
     <ProjectReference Include="..\TaskOTime.App\TaskOTime.App.csproj" />
+    <ProjectReference Include="..\TaskOTime.TimeTrackingServices.Tests\TestDoubles\TaskOTime.TimeTrackingServices.TestDoubles.csproj" />
     <Content Include="..\TaskOTime.ViewModel\Resources\*.resx" Link="Resources\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
     <Content Include="..\TaskOTime.App\LoginWindow.xaml;..\TaskOTime.App\MainWindow.xaml;..\TaskOTime.App\TimeEntryEditDialog.xaml;..\TaskOTime.App\OptionsDialog.xaml"
+             Link="Views\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\TaskOTime.ViewModel\Views\ProjectView.xaml;..\TaskOTime.ViewModel\Views\MainDataWindow.xaml"
              Link="Views\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

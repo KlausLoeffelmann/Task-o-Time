@@ -19,6 +19,7 @@ namespace TaskOTime.ViewModel.ViewModels
             SaveCommand = Command(SaveProject, () => SelectedProject != null);
             ArchiveCommand = Command(ArchiveProject, () => SelectedProject != null);
             SelectedProject = Projects.FirstOrDefault();
+            SetStatus("Project_Ready");
         }
 
         public ObservableCollection<ProjectMainDataDto> Projects => Store.Projects;
@@ -43,26 +44,32 @@ namespace TaskOTime.ViewModel.ViewModels
         public string Identifier { get => _identifier; set => SetProperty(ref _identifier, value, nameof(Identifier)); }
         public string Description { get => _description; set => SetProperty(ref _description, value, nameof(Description)); }
         public bool IsActive { get => _isActive; set => SetProperty(ref _isActive, value, nameof(IsActive)); }
-        public string AssignmentText => SelectedProject == null ? "No assignments" : "Project selected";
+        public string AssignmentText => Text(SelectedProject == null ? "Project_NoAssignments" : "Project_Selected");
 
         private void NewProject()
         {
-            var created = ServiceWorkspace.Require(Store.AdminService.CreateProject(new SaveProjectRequest
+            var created = RequireLocalized(Store.AdminService.CreateProject(new SaveProjectRequest
             {
                 IdTenant = Store.Tenant.IdTenant, IdActingUser = Store.ActingUserId,
                 Item = new ProjectMainDataDto
                 {
                     IdTenant = Store.Tenant.IdTenant, IdUser = Store.ActingUserId,
-                    ProjectName = "New project", ProjectIdentifier = "NEW", IsActive = true,
+                    ProjectName = Text("Project_NewName"), ProjectIdentifier = "NEW", IsActive = true,
                     DateCreated = DateTimeOffset.Now, DateModified = DateTimeOffset.Now
                 }
-            }), "Create project");
+            }), "Project_CreateOperation");
             Projects.Add(created);
             SelectedProject = created;
+            SetStatus("Project_Selected");
         }
 
         private void SaveProject()
         {
+            if (string.IsNullOrWhiteSpace(ProjectName))
+            {
+                NotifyLocalized("Project_NameRequired", "Common_ServiceError");
+                return;
+            }
             var original = SelectedProject;
             var draft = new ProjectMainDataDto
             {
@@ -75,26 +82,26 @@ namespace TaskOTime.ViewModel.ViewModels
                 ProjectName = (ProjectName ?? "").Trim(), ProjectIdentifier = (Identifier ?? "").Trim(),
                 ProjectDescription = Description, IsActive = IsActive, DateModified = DateTimeOffset.Now
             };
-            var saved = ServiceWorkspace.Require(Store.AdminService.UpdateProject(new SaveProjectRequest
+            var saved = RequireLocalized(Store.AdminService.UpdateProject(new SaveProjectRequest
             {
                 IdTenant = Store.Tenant.IdTenant, IdActingUser = Store.ActingUserId, Item = draft
-            }), "Save project");
+            }), "Project_SaveOperation");
             Projects[Projects.IndexOf(original)] = saved;
             SelectedProject = saved;
-            Interaction.Notify("Project updated.", "Project");
+            NotifyLocalized("Project_Updated", "Project_NotificationTitle");
         }
 
         private void ArchiveProject()
         {
             var project = SelectedProject;
-            ServiceWorkspace.Require(Store.AdminService.DeleteProject(new DeleteMainDataRequest
+            RequireLocalized(Store.AdminService.DeleteProject(new DeleteMainDataRequest
             {
                 IdTenant = Store.Tenant.IdTenant, IdActingUser = Store.ActingUserId,
                 IdItem = project.IdProject, HardDelete = false
-            }), "Archive project");
+            }), "Project_ArchiveOperation");
             Projects.Remove(project);
             SelectedProject = Projects.FirstOrDefault();
-            Interaction.Notify("Project archived.", "Archive");
+            NotifyLocalized("Project_Archived", "Project_ArchiveTitle");
         }
     }
 }

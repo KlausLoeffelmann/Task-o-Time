@@ -414,7 +414,7 @@
     <value>Proyecto seleccionado</value>
   </data>
   <data name="Project_Archive" xml:space="preserve">
-    <value>Archivar proyecto</value>
+    <value>Archivar</value>
   </data>
   <data name="Project_Archived" xml:space="preserve">
     <value>Proyecto archivado.</value>
@@ -444,10 +444,10 @@
     <value>Activo</value>
   </data>
   <data name="Project_New" xml:space="preserve">
-    <value>Nuevo proyecto</value>
+    <value>Nuevo</value>
   </data>
   <data name="Project_Save" xml:space="preserve">
-    <value>Guardar proyecto</value>
+    <value>Guardar</value>
   </data>
   <data name="Project_Delete" xml:space="preserve">
     <value>Eliminar proyecto</value>
@@ -508,5 +508,17 @@
   </data>
   <data name="Common_ServiceError" xml:space="preserve">
     <value>Error del servicio</value>
+  </data>
+  <data name="MainData_Title" xml:space="preserve">
+    <value>Task-o-Time Datos maestros</value>
+  </data>
+  <data name="Common_NoServiceResult" xml:space="preserve">
+    <value>{0}: el servicio no responde.</value>
+  </data>
+  <data name="Common_ServiceFailure" xml:space="preserve">
+    <value>Error en {0}: {1} - {2}</value>
+  </data>
+  <data name="Common_ErrorDetail" xml:space="preserve">
+    <value>La operación falló: {0}</value>
   </data>
 </root>

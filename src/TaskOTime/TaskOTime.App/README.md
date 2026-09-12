@@ -33,25 +33,21 @@ messages retain resource keys and arguments, not pretranslated strings.
 Clock input accepts the culture's short time and the editor's 24-hour form;
 elapsed durations remain durations, not calendar dates.
 
-Login (including forced password changes), Main time collection, and the
-booking editor consume these bindings. Project Main Data resources use the
-`Project_*` prefix. Its MVVM packet must bind the rewritten Project view and
-retain status keys/arguments through `LocalizationService.Current.Format`;
-Project view/view-model files are intentionally not changed by this packet.
-The prepared contract includes `Project_Heading`, `Project_Name`,
-`Project_Identifier`, `Project_Description`, `Project_Active`, `Project_New`,
-`Project_Save`, `Project_Archive`, `Project_NoAssignments`, `Project_Selected`,
-`Project_Saved`, `Project_Updated`, `Project_Archived`, `Project_NameRequired`,
-`Project_ServiceError`, and `Project_Failed` (one diagnostic argument).
-After merging the MVVM packet, wire its Project labels/status to these keys
-and extend the STA test to the actual rewritten Project view.
-The finalized MVVM workflow additionally uses `Project_NewName`,
-`Project_CreateOperation`, `Project_SaveOperation`, `Project_ArchiveOperation`,
-`Project_NotificationTitle`, `Project_ArchiveTitle`, and `Common_ServiceError`.
-Keep the new project's persisted identifier `NEW` invariant; it is not a
-translated label. When merging, derive `MaintenanceViewModel` from
-`LocalizedViewModelBase` and notify `AssignmentText` from Project culture
-changes without introducing view dependencies.
+All four required surfaces consume these bindings: Login (including forced
+password changes), Main time collection, the booking editor, and Project Main
+Data. Project labels, assignment state, validation, operation names, and
+success/error status use `Project_*` and `Common_*` resources. The Main Data
+host title and Projects tab also update while the window is open.
+
+`MaintenanceViewModel` derives from `LocalizedViewModelBase` and retains its
+`OperationStatusText` as a `LocalizedMessage` key/argument object. Nested operation
+messages are translated again after a culture switch, while server error
+codes and diagnostic details remain intact. Notifications still go through
+`IMaintenanceInteraction`; changing culture does not repeat a notification or
+service request. The Project editor validates a blank name before saving.
+User-entered drafts and selected project identity survive language changes.
+New project names are localized when created, but their persisted identifier
+`NEW` remains invariant.
 Other maintenance and placeholder report dialogs are outside this scope.
 
 Run localization resource, fallback, options, parsing, weak-subscription, and

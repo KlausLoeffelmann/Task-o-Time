@@ -414,7 +414,7 @@
     <value>Project selected</value>
   </data>
   <data name="Project_Archive" xml:space="preserve">
-    <value>Archive project</value>
+    <value>Archive</value>
   </data>
   <data name="Project_Archived" xml:space="preserve">
     <value>Project archived.</value>
@@ -444,10 +444,10 @@
     <value>Active</value>
   </data>
   <data name="Project_New" xml:space="preserve">
-    <value>New project</value>
+    <value>New</value>
   </data>
   <data name="Project_Save" xml:space="preserve">
-    <value>Save project</value>
+    <value>Save</value>
   </data>
   <data name="Project_Delete" xml:space="preserve">
     <value>Delete project</value>
@@ -508,5 +508,17 @@
   </data>
   <data name="Common_ServiceError" xml:space="preserve">
     <value>Service error</value>
+  </data>
+  <data name="MainData_Title" xml:space="preserve">
+    <value>Task-o-Time Main Data</value>
+  </data>
+  <data name="Common_NoServiceResult" xml:space="preserve">
+    <value>{0}: no response from the service.</value>
+  </data>
+  <data name="Common_ServiceFailure" xml:space="preserve">
+    <value>{0} failed: {1} - {2}</value>
+  </data>
+  <data name="Common_ErrorDetail" xml:space="preserve">
+    <value>The operation failed: {0}</value>
   </data>
 </root>
