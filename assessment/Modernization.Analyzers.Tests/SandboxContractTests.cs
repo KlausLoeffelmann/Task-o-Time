@@ -12,6 +12,35 @@ namespace Modernization.Analyzers.Tests;
 public sealed class SandboxContractTests
 {
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Unsupported_producer_signing_is_rejected_before_preparation_or_guest_launch(bool prepareOnly)
+    {
+        var script = Path.Combine(EvaluatorConfiguration.AssessmentRoot, "Sandbox", "Invoke-SandboxProbe.ps1");
+        var start = new ProcessStartInfo("pwsh")
+        {
+            UseShellExecute = false, RedirectStandardOutput = true, RedirectStandardError = true
+        };
+        start.ArgumentList.Add("-NoProfile");
+        start.ArgumentList.Add("-NonInteractive");
+        start.ArgumentList.Add("-Command");
+        start.ArgumentList.Add("$ErrorActionPreference='Stop'; " +
+            "function Get-CimInstance { throw 'Unexpected feature check' }; " +
+            "function Start-Process { throw 'Unexpected guest launch' }; " +
+            "try { & '" + script.Replace("'", "''") + "' -SourceRoot 'Z:\\nonexistent-source' " +
+            "-Projects 'Payload.csproj' -SignProducerProof " + (prepareOnly ? "-PrepareOnly " : "") +
+            "; exit 3 } catch { if ($_.Exception.Message -like 'Unsupported producer provenance:*') " +
+            "{ Write-Output $_.Exception.Message; exit 0 }; Write-Error $_; exit 2 }");
+        using var process = Process.Start(start)!;
+        var output = process.StandardOutput.ReadToEndAsync();
+        var error = process.StandardError.ReadToEndAsync();
+        try { await Task.WhenAll(process.WaitForExitAsync(), output, error).WaitAsync(TimeSpan.FromSeconds(30)); }
+        catch (TimeoutException) { if (!process.HasExited) process.Kill(true); throw; }
+        Assert.True(process.ExitCode == 0, await error);
+        Assert.Contains("Signing is disabled", await output);
+    }
+
+    [Theory]
     [InlineData("""{"Status":"succeeded","OutputFiles":[]}""", true)]
     [InlineData("""{"Status":"failed"}""", false)]
     [InlineData("""{"Status":"failed","Status":"succeeded"}""", false)]

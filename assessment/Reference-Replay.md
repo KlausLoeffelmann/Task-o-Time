@@ -1,23 +1,31 @@
-# Owned-reference replay: runnable, explicitly non-formal
+# Owned-reference replay: diagnostic only, provenance blocked
 
 This lane validates **independently source-reviewed, assessor-owned reference
-tools** without pretending a local process is isolated. It can satisfy the TOOL
-criterion for the owned Golden reference. It is not an alternative route for an
-untrusted candidate submission.
+tools** without pretending a local process is isolated. It cannot satisfy TOOL002
+or authorize Golden promotion. It is not an alternative route for an untrusted
+candidate submission.
+
+**Provenance correction:** submitted MSBuild controls both the compiler `/out:`
+file and evaluated `TargetPath` after build. An `AfterTargets="Build"` copy can
+replace both while leaving authored source unchanged and compilation enabled.
+Equal hashes establish consistency only, not compiler production. Until a trusted
+compiler/output capture outside submitted build control exists, both verification
+flags stay false, even if every local behavioral replay passes.
 
 The three execution choices are deliberately different:
 
 | `ASSESSMENT_REPLAY_EXECUTION` | Accepted claim |
 | --- | --- |
 | `local-reviewed` | Development checks only; never satisfies TOOL002 |
-| `reference-reviewed` | Exact independently approved source, fresh producer build and passing actual replay; owned-reference TOOL acceptance only |
+| `reference-reviewed` | Exact independently approved source, fresh build and actual local replay diagnostics; no TOOL acceptance |
 | `external-receipt` (default) | Signed, request-bound replay attestation from an independently trusted isolated executor; no local CLI execution |
 
 `Replay.Verified` remains **false** for reference-reviewed runs.
-`Replay.ReferenceVerified` becomes true only after source approval, fresh build
-and every applicable replay check succeeds. JSON/CSV `AcceptanceBasis` explicitly
-labels owned-reference acceptance as **NOT formal candidate isolation**. All
-other final quality diagnostics and the zero-defect gate remain unchanged.
+`Replay.ReferenceVerified` also remains **false**. `LocalEvidencePassed` can
+describe successful diagnostics, not source-to-binary provenance or acceptance.
+`ReferenceBuild.CompilerProvenanceVerified` is false; `ReportedCompilerArgumentHashes`
+and `ObservedBuildArtifacts` deliberately name observations rather than attestations.
+All other final quality diagnostics and the zero-defect gate remain unchanged.
 
 ## Configure the trusted plan
 
@@ -107,14 +115,17 @@ dotnet test $p --filter 'Category=RepositoryScan|Category=Modernization'
    node reuse/shared compilation disabled. Capture evaluated `TargetPath`;
    require actual C#/VB compiler arguments and a compiler `/out:` artifact whose
    bytes match that target. Reject skipped compilation, missing/out-of-workspace
-   or ambiguous targets, post-build binary substitution and source mutation.
+   or ambiguous targets, inconsistent outputs and source mutation. This does **not**
+   detect replacement of both outputs; no provenance or acceptance is granted.
    Disable discovery of the enclosing assessor's Git repository/SourceLink and
    supply the independently reviewed source revision explicitly.
-4. Map each logical command DLL to its **freshly produced** evaluated assembly,
-   not to a supplied binary with the right filename. Record approved source hash,
-   actual build-input hash, exact build commands, compiler-input hashes and hashes of produced binaries,
+4. Map each logical command DLL to the fresh workspace's **observed build output**,
+   not to the supplied `bin` tree. A build target may still substitute tracked payloads.
+   Record approved source hash, actual build-input hash, exact build commands,
+   reported compiler-argument hashes and hashes of observed binaries,
    dependency DLLs and runtime metadata.
-5. Run the normal actual CLI replay against that producer. Frozen expectations,
+5. Run diagnostic CLI replay against those outputs, only for independently
+   source-reviewed owned tooling. Frozen expectations,
    full emitted-file comparisons, deterministic reruns, applicable behavioral
    compilation/execution, unsupported input and project idempotence still apply.
    Check source/binary/dependency stability afterwards.
@@ -141,18 +152,22 @@ forwarded. SDK, package feeds/cache and external imports still need ordinary
 trusted-build review. Build/replay failures are failures, not automatic approval
 to loosen the fixtures.
 
-The positive regression really builds an owned synthetic XML-transform CLI,
-then replays its produced DLL while the supplied DLL is deliberately invalid.
+The positive diagnostic regression really builds an owned synthetic XML-transform
+CLI, then replays the build output while the supplied DLL is deliberately invalid.
 Negative regressions reject changed fixture-copying source, unapproved requests,
 different projects/reviewers and absolute expected-file arguments. Existing
-empty-class and local fixture-copy negatives remain in place.
+empty-class and local fixture-copy negatives remain in place. A double-overwrite
+regression builds a runnable tracked payload, changes the authored program to
+return 91, and copies that payload over both output paths after compilation.
+Before the correction it incorrectly obtained `ReferenceVerified=true`. Now the
+same passing behavioral diagnostics grant neither reference nor formal acceptance.
 
 ## Limits and formal executor feasibility
 
-Source review plus source-to-binary provenance is a different trust assumption
-from adversarial isolation. A malicious source reviewer or same-identity attacker
-can undermine it. The reference path must never be used for blind submissions
-or labelled formal isolation.
+Source review is a different trust assumption from adversarial isolation and
+does not provide compiler provenance. A malicious source reviewer or same-identity
+attacker can undermine it. The reference path must never be used for blind
+submissions, accepted as TOOL002, or labelled formal isolation.
 
 Formal protocol and exact request/receipt commands are in
 `Modernization.Analyzers.Tests\README.md`, under **Minimal external executor

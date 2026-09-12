@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using System.Diagnostics;
 using System.Xml.Linq;
 using ExternalEvaluation;
 using Xunit;
@@ -61,17 +62,19 @@ public sealed class ReferenceReplayTests : IDisposable
     }
 
     [Fact]
-    public async Task Exact_reviewed_source_is_freshly_built_and_replayed_instead_of_supplied_binary()
+    public async Task Reviewed_build_outputs_can_be_diagnosed_but_not_attested_as_compiler_produced()
     {
         var (plan, approval) = Fixture();
         var result = await ReferenceReplay.Run(plan, StagePolicy.Parse("S2", "final-delivery"), root, approval);
-        Assert.True(result.ReferenceVerified, result.Message);
+        Assert.False(result.ReferenceVerified);
+        Assert.True(result.LocalEvidencePassed, result.Message);
         Assert.False(result.Verified);
         Assert.Contains("NOT isolated", result.ExecutionBoundary);
         Assert.NotNull(result.ReferenceBuild);
         Assert.Equal(approval.SourceHash, result.ReferenceBuild.ApprovedSourceHash);
-        Assert.Single(result.ReferenceBuild.CompilerInputs);
-        var built = Assert.Single(result.ReferenceBuild.BuiltArtifacts, p => p.Key.EndsWith("OwnedFixture.dll", StringComparison.Ordinal));
+        Assert.False(result.ReferenceBuild.CompilerProvenanceVerified);
+        Assert.Single(result.ReferenceBuild.ReportedCompilerArgumentHashes);
+        var built = Assert.Single(result.ReferenceBuild.ObservedBuildArtifacts, p => p.Key.EndsWith("OwnedFixture.dll", StringComparison.Ordinal));
         var suppliedHash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(plan.Cases[0].Command.Arguments[0])));
         Assert.NotEqual(suppliedHash, built.Value);
         Assert.All(result.Cases, c => Assert.True(c.Passed, c.Message));
@@ -149,8 +152,58 @@ public sealed class ReferenceReplayTests : IDisposable
         approval = approval with { SourceHash = ExternalReplay.HashSourceTree(plan.SourceRoots![0]) };
         var result = await ReferenceReplay.Run(plan, StagePolicy.Parse("S2", "final-delivery"), root, approval);
         Assert.False(result.ReferenceVerified);
-        Assert.Contains("does not match the freshly compiled producer output", result.Message);
+        Assert.Contains("neither is a trusted compiler capture", result.Message);
         Assert.Empty(result.Cases);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Matching_mutable_build_outputs_do_not_establish_compiler_provenance(bool replaceBoth)
+    {
+        var (plan, approval) = Fixture();
+        if (replaceBoth)
+        {
+            // Compile the owned fixture once to obtain a real, runnable tracked payload.
+            var source = plan.SourceRoots![0];
+            foreach (var name in new[] { "Directory.Build.props", "Directory.Build.targets", "Directory.Packages.props" })
+                Write(Path.Combine("producer", name), "<Project/>");
+            File.Copy(Path.Combine(EvaluatorConfiguration.AssessmentRoot, "global.json"), Path.Combine(source, "global.json"));
+            var start = new ProcessStartInfo("dotnet")
+            {
+                WorkingDirectory = source, UseShellExecute = false,
+                RedirectStandardOutput = true, RedirectStandardError = true
+            };
+            ToolReplay.FilterEnvironment(start);
+            ToolReplay.ConfigureRuntimeState(start, Path.Combine(root, "payload-build-state"));
+            foreach (var argument in new[] { "build", plan.Projects[0], "--nologo", "--verbosity", "quiet",
+                "-p:UseSharedCompilation=false", "-p:EnableSourceControlManagerQueries=false",
+                "-p:NuGetAudit=false", "-nodeReuse:false" })
+                start.ArgumentList.Add(argument);
+            using var process = Process.Start(start)!;
+            var output = process.StandardOutput.ReadToEndAsync();
+            var error = process.StandardError.ReadToEndAsync();
+            try { await Task.WhenAll(process.WaitForExitAsync(), output, error).WaitAsync(TimeSpan.FromMinutes(2)); }
+            catch (TimeoutException) { if (!process.HasExited) process.Kill(true); throw; }
+            Assert.True(process.ExitCode == 0, await output + await error);
+            File.Copy(plan.Cases[0].Command.Arguments[0], Path.Combine(source, "payload.dll"));
+            // The compiled authored source now differs from the runnable payload.
+            Write(@"producer\Program.cs", "public class Program { public static int Main(string[] args) => 91; }");
+            var project = XDocument.Load(plan.Projects[0]);
+            project.Root!.Add(new XElement("Target", new XAttribute("Name", "ReplaceBothOutputs"),
+                new XAttribute("AfterTargets", "Build"),
+                new XElement("Copy", new XAttribute("SourceFiles", @"$(MSBuildProjectDirectory)\payload.dll"),
+                    new XAttribute("DestinationFiles", "$(IntermediateOutputPath)$(TargetFileName)")),
+                new XElement("Copy", new XAttribute("SourceFiles", @"$(MSBuildProjectDirectory)\payload.dll"),
+                    new XAttribute("DestinationFiles", "$(TargetPath)"))));
+            File.WriteAllText(plan.Projects[0], project.ToString());
+            approval = approval with { SourceHash = ExternalReplay.HashSourceTree(source) };
+        }
+        var result = await ReferenceReplay.Run(plan, StagePolicy.Parse("S2", "final-delivery"), root, approval);
+        Assert.False(result.ReferenceVerified, "Post-build /out and TargetPath equality is not trusted compiler provenance.");
+        Assert.False(result.Verified);
+        Assert.True(result.LocalEvidencePassed, result.Message);
+        Assert.Contains("compiler provenance is unverified", result.Message);
     }
 
     [Theory]

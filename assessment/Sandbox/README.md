@@ -1,4 +1,4 @@
-# Executable Windows Sandbox producer and CLI boundary
+# Executable Windows Sandbox diagnostics; producer provenance blocked
 
 This implementation uses the **existing enabled Windows Sandbox feature**.
 It does not enable/install Windows features, create Windows users, install a
@@ -8,6 +8,12 @@ container engine, or import a signing key into the guest.
 builds, and actual CLI execution. Despite the historical probe filename, producer
 and CLI jobs are real restricted guest processes. Host-side checks do not execute
 returned binaries or evaluate submitted MSBuild projects.
+
+**Signing is disabled, including the narrower producer-only proof.** The former
+post-build `/out:`/`TargetPath` comparison checks two submitted-build-controlled
+files. A target can replace both with a tracked payload. It cannot prove compiler
+production, even with unchanged source and `SkipCompilerExecution=false`.
+`-SignProducerProof` now fails before feature inspection, staging or VM startup.
 
 ## Commands
 
@@ -30,13 +36,9 @@ $build = & $runner `
   -PublicFrameworkRoot 'C:\Program Files (x86)\Reference Assemblies\Microsoft\Framework' `
   -PublicPackageRoot 'C:\private\curated-public-package-cache' `
   -TimeoutSeconds 600
-$build.HostProducerVerification.CompilerTargets
+$build.HostProducerObservation # CompilerProvenanceVerified=false; no acceptance
 
-# Optional producer-only proof, signed on the HOST after actual checks/VM shutdown.
-# Requires PowerShell 7+. A fresh private key exists only in host memory.
-$proof = & $runner -SourceRoot 'C:\private\owned-tool-source' `
-  -Projects 'Utility\Utility.csproj' -SignProducerProof
-$proof.SignedProducerProof
+# -SignProducerProof is unsupported until compiler capture is outside build control.
 
 # Fresh Sandbox for actual CLI execution. Expected files stay on the HOST.
 $run = & $runner `
@@ -101,11 +103,15 @@ incorrect nonce; it must not complete host verification.
 
 ## Host verification and returned evidence
 
-Producer mode checks authenticated process exits, unchanged authored source,
+Diagnostic producer mode checks authenticated process exits, unchanged authored source,
 non-skipped compiler execution, a unique managed compiler `/out:` argument,
 workspace-contained paths, and **byte identity of the compiler output and
-evaluated TargetPath**. Returned target paths identify actual exported binaries.
-Guest-controlled metadata alone does not establish success.
+evaluated TargetPath**. Both files and reported arguments are controlled by
+submitted MSBuild. Returned paths/hashes are observations only, not verified
+compiler outputs. `HostProducerVerification` and `SignedProducerProof` are null;
+`HostProducerObservation.CompilerProvenanceVerified` is false. No signing key is
+created. Neither these diagnostics nor guest-controlled metadata establishes
+producer provenance.
 
 CLI mode captures the actual restricted-process exit and exports output only
 after process termination. Optional expected-output verification compares the
@@ -129,7 +135,8 @@ status properties and misleading empty manifest file lists.
 
 Inspections are bounded to 256 MiB per file, 1 GiB total and 100,000 files.
 Unexpected/missing results, startup failures, timeout, stale/forged transport,
-source changes, output substitutions and comparison failures remain failures.
+source changes and comparison failures remain failures. Consistent substitution
+of both compiler/target paths is not detected; consequently no provenance is granted.
 Run directories and failure evidence stay under private `assessment\Artifacts`.
 The guest shuts down only its own VM; the host stops only its owned launcher PID
 on timeout and never kills processes by name.
@@ -143,9 +150,10 @@ On this machine, non-elevated `Win32_OptionalFeature` reported enabled
   no default network route, and readonly payload enforcement.
 - Restricted process: not administrator; own work writes succeed; controller
   file write/read and controller process-memory read fail.
-- Actual restricted SDK restore/build and host compiler/target byte comparison.
+- Actual restricted SDK restore/build and post-build output byte comparison,
+  which is **not compiler provenance**.
 - Actual **net472 WPF/XAML** producer build against readonly public Framework
-  reference assemblies, with source preservation and host byte verification.
+  reference assemblies, with source preservation and post-build byte observations.
 - An independently built owned CLI executed in a fresh Sandbox and matched
   host-only expected bytes. A successful-exit stub variant was rejected for
   incorrect actual output.
@@ -154,28 +162,37 @@ On this machine, non-elevated `Win32_OptionalFeature` reported enabled
 One immediate subsequent VM startup failed to bootstrap; a fresh retry passed.
 Startup failure is reported, never converted to a successful case.
 
-## Precisely scoped producer proof and remaining claims
+## Historical producer proof and remaining claims
 
-All script results retain `FormalVerified=false`. This is a working execution
-and producer-verification primitive, **not a completed whole-assessment signer**.
-`-SignProducerProof` can sign only the actual host-verified producer result, after
-VM shutdown. It binds source-file hashes, compiler/target hashes, SDK version,
-restricted-build result and observed controller protections. It generates a fresh
-3072-bit RSA key only in the host process, writes the public key and its fingerprint,
-self-verifies the RSA-PSS/SHA256 signature, and disposes the private key without
-exporting it.
+All script results retain `FormalVerified=false`. This is a diagnostic execution
+primitive, **not a source-to-binary verifier or whole-assessment signer**.
+The previous `taskotime-sandbox-producer-v1` proof must not be relied on even for
+its narrower `producer-source-build-only` claim. A valid signature authenticates
+that historical host assertion, not its truth. The full-replay verifier already
+rejects that policy; current code cannot create another such proof.
 
-The proof policy is deliberately `taskotime-sandbox-producer-v1`, scope
-`producer-source-build-only`. It is **not** the full
-`taskotime-isolated-replay-v1` receipt and cannot satisfy full TOOL002 acceptance.
-A regression explicitly rejects producer-only proofs at the full-replay verifier.
-One actual producer run was signed and independently verified with its exported
-public key; no fake run or claimed unexecuted fixture was signed.
+On 2026-09-11 the private run
+`Artifacts\sandbox-probe-78ba7fd4178547969361d99f8a5b19a5\producer-proof.json`
+was found (SHA256 `FCD301FF9295B57530F98F7CD4B8D2541DE6265CC80A9F8F759A8DB53D73BF48`).
+Its recorded expiry was `2026-09-11T21:59:33.5054388-07:00`. It is preserved as
+historical evidence, not accepted provenance. No full replay receipt was found.
+
+A real bounded negative run on SDK 10.0.401,
+`Artifacts\sandbox-probe-18157cfa750b47a3980453cdcfd47ff2`, executed an owned
+`AfterTargets="Build"` fixture inside Sandbox. The tracked text payload replaced
+**both** output paths; all three SHA256 hashes were
+`982EE74BB898EA1701BC6044ED437B9EAEB9484EAE0E356C69FE95C7CA6A9413`.
+Authored source stayed unchanged and the restricted build exited 0. The corrected
+host returned only an unverified observation, no producer verification/signature,
+and `FormalVerified=false`; the VM shut down. The host diagnostic is in
+`Artifacts\owned-double-overwrite\host-diagnostic.json`. These are private
+diagnostic artifacts, not acceptance receipts.
 
 The standard external replay contract
 is in `..\Modernization.Analyzers.Tests\README.md` / `ExternalReplay.cs`.
 
-Before formal use, independently review this native/controller boundary and wire
+Before formal use, implement trusted compiler/input/output provenance outside
+submitted build control, independently review this native/controller boundary, and wire
 the complete trusted host replay sequence: applicable held-out cases,
 deterministic reruns, idempotence, unsupported/no-partial-output checks,
 actual emitted-code behavior, checkpoint reconciliation, and signing only after
@@ -185,7 +202,8 @@ does not silently retrofit it.
 
 Producer/CLI canaries are not SQL, interactive desktop, visual accessibility or
 complete application acceptance. Owned-reference validation remains separately
-available via `..\Reference-Replay.md`; do not label it formal isolation.
+available as diagnostics via `..\Reference-Replay.md`; it grants no TOOL002 or
+Golden acceptance and must not be labelled formal isolation.
 
 Authoritative platform references:
 
