@@ -137,6 +137,11 @@ alive fails closed. `lifecycle-cleanup.json`, outside the guest-writable export,
 records the original failure and independently observed cleanup outcome.
 
 `TimeoutSeconds` bounds bootstrap and the post-bootstrap result wait separately.
+CLI execution additionally has its own `CliTimeoutSeconds` budget (default 120,
+accepted range 60–600), recorded in the trusted guest job and case observation.
+For long frozen checkpoints, use an explicit larger CLI budget and a host
+`TimeoutSeconds` that also accommodates warmup/collection. Increasing only the
+host wait does not increase the child process budget.
 Normal lifecycle observation and failure cleanup each have a shared 60-second
 budget; no loop retries indefinitely.
 
@@ -321,6 +326,30 @@ impossible. The verifier's shared requirement checklist is now wired independent
 of that capability work; incomplete output/behavior/checkpoint evidence cannot pass.
 
 ## Emitted-output compilation and observable behavior
+
+The first real Prepared-S0→S1 attempt hit the original 120-second CLI budget,
+after the owned boundary and restricted SDK checks passed. It did **not** produce
+accepted checkpoint evidence:
+`Artifacts\sandbox-probe-4571d09fd8934e999c914072e8a1c311\output\probe.json`.
+A bounded retry uses `-CliTimeoutSeconds 600 -TimeoutSeconds 900`; no timeout is
+converted into an unsupported-input success.
+
+Native timeout cleanup now terminates the owned job and observes zero active
+descendants before throwing. The guest can consequently preserve bounded,
+non-reparse stdout/stderr files (maximum 1 MiB each) after a timeout without
+collecting an incomplete output tree. The authenticated `TimedOut` flag always
+causes host rejection, even with diagnostics and no output.
+
+Actual owned negative:
+`Artifacts\sandbox-probe-0e60a6e901034d06bb988d43e029e77d\output\execution-3222f55a13074beabc9416cafe2af8f4`.
+Its explicit program prints `owned-timeout-before-sleep`, sleeps 300 seconds,
+then would print `unexpected-completion`. With a 60-second CLI budget the host
+rejected it, observed VM termination and retained the first marker only.
+`Artifacts\owned-cli-timeout\expected-failure.json` records that expected failure.
+This diagnostic fixture is not a migration producer or acceptance receipt. Its
+host build disabled `ImportDirectoryBuildProps` and `ImportDirectoryBuildTargets`
+and checked that `Program.cs` was the only authored compiler input, so private
+assessor imports were not packaged.
 
 `Invoke-IsolatedOutputCompilation.ps1` does not credit a producer build as output
 compilation. It first independently compares **every emitted file** against the

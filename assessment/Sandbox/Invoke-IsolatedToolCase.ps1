@@ -14,6 +14,7 @@ param(
     [string[]]$OutputProjects,
     [switch]$Unsupported,
     [switch]$Idempotent,
+    [ValidateRange(60,600)][int]$CliTimeoutSeconds=120,
     [ValidateRange(60,900)][int]$TimeoutSeconds=240
 )
 $ErrorActionPreference='Stop'
@@ -58,7 +59,7 @@ $parameters=@{
     BinaryRoot=$runtime.BinaryRoot; EntryAssembly=$runtime.EntryAssembly; CommandArguments=$CommandArguments
     ExpectedOutputRoot=$ExpectedOutputRoot; EvidenceFile=$EvidenceFile; EvidenceStatusProperty=$EvidenceStatusProperty
     EvidenceSuccessValue=$EvidenceSuccessValue; PublicPackageRoot=$PublicPackageRoot; PublicFrameworkRoot=$PublicFrameworkRoot
-    TimeoutSeconds=$TimeoutSeconds
+    TimeoutSeconds=$TimeoutSeconds; CliTimeoutSeconds=$CliTimeoutSeconds
 }
 $report=[ordered]@{
     Protocol='isolated-toolcase-observation-v2'
@@ -67,6 +68,7 @@ $report=[ordered]@{
     InputSha256=$inputHash; RuntimeSha256=$binaryHash; ExpectedSha256=$expectedHash
     RuntimeManifestSha256=(Get-CompilerFileHash $RuntimeManifest); Runs=$runs
     CheckpointBindingSha256=$checkpointHash
+    CliTimeoutSeconds=$CliTimeoutSeconds
     InputRoot=(Resolve-Path $InputRoot).Path; RuntimeRoot=$runtime.BinaryRoot
     ExpectedRoot=$(if($ExpectedOutputRoot) { (Resolve-Path $ExpectedOutputRoot).Path } else { $null })
     Command=@{ EntryAssembly=$runtime.EntryAssembly; Arguments=$CommandArguments }

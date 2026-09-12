@@ -149,9 +149,10 @@ public static class RestrictedProcess
             Check(AssignProcessToJobObject(job,process.Process),"Assign restricted process to owned job"); assigned=true;
             Check(ResumeThread(process.Thread)!=0xFFFFFFFF,"Resume restricted process");
             uint wait=WaitForSingleObject(process.Process,(uint)timeoutMilliseconds);
-            if(wait==258) { TerminateJobObject(job,124); throw new TimeoutException("Restricted command timed out."); }
-            Check(wait==0,"Wait for restricted process");
-            uint exit; Check(GetExitCodeProcess(process.Process,out exit),"Read actual process exit");
+            bool timedOut=wait==258;
+            Check(timedOut||wait==0,"Wait for restricted process");
+            uint exit=124;
+            if(!timedOut) Check(GetExitCodeProcess(process.Process,out exit),"Read actual process exit");
             // No descendants may remain active while trusted output collection runs.
             Check(TerminateJobObject(job,exit),"Stop remaining owned descendants");
             var deadline=DateTime.UtcNow.AddSeconds(10);
@@ -162,6 +163,7 @@ public static class RestrictedProcess
                 if(DateTime.UtcNow>=deadline) throw new TimeoutException("Owned descendants did not terminate.");
                 System.Threading.Thread.Sleep(10);
             }
+            if(timedOut) throw new TimeoutException("Restricted command timed out after owned descendants terminated.");
             return exit;
         }
         finally {

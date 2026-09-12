@@ -158,13 +158,26 @@ public static class Program {
             } elseif($job.Runtime -eq 'net10') {
                 $executable='C:\PublicSdk\dotnet.exe'; $arguments=@($assembly)+$arguments
             } else { throw 'Unsupported isolated execution runtime.' }
-            $exit=[RestrictedProcess]::Run($executable,$arguments,$low,"$low\cli.stdout","$low\cli.stderr",120000)
+            $timedOut=$false; $exit=$null
+            if($job.CliTimeoutSeconds -lt 60 -or $job.CliTimeoutSeconds -gt 600) { throw 'Invalid isolated CLI execution budget.' }
+            try {
+                $exit=[RestrictedProcess]::Run($executable,$arguments,$low,"$low\cli.stdout","$low\cli.stderr",([int]$job.CliTimeoutSeconds*1000))
+            } catch {
+                if($_.Exception.InnerException.Message -cne 'Restricted command timed out after owned descendants terminated.') { throw }
+                $timedOut=$true
+            }
             $exportName='execution-'+[guid]::NewGuid().ToString('N')
             $export=Join-Path 'C:\ProbeOutput' $exportName
             New-Item -ItemType Directory -Path $export | Out-Null
-            if (Test-Path $target) { Copy-CheckedTree $target (Join-Path $export 'output') }
-            Copy-Item "$low\cli.stdout","$low\cli.stderr" $export
-            $result.Execution=@{ ExitCode=$exit; ExportDirectory=$exportName }
+            if (-not $timedOut -and (Test-Path $target)) { Copy-CheckedTree $target (Join-Path $export 'output') }
+            foreach($name in @('cli.stdout','cli.stderr')) {
+                $file=Get-Item -LiteralPath (Join-Path $low $name) -Force
+                if($file.PSIsContainer -or $file.Attributes -band [IO.FileAttributes]::ReparsePoint -or $file.Length -gt 1048576) {
+                    throw 'CLI diagnostic output is not a bounded regular file.'
+                }
+                Copy-Item -LiteralPath $file.FullName -Destination (Join-Path $export $name)
+            }
+            $result.Execution=@{ ExitCode=$exit; ExportDirectory=$exportName; TimedOut=$timedOut }
         }
         elseif ($job.Kind -eq 'compile') {
             Copy-CheckedTree 'C:\ProbePayload\compiler\files' $low

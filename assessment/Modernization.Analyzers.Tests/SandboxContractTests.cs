@@ -12,6 +12,48 @@ namespace Modernization.Analyzers.Tests;
 public sealed class SandboxContractTests
 {
     [Theory]
+    [InlineData(59)]
+    [InlineData(601)]
+    public async Task Cli_execution_budget_rejects_unbounded_values_before_guest_launch(int seconds)
+    {
+        var result = await ProtectedCompilerTests.Run("""
+            function Get-CimInstance { throw 'UNEXPECTED_GUEST_CHECK' }
+            try { & (Join-Path $sandbox 'Invoke-SandboxProbe.ps1') -CliTimeoutSeconds __SECONDS__; throw 'UNEXPECTED_ACCEPTANCE' }
+            catch {
+                if($_.FullyQualifiedErrorId -notlike 'ParameterArgumentValidationError,*') { throw }
+                Write-Output 'bounded-rejection'
+            }
+            """.Replace("__SECONDS__", seconds.ToString()));
+        Assert.Equal("bounded-rejection", result.Trim());
+    }
+
+    [Theory]
+    [InlineData(60)]
+    [InlineData(600)]
+    public async Task Prepared_cli_job_binds_its_explicit_execution_budget_without_running_it(int seconds)
+    {
+        var root = Path.Combine(EvaluatorConfiguration.ArtifactRoot, "cli-budget-tests", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var result = await ProtectedCompilerTests.Run("$root='" + root.Replace("'", "''") + "'; " + """
+                New-Item -ItemType Directory -Path (Join-Path $root 'binary'),(Join-Path $root 'input') | Out-Null
+                [IO.File]::WriteAllText((Join-Path $root 'binary\Unit.dll'),'owned non-executable contract stub')
+                $prepared=& (Join-Path $sandbox 'Invoke-SandboxProbe.ps1') -PrepareOnly `
+                    -BinaryRoot (Join-Path $root 'binary') -EntryAssembly 'Unit.dll' `
+                    -InputRoot (Join-Path $root 'input') -CommandArguments @('{input}','{output}') -CliTimeoutSeconds __SECONDS__
+                try {
+                    $job=Get-Content (Join-Path $prepared.Artifacts 'payload\job.json') -Raw | ConvertFrom-Json
+                    if($prepared.Executed -or $prepared.FormalVerified -or $job.CliTimeoutSeconds -ne __SECONDS__) { throw 'Changed execution budget' }
+                    Write-Output 'prepared-bounded-policy'
+                } finally { Remove-Item -LiteralPath $prepared.Artifacts -Recurse -Force }
+                """.Replace("__SECONDS__", seconds.ToString()));
+            Assert.Equal("prepared-bounded-policy", result.Trim());
+        }
+        finally { Directory.Delete(root, true); }
+    }
+
+    [Theory]
     [InlineData(false)]
     [InlineData(true)]
     public async Task Unsupported_producer_signing_is_rejected_before_preparation_or_guest_launch(bool prepareOnly)

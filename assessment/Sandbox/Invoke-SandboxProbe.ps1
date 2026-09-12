@@ -18,6 +18,7 @@ param(
     [switch] $PrepareOnly,
     [switch] $SignProducerProof,
     [ValidateRange(0,300)][int] $OwnedControllerDelaySeconds = 0,
+    [ValidateRange(60,600)][int] $CliTimeoutSeconds = 120,
     [ValidateRange(60,900)][int] $TimeoutSeconds = 240
 )
 $ErrorActionPreference = 'Stop'
@@ -110,7 +111,7 @@ if ($BinaryRoot) {
     if($ExecutionRuntime -eq 'framework472' -and [IO.Path]::GetExtension($EntryAssembly) -ine '.exe') {
         throw 'Framework execution requires an explicit managed executable.'
     }
-    @{ Kind='execute'; EntryAssembly=$EntryAssembly; Arguments=$CommandArguments; Runtime=$ExecutionRuntime } | ConvertTo-Json -Depth 6 |
+    @{ Kind='execute'; EntryAssembly=$EntryAssembly; Arguments=$CommandArguments; Runtime=$ExecutionRuntime; CliTimeoutSeconds=$CliTimeoutSeconds } | ConvertTo-Json -Depth 6 |
         Set-Content (Join-Path $payload 'job.json') -Encoding UTF8
 }
 function Get-TreeSnapshot([string]$root) {
@@ -340,6 +341,9 @@ if ($BinaryRoot) {
     if($result.Execution.ExportDirectory -notmatch '^execution-[0-9a-f]{32}$') { throw 'Invalid CLI export identity.' }
     $export=Join-Path $output $result.Execution.ExportDirectory
     $exportSnapshot=Get-TreeSnapshot $export
+    if($result.Execution.TimedOut -eq $true) {
+        throw "Isolated CLI exceeded its $CliTimeoutSeconds-second execution budget; descendants terminated and VM stopped. Diagnostic files: $export"
+    }
     $actual=Join-Path $export 'output'
     $matched=$false
     $executionEvidence=$null
