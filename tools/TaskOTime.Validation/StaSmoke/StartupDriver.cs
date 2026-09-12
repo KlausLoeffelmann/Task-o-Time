@@ -13,7 +13,7 @@ internal sealed class StartupDriver
 {
     internal sealed record Contract(Type App, Type Login, Type Main, Type Options, Type Booking, Type Maintenance);
     internal sealed record Booking(Guid User, Guid Project, Guid Category, string Title);
-    private enum Phase { Login, LoginCultures, PasswordChange, Main, Options, Maintenance, Booking, IdealCultures, IdealThemes, BookingSaved, MaintenanceClosed, OptionsClosed, Done }
+    private enum Phase { Login, LoginCultures, PasswordChange, Main, Options, Maintenance, Booking, IdealCultures, IdealThemes, BookingSaved, MaintenanceClosed, OptionsSelected, OptionsClosed, Done }
     private readonly Application app;
     private readonly Contract contract;
     private readonly string user;
@@ -125,7 +125,7 @@ internal sealed class StartupDriver
                 if (ideal)
                 {
                     idealProbe = new IdealStartupProbe(app, contract.App.Assembly, viewModels);
-                    idealProbe.BeginCultures(new[] { loginWindow }, null);
+                    idealProbe.BeginCultures(new[] { loginWindow });
                     phase = Phase.LoginCultures;
                 }
                 else SubmitLogin();
@@ -188,7 +188,7 @@ internal sealed class StartupDriver
                 FillBooking();
                 if (ideal)
                 {
-                    idealProbe!.BeginCultures(new[] { mainWindow!, optionsWindow!, maintenanceWindow!, bookingWindow }, optionsWindow);
+                    idealProbe!.BeginCultures(new[] { mainWindow!, optionsWindow!, maintenanceWindow!, bookingWindow });
                     phase = Phase.IdealCultures;
                 }
                 else
@@ -225,6 +225,11 @@ internal sealed class StartupDriver
                 break;
             case Phase.MaintenanceClosed:
                 if (Find(contract.Maintenance) is not null) return;
+                idealProbe!.BeginOptionsCommit(optionsWindow!);
+                phase = Phase.OptionsSelected;
+                break;
+            case Phase.OptionsSelected:
+                idealProbe!.VerifyOptionsPending(optionsWindow!);
                 phase = Phase.OptionsClosed;
                 WpfProbe.DefaultButton(optionsWindow!);
                 break;
@@ -234,7 +239,11 @@ internal sealed class StartupDriver
                 WpfProbe.Assert(WpfProbe.Required<bool>(WpfProbe.Read(mainVm!, "Options")!, "SaturdayIsWorkday") == saturdayOption,
                     "Accepted options were not applied to the real main viewmodel.");
                 settings.AssertInstalled();
-                if (ideal) Finish();
+                if (ideal)
+                {
+                    idealProbe!.VerifyOptionsCommitted(settings);
+                    Finish();
+                }
                 else
                 {
                     phase = Phase.Booking;

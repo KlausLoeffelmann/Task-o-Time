@@ -186,10 +186,16 @@ while Options/Main remain open, and:
 - Requires the actual localization singleton and one uniquely identifiable
   startup-owned `ThemeService` instance. It never calls `ThemeService.Start` to
   compensate for missing product startup integration.
-- Changes en/de/nl/es while login is open, then through the Options language
-  selector while all four later windows are open. Visible bindings must resolve
-  to the current provider values, and each window must visibly change in every
-  language transition. Checking only `Culture` is insufficient.
+- Changes the real localization service through en/de/nl/es while login is open,
+  then while all four later windows remain open. Visible bindings must resolve
+  to the current provider values, each window must visibly change in every
+  language transition, and root `Language` must follow culture.
+  Checking only the singleton's `Culture` is insufficient.
+- After closing the nested booking/Main Data dialogs, selects another culture
+  through Options `SelectedValue`. Selection must update only its pending clone.
+  The default OK button must then commit the culture to the real main viewmodel,
+  localization service, visible main bindings and in-memory persisted settings.
+  This deliberately respects the product's commit-on-OK semantics.
 - Switches the startup instance through Light/Dark/HighContrast/System. It
   checks effective-theme notifications, the OS high-contrast override,
   live window backgrounds, required brushes and the main calendar's shared
@@ -199,9 +205,11 @@ while Options/Main remain open, and:
   it itself to manufacture lifecycle evidence.
 
 Reflection contracts fail closed. Localized target bindings must use the real
-singleton as Source and `[Key]`/`Item[Key]` paths. The Options language selector
-must bind `Language`, `SelectedLanguage` or `CultureName`, with language items
-exposing a code directly, through `CultureInfo`, or `Code`/`CultureName`/`Language`.
+singleton as Source and `[Key]`/`Item[Key]` paths. The confirmed localization
+contract (`9d8470b`) identifies the unnamed Options language selector by
+`SelectedValue` bound to `CultureName`, `ItemsSource` bound to `AvailableCultures`,
+`SelectedValuePath=Name`, and `DisplayMemberPath=NativeName`. Culture is committed
+only on OK; changing the clone is not itself a live-language operation.
 The theme contract requires `ThemeChanged` as `EventHandler`, enum selection,
 and observable disposal via `IsDisposed` or `_disposed`. These ideal integration
 contracts still require verification against the parent's final built output;
@@ -223,6 +231,8 @@ dotnet run --project StaSmoke -- --startup-self-test missing-ideal
 dotnet run --project StaSmoke -- --startup-self-test timeout
 ```
 
+The standard host self-test also checks the exact Options selector with all four
+`CultureInfo` items and rejects missing languages/incompatible value paths.
 The synthetic core check exercises InitializeComponent/OnStartup/OnExit, the
 nested modal dispatcher sequence, UI credential entry, option bindings,
 in-memory settings save/reload and the booking callback. It is labelled

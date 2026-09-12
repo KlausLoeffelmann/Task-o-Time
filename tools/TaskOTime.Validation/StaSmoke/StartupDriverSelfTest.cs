@@ -27,10 +27,14 @@ internal static class StartupDriverSelfTest
         var settings = IsolatedSettings.Install(Settings);
         WpfProbe.Assert(!Settings.SaturdayIsWorkday, "Isolated settings defaults failed.");
         Settings.SaturdayIsWorkday = true;
+        Settings.CultureName = "de";
         Settings.Save();
+        Settings.CultureName = "nl";
+        settings.AssertSavedString("CultureName", "de");
         Settings.SaturdayIsWorkday = false;
         Settings.Reload();
-        WpfProbe.Assert(Settings.SaturdayIsWorkday && settings.Writes == 1, "Memory settings save/reload failed.");
+        WpfProbe.Assert(Settings.SaturdayIsWorkday && Settings.CultureName == "de" &&
+            settings.Writes == 1, "Memory settings save/reload failed.");
         Settings.SaturdayIsWorkday = false;
         Settings.Save();
         Main.Options.SaturdayIsWorkday = Settings.SaturdayIsWorkday;
@@ -50,6 +54,13 @@ internal static class StartupDriverSelfTest
 
     internal sealed class Profile : ApplicationSettingsBase
     {
+        [UserScopedSetting, DefaultSettingValue("en")]
+        public string CultureName
+        {
+            get => (string)this[nameof(CultureName)];
+            set => this[nameof(CultureName)] = value;
+        }
+
         [UserScopedSetting, DefaultSettingValue("False")]
         public bool SaturdayIsWorkday
         {

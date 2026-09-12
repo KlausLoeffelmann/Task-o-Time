@@ -23,7 +23,7 @@ internal sealed class IdealStartupProbe
     private readonly string[] themes = { "Light", "Dark", "HighContrast", "System" };
     private Translation[] translations = Array.Empty<Translation>();
     private Window[] windows = Array.Empty<Window>();
-    private Window? options;
+    private string? pendingCulture, cultureBeforeCommit;
     private string[]? previousTranslations;
     private string? previousEffectiveTheme;
     private int position, notifications, previousNotifications;
@@ -64,10 +64,9 @@ internal sealed class IdealStartupProbe
             throw new InvalidOperationException("Exactly one real startup-owned ThemeService is required; the host never creates one.");
     }
 
-    internal void BeginCultures(Window[] openWindows, Window? optionsWindow)
+    internal void BeginCultures(Window[] openWindows)
     {
         windows = openWindows;
-        options = optionsWindow;
         translations = windows.SelectMany(CaptureTranslations).ToArray();
         previousTranslations = null;
         position = 0;
@@ -104,13 +103,16 @@ internal sealed class IdealStartupProbe
         var culture = cultures[position];
         if (!awaiting)
         {
-            if (options is null) setCulture.Invoke(localization, new object[] { culture });
-            else SelectLanguage(options, culture);
+            setCulture.Invoke(localization, new object[] { culture });
             awaiting = true;
             return false;
         }
         WpfProbe.Assert(WpfProbe.Required<CultureInfo>(localization, "Culture").TwoLetterISOLanguageName == culture,
             "Language selection did not update the live localization service.");
+        foreach (var window in windows)
+            WpfProbe.Assert(window.Language.IetfLanguageTag.Equals(culture, StringComparison.OrdinalIgnoreCase) ||
+                window.Language.IetfLanguageTag.StartsWith(culture + "-", StringComparison.OrdinalIgnoreCase),
+                "Window Language did not follow the live culture: " + window.GetType().Name);
         var actual = new string[translations.Length];
         for (var index = 0; index < translations.Length; index++)
         {
@@ -131,26 +133,45 @@ internal sealed class IdealStartupProbe
         return false;
     }
 
-    private static void SelectLanguage(Window options, string culture)
+    internal void BeginOptionsCommit(Window options)
     {
-        var selectors = WpfProbe.Tree(options).OfType<ComboBox>().Where(combo =>
-            new[] { Selector.SelectedItemProperty, Selector.SelectedValueProperty }.Any(property =>
-                new[] { "Language", "SelectedLanguage", "CultureName" }.Contains(
-                    BindingOperations.GetBinding(combo, property)?.Path?.Path))).ToArray();
-        WpfProbe.Assert(selectors.Length == 1, "Expected one Options language selector bound to Language, SelectedLanguage or CultureName.");
-        var selector = selectors[0];
-        var candidates = selector.Items.Cast<object>().Where(item => LanguageCode(item) == culture).ToArray();
-        WpfProbe.Assert(candidates.Length == 1, "Options must expose exactly one language item for " + culture + ".");
-        selector.SelectedItem = candidates[0];
+        cultureBeforeCommit = WpfProbe.Required<CultureInfo>(localization, "Culture").TwoLetterISOLanguageName;
+        pendingCulture = cultureBeforeCommit == "de" ? "en" : "de";
+        SelectOptionsCulture(options, pendingCulture);
     }
 
-    private static string? LanguageCode(object item)
+    internal static void SelectOptionsCulture(Window options, string culture)
     {
-        if (item is string text) return text;
-        if (item is CultureInfo culture) return culture.TwoLetterISOLanguageName;
-        foreach (var name in new[] { "Code", "CultureName", "Language" })
-            if (item.GetType().GetProperty(name)?.GetValue(item) is string value) return value;
-        return null;
+        var selector = WpfProbe.Bound<ComboBox>(options, Selector.SelectedValueProperty, "CultureName");
+        WpfProbe.Assert(selector.SelectedValuePath == "Name" && selector.DisplayMemberPath == "NativeName" &&
+            BindingOperations.GetBinding(selector, ItemsControl.ItemsSourceProperty)?.Path?.Path == "AvailableCultures",
+            "Unexpected Options AvailableCultures/Name/NativeName selector contract.");
+        WpfProbe.Assert(selector.Items.Cast<object>().Count(item => WpfProbe.Required<string>(item, "Name") == culture) == 1,
+            "Options must expose exactly one language item for " + culture + ".");
+        selector.SetCurrentValue(Selector.SelectedValueProperty, culture);
+        BindingOperations.GetBindingExpression(selector, Selector.SelectedValueProperty)!.UpdateSource();
+        WpfProbe.Assert(selector.SelectedValue as string == culture &&
+            WpfProbe.Required<string>(options.DataContext, "CultureName") == culture,
+            "The Options language selection did not update its pending clone.");
+    }
+
+    internal void VerifyOptionsPending(Window options)
+    {
+        WpfProbe.Assert(WpfProbe.Required<string>(options.DataContext, "CultureName") == pendingCulture &&
+            WpfProbe.Required<CultureInfo>(localization, "Culture").TwoLetterISOLanguageName == cultureBeforeCommit,
+            "Pending Options culture changed application culture before OK.");
+    }
+
+    internal void VerifyOptionsCommitted(IsolatedSettings settings)
+    {
+        WpfProbe.Assert(WpfProbe.Required<CultureInfo>(localization, "Culture").TwoLetterISOLanguageName == pendingCulture &&
+            WpfProbe.Required<string>(WpfProbe.Read(app.MainWindow.DataContext, "Options")!, "CultureName") == pendingCulture,
+            "Options OK did not commit culture to the real application.");
+        settings.AssertSavedString("CultureName", pendingCulture!);
+        foreach (var probe in CaptureTranslations(app.MainWindow))
+            WpfProbe.Assert(probe.Target.GetValue(probe.Property) as string ==
+                indexer.GetValue(localization, new object[] { probe.Key }) as string,
+                "Main window localization did not follow the committed Options culture.");
     }
 
     internal void BeginThemes(Window[] openWindows)

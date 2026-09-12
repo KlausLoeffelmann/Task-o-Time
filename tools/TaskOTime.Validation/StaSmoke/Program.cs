@@ -254,6 +254,7 @@ internal static class Program
         catch (ArgumentException) { }
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         MainDataCompositionSelfTest.Run();
+        OptionsCultureSelectionSelfTest.Run();
         var items = new object[] { "isolated STA probe" };
         var list = new ListView { ItemsSource = items };
         var window = new Window { Content = list };

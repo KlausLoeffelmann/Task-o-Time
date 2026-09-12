@@ -41,6 +41,13 @@ internal sealed class IsolatedSettings : SettingsProvider
             throw new InvalidOperationException("Application settings escaped the in-memory validation profile.");
     }
 
+    internal void AssertSavedString(string name, string expected)
+    {
+        AssertInstalled();
+        if (!values.TryGetValue(Key(settings.Context, name), out var value) || value as string != expected)
+            throw new InvalidOperationException("Application did not persist the expected isolated setting: " + name);
+    }
+
     public override SettingsPropertyValueCollection GetPropertyValues(SettingsContext context, SettingsPropertyCollection properties)
     {
         var result = new SettingsPropertyValueCollection();
