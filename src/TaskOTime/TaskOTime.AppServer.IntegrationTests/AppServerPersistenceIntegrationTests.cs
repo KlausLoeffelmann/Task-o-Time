@@ -10,8 +10,10 @@ using TaskOTime.DTOs;
 namespace TaskOTime.AppServer.IntegrationTests
 {
     [TestClass]
+    [TestCategory("IsolatedSql")]
     public sealed class AppServerPersistenceIntegrationTests
     {
+        private LocalDbPersistenceTestDatabase database;
         private static readonly Guid TenantId = GuidFromSuffix(101);
         private static readonly Guid AdminUserId = GuidFromSuffix(102);
         private static readonly Guid ProjectId = GuidFromSuffix(103);
@@ -23,17 +25,29 @@ namespace TaskOTime.AppServer.IntegrationTests
         private static readonly DateTimeOffset WorkDayStart = new DateTimeOffset(2026, 6, 15, 9, 0, 0, TimeSpan.Zero);
 
         [TestInitialize]
-        public void ResetDatabase()
+        public void CreateOwnedDatabase()
         {
-            LocalDbPersistenceTestDatabase.Reset();
-            SeedTenantAndAdmin();
+            database = new LocalDbPersistenceTestDatabase();
+            try
+            {
+                database.Create();
+                SeedTenantAndAdmin();
+            }
+            catch
+            {
+                database.Dispose();
+                throw;
+            }
         }
+
+        [TestCleanup]
+        public void CleanupOwnedDatabase() => database?.Dispose();
 
         [TestMethod]
         public void MasterDataTimeBookingAndAnalysis_RoundTripThroughEf6LocalDb()
         {
             var passwordHasher = new Pbkdf2PasswordHasher();
-            var masterData = new AdminMasterDataService(LocalDbPersistenceTestDatabase.CreateContext, passwordHasher);
+            var masterData = new AdminMasterDataService(database.CreateContext, passwordHasher);
 
             var project = AssertSucceeded(masterData.CreateProject(new SaveProjectRequest
             {
@@ -102,7 +116,7 @@ namespace TaskOTime.AppServer.IntegrationTests
             CollectionAssert.AreEqual(new[] { TaskListId }, AssertSucceeded(masterData.GetTaskLists(Query())).Select(item => item.IdTaskList).ToArray());
             CollectionAssert.AreEqual(new[] { TaskItemId }, AssertSucceeded(masterData.GetTaskItems(Query())).Select(item => item.IdTaskItem).ToArray());
 
-            using (var context = LocalDbPersistenceTestDatabase.CreateContext())
+            using (var context = database.CreateContext())
             {
                 Assert.AreEqual(1, context.Project.Count(projectRow => projectRow.IdProject == ProjectId));
                 Assert.AreEqual(1, context.TaskList.Count(list => list.IdTaskList == TaskListId));
@@ -114,11 +128,11 @@ namespace TaskOTime.AppServer.IntegrationTests
                     assignment.CanManageProject));
             }
 
-            var booking = new TimeBookingService(LocalDbPersistenceTestDatabase.CreateContext, passwordHasher);
+            var booking = new TimeBookingService(database.CreateContext, passwordHasher);
             AssertSucceeded(booking.AddTimeBooking(CreateBooking(FirstTimeItemId, WorkDayStart, "Design test seam")));
             AssertSucceeded(booking.AddTimeBooking(CreateBooking(SecondTimeItemId, WorkDayStart.AddMinutes(210), "Review persisted totals")));
 
-            using (var context = LocalDbPersistenceTestDatabase.CreateContext())
+            using (var context = database.CreateContext())
             {
                 var timeItems = context.TimeItem.OrderBy(item => item.EventTime).ToList();
                 Assert.AreEqual(2, timeItems.Count);
@@ -127,7 +141,7 @@ namespace TaskOTime.AppServer.IntegrationTests
                 Assert.AreEqual(CategoryId, timeItems[0].IdCategory);
             }
 
-            var analysis = new AnalysisService(LocalDbPersistenceTestDatabase.CreateContext, passwordHasher);
+            var analysis = new AnalysisService(database.CreateContext, passwordHasher);
             var userHours = AssertSucceeded(analysis.GetCurrentUserDayProjectHours(new UserAnalysisRequest
             {
                 IdTenant = TenantId,
@@ -175,7 +189,7 @@ namespace TaskOTime.AppServer.IntegrationTests
             var passwordHasher = new Pbkdf2PasswordHasher();
             SeedProjectCategoryTaskForBookings(passwordHasher);
 
-            var booking = new TimeBookingService(LocalDbPersistenceTestDatabase.CreateContext, passwordHasher);
+            var booking = new TimeBookingService(database.CreateContext, passwordHasher);
             var firstId = GuidFromSuffix(201);
             var secondId = GuidFromSuffix(202);
             var retrospectiveId = GuidFromSuffix(203);
@@ -207,10 +221,10 @@ namespace TaskOTime.AppServer.IntegrationTests
                 new[] { TimeSpan.FromHours(3).Ticks, (long?)null });
         }
 
-        private static void SeedTenantAndAdmin()
+        private void SeedTenantAndAdmin()
         {
             var now = DateTimeOffset.UtcNow;
-            using (var context = LocalDbPersistenceTestDatabase.CreateContext())
+            using (var context = database.CreateContext())
             {
                 context.Tenant.Add(new Tenant
                 {
@@ -254,9 +268,9 @@ namespace TaskOTime.AppServer.IntegrationTests
             };
         }
 
-        private static void SeedProjectCategoryTaskForBookings(Pbkdf2PasswordHasher passwordHasher)
+        private void SeedProjectCategoryTaskForBookings(Pbkdf2PasswordHasher passwordHasher)
         {
-            var masterData = new AdminMasterDataService(LocalDbPersistenceTestDatabase.CreateContext, passwordHasher);
+            var masterData = new AdminMasterDataService(database.CreateContext, passwordHasher);
 
             AssertSucceeded(masterData.CreateProject(new SaveProjectRequest
             {
@@ -341,9 +355,9 @@ namespace TaskOTime.AppServer.IntegrationTests
             };
         }
 
-        private static void AssertPersistedTimeline(Guid[] expectedIds, long?[] expectedTicksToNext)
+        private void AssertPersistedTimeline(Guid[] expectedIds, long?[] expectedTicksToNext)
         {
-            using (var context = LocalDbPersistenceTestDatabase.CreateContext())
+            using (var context = database.CreateContext())
             {
                 var timeItems = context.TimeItem
                     .Where(item => item.IdUser == AdminUserId && item.BookingDate == WorkDayStart.Date)

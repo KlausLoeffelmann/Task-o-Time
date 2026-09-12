@@ -3,145 +3,166 @@ using System.Collections.Generic;
 using System.Data.Entity.Core.EntityClient;
 using System.Data.SqlClient;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using TaskOTime.DataLayer;
 
 namespace TaskOTime.AppServer.IntegrationTests
 {
-    internal static class LocalDbPersistenceTestDatabase
+    internal sealed class LocalDbPersistenceTestDatabase : IDisposable
     {
-        private const string DatabaseName = "TaskOTime_AppServerIntegrationTests";
-        private const string ServerConnectionString = @"Data Source=(localdb)\MSSQLLocalDB;Integrated Security=True;MultipleActiveResultSets=True";
+        internal const string Prefix = "TaskOTime_Validation_";
+        internal const string OwnershipProperty = "TaskOTime.Validation.Owner";
+        private const string ServerConnectionString = @"Data Source=(localdb)\MSSQLLocalDB;Integrated Security=True;Pooling=False;Connect Timeout=15";
+        private bool created;
+        private bool disposed;
 
-        public static void Reset()
+        public string OwnerToken { get; } = Guid.NewGuid().ToString("N");
+        public string DatabaseName { get; }
+        public LocalDbPersistenceTestDatabase() : this(Guid.NewGuid()) { }
+
+        internal LocalDbPersistenceTestDatabase(Guid databaseId)
         {
-            DropDatabaseIfExists();
-            ExecuteScript(RewriteDatabaseName(File.ReadAllText(FindGenerationScript(), Encoding.UTF8)));
+            if (databaseId == Guid.Empty)
+                throw new ArgumentException("A nonempty run database identifier is required.", nameof(databaseId));
+            DatabaseName = Prefix + databaseId.ToString("N");
+        }
+        public string ProviderConnectionString => new SqlConnectionStringBuilder(ServerConnectionString)
+        {
+            InitialCatalog = DatabaseName
+        }.ConnectionString;
+
+        public void Create()
+        {
+            CreateFromScript(File.ReadAllText(
+                Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DbGenerationScript.sql"), Encoding.UTF8));
         }
 
-        public static TaskOTimeContext CreateContext()
+        internal void CreateFromScript(string script)
         {
-            return new TaskOTimeContext(CreateEntityConnectionString());
-        }
+            if (disposed || created)
+                throw new InvalidOperationException("A fixture may create its database exactly once.");
 
-        private static string CreateEntityConnectionString()
-        {
-            var providerBuilder = new SqlConnectionStringBuilder(ServerConnectionString)
-            {
-                InitialCatalog = DatabaseName
-            };
-
-            var entityBuilder = new EntityConnectionStringBuilder
-            {
-                Metadata = @".\Model\TaskOTime.csdl|.\Model\TaskOTime.ssdl|.\Model\TaskOTime.msl",
-                Provider = "System.Data.SqlClient",
-                ProviderConnectionString = providerBuilder.ConnectionString
-            };
-
-            return entityBuilder.ConnectionString;
-        }
-
-        private static void DropDatabaseIfExists()
-        {
+            // Validate before connecting. The legacy script can reset an existing database;
+            // only its schema body may run, and only after our CREATE DATABASE succeeds.
+            var batches = PrepareSchema(script);
             using (var connection = OpenMasterConnection())
             using (var command = connection.CreateCommand())
             {
-                command.CommandText = @"
-IF DB_ID(N'TaskOTime_AppServerIntegrationTests') IS NOT NULL
-BEGIN
-    ALTER DATABASE [TaskOTime_AppServerIntegrationTests] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
-    DROP DATABASE [TaskOTime_AppServerIntegrationTests];
-END";
-                command.CommandTimeout = 0;
+                command.CommandText = "CREATE DATABASE [" + DatabaseName + "];";
+                command.CommandTimeout = 60;
                 command.ExecuteNonQuery();
-            }
-        }
-
-        private static string FindGenerationScript()
-        {
-            var outputScript = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "DbGenerationScript.sql");
-            if (File.Exists(outputScript))
-            {
-                return outputScript;
+                created = true;
             }
 
-            var sourceTreeScript = Path.GetFullPath(Path.Combine(
-                AppDomain.CurrentDomain.BaseDirectory,
-                @"..\..\..\TaskOTime.DataLayer\DbGenerationScript.sql"));
-            if (File.Exists(sourceTreeScript))
+            try
             {
-                return sourceTreeScript;
-            }
-
-            throw new FileNotFoundException("DbGenerationScript.sql was not found for integration tests.", outputScript);
-        }
-
-        private static string RewriteDatabaseName(string script)
-        {
-            return script
-                .Replace("DB_ID(N'TaskOTime')", "DB_ID(N'TaskOTime_AppServerIntegrationTests')")
-                .Replace("[TaskOTime]", "[TaskOTime_AppServerIntegrationTests]");
-        }
-
-        private static void ExecuteScript(string script)
-        {
-            using (var connection = OpenMasterConnection())
-            {
-                foreach (var batch in SplitSqlBatches(script))
+                using (var connection = new SqlConnection(ProviderConnectionString))
                 {
+                    connection.Open();
                     using (var command = connection.CreateCommand())
                     {
-                        command.CommandText = batch;
-                        command.CommandTimeout = 0;
+                        command.CommandText = "EXEC sys.sp_addextendedproperty @name, @value;";
+                        command.Parameters.AddWithValue("@name", OwnershipProperty);
+                        command.Parameters.AddWithValue("@value", OwnerToken);
                         command.ExecuteNonQuery();
+                    }
+                    foreach (var batch in batches)
+                    {
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = batch;
+                            command.CommandTimeout = 60;
+                            command.ExecuteNonQuery();
+                        }
                     }
                 }
             }
+            catch
+            {
+                Dispose();
+                throw;
+            }
         }
 
-        private static SqlConnection OpenMasterConnection()
+        public TaskOTimeContext CreateContext()
         {
-            var builder = new SqlConnectionStringBuilder(ServerConnectionString)
+            if (!created || disposed)
+                throw new InvalidOperationException("The owned database is not active.");
+            var model = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Model", "TaskOTime");
+            return new TaskOTimeContext(new EntityConnectionStringBuilder
+            {
+                Metadata = model + ".csdl|" + model + ".ssdl|" + model + ".msl",
+                Provider = "System.Data.SqlClient",
+                ProviderConnectionString = ProviderConnectionString
+            }.ConnectionString);
+        }
+
+        public void Dispose()
+        {
+            if (disposed)
+                return;
+            if (created)
+            {
+                using (var connection = OpenMasterConnection())
+                using (var command = connection.CreateCommand())
+                {
+                    // Prefix matching is not ownership. A persisted, unpredictable token
+                    // is required as well; missing/replaced markers fail closed.
+                    command.CommandText = @"
+IF DB_ID(@database) IS NOT NULL
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM [" + DatabaseName + @"].sys.extended_properties
+        WHERE class = 0 AND name = @property AND CONVERT(nvarchar(128), value) = @owner)
+        THROW 51000, 'Refusing cleanup: database ownership marker does not match.', 1;
+    ALTER DATABASE [" + DatabaseName + @"] SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE [" + DatabaseName + @"];
+END";
+                    command.Parameters.AddWithValue("@database", DatabaseName);
+                    command.Parameters.AddWithValue("@property", OwnershipProperty);
+                    command.Parameters.AddWithValue("@owner", OwnerToken);
+                    command.CommandTimeout = 60;
+                    command.ExecuteNonQuery();
+                }
+            }
+            disposed = true;
+        }
+
+        internal static string[] PrepareSchema(string script)
+        {
+            var batches = SplitSqlBatches(script).ToArray();
+            // Deliberately reject an unfamiliar preamble rather than doing broad string
+            // substitutions (which previously missed quoted database names).
+            if (batches.Length < 4 ||
+                !Regex.IsMatch(batches[0], @"\A\s*/\*.*?\*/\s*IF DB_ID\(N'TaskOTime'\) IS NULL\s+BEGIN\s+CREATE DATABASE \[TaskOTime\];\s+END\s*\z", RegexOptions.Singleline) ||
+                batches[1].Trim() != "ALTER DATABASE [TaskOTime] SET COMPATIBILITY_LEVEL = 110;" ||
+                batches[2].Trim() != "USE [TaskOTime];")
+                throw new InvalidOperationException("Unrecognized generation script database preamble.");
+
+            var schema = batches.Skip(3).ToArray();
+            foreach (var batch in schema)
+            {
+                if (Regex.IsMatch(batch, @"\bUSE\s|\b(?:CREATE|ALTER|DROP)\s+DATABASE\b|\bDB_ID\s*\(|(?:\[TaskOTime\]|""TaskOTime""|'TaskOTime')", RegexOptions.IgnoreCase))
+                    throw new InvalidOperationException("Database routing/DDL is forbidden in the schema body.");
+            }
+            return new[] { "ALTER DATABASE CURRENT SET COMPATIBILITY_LEVEL = 110;" }.Concat(schema).ToArray();
+        }
+
+        internal static SqlConnection OpenMasterConnection()
+        {
+            var connection = new SqlConnection(new SqlConnectionStringBuilder(ServerConnectionString)
             {
                 InitialCatalog = "master"
-            };
-
-            var connection = new SqlConnection(builder.ConnectionString);
+            }.ConnectionString);
             connection.Open();
             return connection;
         }
 
         private static IEnumerable<string> SplitSqlBatches(string script)
         {
-            var builder = new StringBuilder();
-            using (var reader = new StringReader(script))
-            {
-                string line;
-                while ((line = reader.ReadLine()) != null)
-                {
-                    if (Regex.IsMatch(line, @"^\s*GO\s*(?:--.*)?$", RegexOptions.IgnoreCase))
-                    {
-                        var batch = builder.ToString();
-                        if (!string.IsNullOrWhiteSpace(batch))
-                        {
-                            yield return batch;
-                        }
-
-                        builder.Clear();
-                    }
-                    else
-                    {
-                        builder.AppendLine(line);
-                    }
-                }
-            }
-
-            var finalBatch = builder.ToString();
-            if (!string.IsNullOrWhiteSpace(finalBatch))
-            {
-                yield return finalBatch;
-            }
+            return Regex.Split(script, @"^\s*GO\s*(?:--[^\r\n]*)?\r?$",
+                RegexOptions.Multiline | RegexOptions.IgnoreCase).Where(batch => !string.IsNullOrWhiteSpace(batch));
         }
     }
 }
