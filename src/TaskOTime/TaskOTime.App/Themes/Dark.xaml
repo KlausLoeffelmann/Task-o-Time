@@ -34,4 +34,5 @@
     <SolidColorBrush x:Key="DisabledBackgroundBrush" Color="#FF30363C" />
     <SolidColorBrush x:Key="DisabledForegroundBrush" Color="#FFBEC7CF" />
     <SolidColorBrush x:Key="FocusBrush" Color="#FFFFD166" />
+    <SolidColorBrush x:Key="RecordingForegroundBrush" Color="#FFFFB4B4" />
 </ResourceDictionary>

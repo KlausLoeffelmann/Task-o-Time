@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net472</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseAppHost>true</UseAppHost>
+    <StartupObject>TaskOTime.Theme.TestHost.Program</StartupObject>
+    <RootNamespace></RootNamespace>
+    <OptionExplicit>On</OptionExplicit>
+    <OptionInfer>On</OptionInfer>
+    <OptionStrict>On</OptionStrict>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net472" Version="1.0.3" PrivateAssets="all" />
+    <PackageReference Include="MSTest.TestFramework" Version="2.2.10" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\TaskOTime.App\TaskOTime.App.csproj" />
+    <ProjectReference Include="..\TaskOTime.ViewModel\TaskOTime.ViewModel.csproj" />
+    <ProjectReference Include="..\TaskOTime.TimeTrackingServices.Tests\TestDoubles\TaskOTime.TimeTrackingServices.TestDoubles.csproj" />
+  </ItemGroup>
+</Project>

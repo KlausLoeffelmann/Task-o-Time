@@ -6,8 +6,9 @@ second copy into child views: application resources should own the styles.
 
 ## Lifetime and switching
 
-The startup owner should store `ThemeService.Start(this)` before opening any
-windows and dispose it in `OnExit`. The service lives in
+`App.OnStartup` stores `ThemeService.Start(this)` before opening login or desktop
+windows, and `App.OnExit` disposes it. Saved culture setup remains before
+`base.OnStartup`. The service lives in
 `TaskOTime.App.Themes`; `SetTheme(AppTheme.System | Dark | Light | HighContrast)`
 changes only this application's resources. `System` is the initial preference.
 `SelectedTheme` records that preference; `EffectiveTheme` reports the palette
@@ -42,7 +43,7 @@ Use **DynamicResource** references, not copied brushes or literal colors.
 | Menus/tooltips | `MenuForegroundBrush` | `MenuPopupBackgroundBrush` |
 
 Other public brushes: `PanelBorderBrush`, `ListItemSelectedBorderBrush`,
-`AccentBrush`, `FocusBrush`, and `CommandBackgroundBrush`.
+`AccentBrush`, `FocusBrush`, `RecordingForegroundBrush`, and `CommandBackgroundBrush`.
 The legacy `*Color` entries remain palette implementation details; consume the
 brush keys above to obtain high-contrast system overrides.
 
@@ -68,6 +69,11 @@ The maintenance window and its Project, Tenant/User, Task, and Collaboration
 views now use these shared styles without local color or font-family overrides.
 Their bindings, commands, password adapter, and control structures are unchanged.
 GridView headers retain their resize gripper and floating-header canvas.
+MainWindow uses `ThemedCalendarStyle`, retains its two-way date binding, and uses
+dynamic palette brush references throughout its local resources and content.
+Its old system-color overrides and private calendar templates are removed.
+Recording indicators pulse opacity over a palette brush rather than animating
+hardcoded colors over a user's high-contrast scheme.
 
 For other views, remove local hardcoded colors, initial code-behind color
 assignments, and local calendar templates that override these resources.
@@ -86,7 +92,7 @@ The list-view item style supports plain items and GridView rows. Set
 `GridView.ColumnHeaderContainerStyle` to `MainDataGridViewColumnHeaderStyle`.
 Applications adding a custom ViewBase must theme its custom surfaces explicitly.
 
-`TaskOTime.Theme.Tests` contains `ThemeResourceTests`. Its STA tests
+`TaskOTime.Theme.TestHost` contains the real WPF scenarios. They
 instantiate production templates, exercise two-way date selection and navigation,
 resolve state brushes, check contrast, edit text, open a combo popup, switch tabs,
 and change live process-local high-contrast resources. Mouse/focus state triggers
@@ -96,11 +102,39 @@ hosts the real MainDataWindow with production ViewModels and test service data,
 visits all maintenance tabs in each palette, and checks rendered text against its
 painted background, disabled/focused editors, GridView column resizing, password
 editing, project selection/edit bindings, and the task-project combo popup.
-MainWindow calendar/startup wiring and visual acceptance remain separate
-integration checks owned by the main-window/startup workstream.
+Another scenario constructs the real MainWindow with injected service data and
+checks its calendar binding, live palette changes, menu/button states, glyph
+foregrounds, and recording-indicator contrast at minimum pulse opacity.
+The application-lifetime scenario calls `ThemeService.Start`, switches palettes,
+and disposes the service on an application resource scope. These tests do not
+connect to SQL or automate production authentication.
 
-Theme tests run in their own test project/host because the older application
-binding test permanently shuts down WPF `Application`. This avoids shared
-application lifetime and cross-AppDomain COM input-service teardown problems.
-Every scenario closes its windows and shuts down its STA dispatcher. The project
-uses the same Framework target and package versions as the existing test suite.
+## Strict process test protocol
+
+`TaskOTime.Theme.Tests` starts a fresh executable for each UI scenario:
+
+```powershell
+dotnet test .\TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj
+.\TaskOTime.Theme.TestHost\bin\Debug\net472\TaskOTime.Theme.TestHost.exe --case main-window
+```
+
+Accepted cases are `calendar-states`, `control-states`, `list-tab-states`,
+`runtime-preferences`, `maintenance-views`, `main-window`, and
+`application-lifetime`. `self-test-failure` deliberately fails an assertion for
+the runner's error-path check. Missing, unknown, or additional arguments return
+exit code 64. Failed scenarios return 1.
+
+Each host owns its main STA thread and dispatcher, closes its windows, and
+completes dispatcher shutdown before printing `THEME-CASE-PASS:<case>`. The runner
+waits for process termination and requires all three conditions: exit code 0,
+empty stderr, and the exact success marker. A late CLR/COM shutdown failure cannot
+be counted as a passing UI case. Separate tests verify invalid commands, failed
+assertions, and rejection of a success marker followed by a failed or dirty exit.
+
+There are no AppDomain/remoting APIs or background STA lifetime workarounds.
+The console apphost, process APIs, and STA dispatcher are supported by Framework
+and modern Windows .NET. Both projects retain the current net472 target and
+existing package versions; actual .NET 10 retargeting remains on its separate
+branch. The build copies the host's own output directory, including satellite
+resources and (after retargeting) apphost/runtime files, without assuming that
+runner and host framework folder names match.

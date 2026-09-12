@@ -2,7 +2,6 @@ Imports System
 Imports System.Collections.Generic
 Imports System.Linq
 Imports System.Reflection
-Imports System.Runtime.ExceptionServices
 Imports System.Threading
 Imports System.Windows
 Imports System.Windows.Automation.Peers
@@ -15,14 +14,13 @@ Imports System.Windows.Shapes
 Imports System.Windows.Threading
 Imports Microsoft.VisualStudio.TestTools.UnitTesting
 Imports TaskOTime.App.Themes
+Imports TaskOTime.App
 Imports TaskOTime.TimeTrackingServices.Tests.Doubles
 Imports TaskOTime.ViewModel.ViewModels
 Imports TaskOTime.ViewModel.Views
 
-Namespace TaskOTime.Theme.Tests
-    <TestClass, DoNotParallelize>
-    Public Class ThemeResourceTests
-        <TestMethod>
+Namespace TaskOTime.Theme.TestHost
+    Public Class ThemeScenarios
         Public Sub CalendarPalettes_ResolveStateBrushesAndPreserveSelectionNavigationAndBlackout()
             OnSta(
                 Sub()
@@ -132,7 +130,6 @@ Namespace TaskOTime.Theme.Tests
                 End Sub)
         End Sub
 
-        <TestMethod>
         Public Sub MainDataStyles_KeepReadingPairsFocusDisabledAndEditingBehaviorAcrossLivePalettes()
             OnSta(
                 Sub()
@@ -206,7 +203,6 @@ Namespace TaskOTime.Theme.Tests
                 End Sub)
         End Sub
 
-        <TestMethod>
         Public Sub SharedListAndTabStyles_PreserveContentSelectionAndLiveContrastSchemeChanges()
             OnSta(
                 Sub()
@@ -259,7 +255,6 @@ Namespace TaskOTime.Theme.Tests
                 End Sub)
         End Sub
 
-        <TestMethod>
         Public Sub ThemeService_ObservesProcessPreferencesOnDispatcherAndHighContrastAlwaysWins()
             OnSta(
                 Sub()
@@ -313,7 +308,6 @@ Namespace TaskOTime.Theme.Tests
                 End Sub)
         End Sub
 
-        <TestMethod>
         Public Sub MainDataWindow_RealViewsKeepReadableContentBindingsAndEditingAcrossPalettes()
             OnSta(
                 Sub()
@@ -392,6 +386,124 @@ Namespace TaskOTime.Theme.Tests
                 End Sub)
         End Sub
 
+        Public Sub MainWindow_UsesLiveCalendarAndPaletteResources()
+            OnSta(
+                Sub()
+                    Dim application As New Application With {.ShutdownMode = ShutdownMode.OnExplicitShutdown}
+                    application.Resources.MergedDictionaries.Add(New ResourceDictionary With {
+                        .Source = New Uri("/TaskOTime.App;component/Themes/ClassicDark.xaml", UriKind.Relative)})
+                    application.Resources.MergedDictionaries.Add(New ResourceDictionary With {
+                        .Source = New Uri("/TaskOTime.App;component/Resources/Strings.xaml", UriKind.Relative)})
+                    Dim services As New TestApplicationServices()
+                    Dim user = services.GetTenantUsers(services.Tenant.IdTenant).Value.Single()
+                    Dim authentication As New TestAuthenticationService(user, "Theme-test-password-42")
+                    Dim desktop = DesktopServices.CreateForServices(authentication, services, services, services, services.Tenant)
+                    Dim model = desktop.CreateMain(user)
+                    Dim settingsType = GetType(MainWindow).Assembly.GetType("TaskOTime.App.Properties.Settings", True)
+                    Dim settings = settingsType.GetProperty("Default").GetValue(Nothing)
+                    Dim placement = settingsType.GetProperty("RestoreMainWindowPlacement")
+                    placement.SetValue(settings, False)
+                    Dim window As MainWindow = Nothing
+                    Try
+                        Using theme As New ThemeService(application.Resources, application.Dispatcher, New TestThemeEnvironment())
+                            window = New MainWindow(model, desktop, user) With {
+                                .Left = -32000, .Top = -32000, .ShowActivated = False, .ShowInTaskbar = False}
+                            window.Show()
+                            For Each palette In {AppTheme.Dark, AppTheme.Light, AppTheme.HighContrast, AppTheme.Dark}
+                                application.Resources(SystemColors.WindowColorKey) = Colors.Black
+                                application.Resources(SystemColors.WindowTextColorKey) = Colors.White
+                                application.Resources(SystemColors.HighlightColorKey) = Colors.Yellow
+                                application.Resources(SystemColors.HighlightTextColorKey) = Colors.Black
+                                application.Resources(SystemColors.GrayTextColorKey) = Colors.Silver
+                                theme.SetTheme(palette)
+                                Pump(window)
+                                AssertBrush(window.Background, window.FindResource("WindowBackgroundBrush"))
+                                Dim recording = DirectCast(window.FindResource("RecordingForegroundBrush"), SolidColorBrush).Color
+                                Dim commandBackground = DirectCast(window.FindResource("CommandBackgroundBrush"), SolidColorBrush)
+                                Dim backgroundColor = commandBackground.Color
+                                Dim minimumPulse As New SolidColorBrush(Color.FromRgb(
+                                    CByte(Math.Round(recording.R * 0.7 + backgroundColor.R * 0.3)),
+                                    CByte(Math.Round(recording.G * 0.7 + backgroundColor.G * 0.3)),
+                                    CByte(Math.Round(recording.B * 0.7 + backgroundColor.B * 0.3))))
+                                Assert.IsTrue(Contrast(minimumPulse, commandBackground) >= 4.5)
+                                Dim calendar = Descendants(Of Calendar)(window).Single()
+                                Assert.AreSame(window.FindResource("ThemedCalendarStyle"), calendar.Style)
+                                Assert.AreEqual(0, calendar.Resources.Count)
+                                model.SelectedDate = New DateTime(2026, 6, 15)
+                                calendar.DisplayDate = model.SelectedDate
+                                Pump(window)
+                                Dim selected = Descendants(Of CalendarDayButton)(calendar).Single(Function(day) day.IsSelected)
+                                AssertPair(selected, "SelectedForegroundBrush", "ListItemSelectedBackgroundBrush")
+                                calendar.SelectedDate = New DateTime(2026, 6, 16)
+                                Assert.AreEqual(calendar.SelectedDate.Value, model.SelectedDate)
+                                Dim menu = Descendants(Of Menu)(window).Single()
+                                AssertBrush(menu.Background, window.FindResource("CommandBackgroundBrush"))
+                                AssertBrush(menu.Foreground, window.FindResource("MenuForegroundBrush"))
+                                Dim menuItem = DirectCast(menu.Items(0), MenuItem)
+                                Assert.AreEqual(TaskOTime.ViewModel.Localization.LocalizationService.Current("FileMenuHeader"), menuItem.Header)
+                                SetState(menuItem, "IsHighlighted", True, GetType(MenuItem))
+                                AssertPair(menuItem, "HoverForegroundBrush", "HoverBackgroundBrush")
+                                SetState(menuItem, "IsHighlighted", False, GetType(MenuItem))
+                                Dim button = Descendants(Of Button)(window).
+                                    First(Function(item) item.IsVisible AndAlso item.IsEnabled AndAlso
+                                              item.Template.FindName("ButtonBorder", item) IsNot Nothing)
+                                SetState(button, "IsMouseOver", True)
+                                Dim border = DirectCast(button.Template.FindName("ButtonBorder", button), Border)
+                                AssertBrush(border.Background, window.FindResource("HoverBackgroundBrush"))
+                                AssertBrush(button.Foreground, window.FindResource("HoverForegroundBrush"))
+                                Assert.IsTrue(Contrast(button.Foreground, border.Background) >= 4.5)
+                                For Each glyph As TextBlock In Descendants(Of TextBlock)(button)
+                                    AssertBrush(glyph.Foreground, button.Foreground)
+                                Next
+                                SetState(button, "IsMouseOver", False)
+                            Next
+                        End Using
+                    Finally
+                        If window IsNot Nothing Then window.Close()
+                        application.Shutdown()
+                    End Try
+                End Sub)
+        End Sub
+
+        Public Sub ApplicationTheme_StartSwitchAndDispose()
+            OnSta(
+                Sub()
+                    Dim application As New Application With {.ShutdownMode = ShutdownMode.OnExplicitShutdown}
+                    application.Resources.MergedDictionaries.Add(New ResourceDictionary With {
+                        .Source = New Uri("/TaskOTime.App;component/Themes/ClassicDark.xaml", UriKind.Relative)})
+                    Dim service = ThemeService.Start(application)
+                    Dim window As New Window With {
+                        .Left = -32000, .Top = -32000, .ShowActivated = False, .ShowInTaskbar = False,
+                        .Width = 300, .Height = 150}
+                    Dim label As New Label With {.Content = "Application theme"}
+                    window.Content = label
+                    label.SetResourceReference(FrameworkElement.StyleProperty, "MainDataLabelStyle")
+                    Try
+                        window.Show()
+                        For Each palette In {AppTheme.Light, AppTheme.Dark, AppTheme.System}
+                            service.SetTheme(palette)
+                            Pump(window)
+                            Assert.AreEqual(palette, service.SelectedTheme)
+                            If SystemParameters.HighContrast Then Assert.AreEqual(AppTheme.HighContrast, service.EffectiveTheme)
+                            AssertBrush(label.Background, application.Resources("PanelBackgroundBrush"))
+                            AssertBrush(label.Foreground, application.Resources("ContentForegroundBrush"))
+                        Next
+                        service.Dispose()
+                        Assert.ThrowsException(Of ObjectDisposedException)(Sub() service.SetTheme(AppTheme.Dark))
+                    Finally
+                        service.Dispose()
+                        window.Close()
+                        application.Shutdown()
+                    End Try
+                End Sub)
+        End Sub
+
+        Private Shared Sub Pump(window As Window)
+            window.Dispatcher.Invoke(New Action(Sub()
+                                                End Sub), DispatcherPriority.ApplicationIdle)
+            window.UpdateLayout()
+        End Sub
+
         Private Shared Sub AssertEditorStates(editor As Control)
             SetState(editor, "IsKeyboardFocusWithin", True)
             AssertBrush(editor.BorderBrush, editor.FindResource("FocusBrush"))
@@ -464,9 +576,9 @@ Namespace TaskOTime.Theme.Tests
             Return 0.2126 * linear(color.R) + 0.7152 * linear(color.G) + 0.0722 * linear(color.B)
         End Function
 
-        Private Shared Sub SetState(element As UIElement, name As String, value As Boolean)
+        Private Shared Sub SetState(element As UIElement, name As String, value As Boolean, Optional ownerType As Type = Nothing)
             ' Exercise real WPF triggers deterministically without moving the user's mouse or keyboard focus.
-            Dim field = GetType(UIElement).GetField(name & "PropertyKey", BindingFlags.Static Or BindingFlags.NonPublic)
+            Dim field = If(ownerType, GetType(UIElement)).GetField(name & "PropertyKey", BindingFlags.Static Or BindingFlags.NonPublic)
             Assert.IsNotNull(field, name)
             element.SetValue(DirectCast(field.GetValue(Nothing), DependencyPropertyKey), value)
         End Sub
@@ -482,22 +594,8 @@ Namespace TaskOTime.Theme.Tests
         End Function
 
         Private Shared Sub OnSta(action As Action)
-            Dim failure As Exception = Nothing
-            Dim thread As New Thread(
-                Sub()
-                    Try
-                        action()
-                    Catch ex As Exception
-                        failure = ex
-                    Finally
-                        Dispatcher.CurrentDispatcher.InvokeShutdown()
-                    End Try
-                End Sub)
-            thread.SetApartmentState(ApartmentState.STA)
-            thread.IsBackground = True
-            thread.Start()
-            Assert.IsTrue(thread.Join(TimeSpan.FromSeconds(45)), "Theme verification did not finish.")
-            If failure IsNot Nothing Then ExceptionDispatchInfo.Capture(failure).Throw()
+            Assert.AreEqual(ApartmentState.STA, Thread.CurrentThread.GetApartmentState())
+            action()
         End Sub
 
         Private NotInheritable Class ThemeInteraction

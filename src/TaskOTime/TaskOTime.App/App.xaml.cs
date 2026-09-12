@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using TaskOTime.App.Themes;
 using TaskOTime.ViewModel.ViewModels;
 
 namespace TaskOTime.App
@@ -8,6 +9,7 @@ namespace TaskOTime.App
     {
         private LoginViewModel login;
         private DesktopServices services;
+        private ThemeService themes;
 
         protected override void OnStartup(StartupEventArgs e)
         {
@@ -23,6 +25,7 @@ namespace TaskOTime.App
             };
             try
             {
+                themes = ThemeService.Start(this);
                 services = DesktopServices.Create();
                 login = new LoginViewModel(services.Authentication);
                 ShowLogin();
@@ -31,6 +34,18 @@ namespace TaskOTime.App
             {
                 MessageBox.Show(ex.Message, ViewModel.Localization.LocalizationService.Current["Login_StartupFailed"], MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown(1);
+            }
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            try
+            {
+                themes?.Dispose();
+            }
+            finally
+            {
+                base.OnExit(e);
             }
         }
 
