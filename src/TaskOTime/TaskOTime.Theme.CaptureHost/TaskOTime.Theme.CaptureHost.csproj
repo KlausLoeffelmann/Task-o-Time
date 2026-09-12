@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework Condition="'$(CaptureTargetFramework)' == ''">net472</TargetFramework>
+    <TargetFramework Condition="'$(CaptureTargetFramework)' == ''">net10.0-windows</TargetFramework>
     <TargetFramework Condition="'$(CaptureTargetFramework)' != ''">$(CaptureTargetFramework)</TargetFramework>
     <OutputType>Exe</OutputType>
     <UseWPF>true</UseWPF>

@@ -15,7 +15,8 @@ viewer does not replace missing translations with its own labels.
 From the repository root:
 
 ```powershell
-dotnet build .\src\TaskOTime\TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj -c Release
+dotnet build .\src\TaskOTime\TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj `
+    -c Release -p:CaptureTargetFramework=net472
 
 & .\src\TaskOTime\TaskOTime.Theme.CaptureHost\bin\Release\net472\TaskOTime.Theme.CaptureHost.exe `
     --capture `
@@ -32,7 +33,7 @@ exclusive, and files use `CreateNew`; unrelated existing files are never reused.
 
 ## Final integrated .NET 10 build
 
-Build this project alone for the runtime of the target application:
+The host defaults to .NET 10 Windows. Build it for the target application's runtime:
 
 ```powershell
 dotnet build .\src\TaskOTime\TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj `
@@ -49,9 +50,8 @@ to the older branch's application or private helpers. The runtime resolver loads
 the explicitly selected build and its satellites; a bad or incompatible target
 fails rather than silently using host-side production assemblies. Use a host
 built for the application's runtime.
-When building/running `TaskOTime.Theme.Tests` against a retargeted application,
-also pass `-p:CaptureTargetFramework=net10.0-windows` so its copied capture host
-uses the matching runtime.
+The integrated `TaskOTime.Theme.Tests` project uses the modern default for its
+copied capture host. The explicit `net472` override is only for historical builds.
 
 ## Output and interpretation
 
