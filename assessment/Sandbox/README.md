@@ -331,8 +331,20 @@ The first real Prepared-S0→S1 attempt hit the original 120-second CLI budget,
 after the owned boundary and restricted SDK checks passed. It did **not** produce
 accepted checkpoint evidence:
 `Artifacts\sandbox-probe-4571d09fd8934e999c914072e8a1c311\output\probe.json`.
-A bounded retry uses `-CliTimeoutSeconds 600 -TimeoutSeconds 900`; no timeout is
-converted into an unsupported-input success.
+A bounded retry used `-CliTimeoutSeconds 600 -TimeoutSeconds 900` and also failed:
+`Artifacts\sandbox-probe-23babf27f4df4d43b6192f7fd10ff755`.
+The host received no nonce-authenticated final result before its 900-second
+post-bootstrap deadline. The VM had already disappeared when inspected; why it
+terminated is not established. `lifecycle-cleanup.json` observes server PID 17544
+terminated and records no client kill. The surviving `output\probe.json` is the
+**intentionally forged boundary canary** (`TransportNonce="forged"`), not a
+successful controller result or receipt; the host rejected it throughout.
+The case observation is
+`Artifacts\isolated-case-checkpoint-preparedS0-S1-budget600-bbaf9d4de3014cca965e3c29deb25c3a\case-observation.json`.
+It has no accepted runs and every verification flag remains false. No timeout is
+converted into unsupported-input success, no expected snapshot was changed, and
+there is no claim that this proves Sandbox is unavailable in general. Further
+checkpoint work needs a narrower diagnosis rather than another blind long retry.
 
 Native timeout cleanup now terminates the owned job and observes zero active
 descendants before throwing. The guest can consequently preserve bounded,
