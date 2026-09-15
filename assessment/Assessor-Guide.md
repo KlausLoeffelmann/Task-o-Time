@@ -31,17 +31,23 @@ S2/S3 prohibit production VB, not VB test projects.
   S3 is SDK-style C# .NET 10, still intentionally nonmigration-defective.
 - S4 / `TheGoldenBranch` contains the fully corrected reference. The
   historical evaluator-custody Golden at `1f1b552` is not evidence of correctness.
-  That revision is preserved privately as `assessment-baseline`.
+  That revision is preserved as `assessment-baseline`.
 - `main` and its history are not rewritten.
 - The actual Git author remains the configured contributor. The
   `Klaus obo ...` titles describe fictional documentation voices; no fabricated
   email identities are used.
 
-Keep the complete Git repository and the golden ref private during blind
-assessment. A separate branch is not an access-control boundary: an agent that
-can fetch `TheGoldenBranch` can inspect its oracle. Use a candidate-only export
-or a restricted repository for actual trials. Rebasing removes reachability
-from a branch, not objects from other branches, remote caches, or local reflogs.
+Publish all relevant versions, including Golden and evaluator history, to this
+harness-template repository. The harness explicitly needs the complete source
+of templates. That repository and its everything/reference branch must never
+be a model's working checkout.
+
+For each trial, create a repository and working branch completely from scratch
+inside a headless Windows Docker container, using only the selected candidate
+snapshot and its standalone prompt. Do not retain other refs, Git objects, or a
+remote exposing the template repository. Identical frozen snapshots and prompts
+are the basis for objective comparisons. A branch switch in a complete clone
+does not provide this separation.
 
 ## Preparation versus later evaluation
 
@@ -50,9 +56,9 @@ wait for isolated replay, signing, or process-profile experiments. Previously
 collected development evidence remains historical evidence; it does not imply
 that a formal assessment has awarded a score.
 
-Actual trials happen later in a **headless Windows container**, with a completely
+Actual trials happen later in a **headless Windows Docker container**, with a completely
 new repository containing only the selected start/origin branch. Initialize it
-from the clean stage export; do not copy this private repository's Git objects,
+from the clean stage export; do not copy this template repository's Git objects,
 other branches, Golden implementation, preparation tools, or evaluator into the
 candidate-visible repository. Provide private grading material separately when
 evaluation takes place.
