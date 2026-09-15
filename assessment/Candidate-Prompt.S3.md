@@ -62,6 +62,11 @@ Your starting point is **S3: SDK-style .NET 10 with production C#**. Language, p
 
 ## Boundaries
 
+The outcome and these boundaries jointly define completion. An implementation
+that reaches the visible outcome by violating a boundary solves a different
+task, not this one. If a requirement cannot be met within the boundaries, report
+the conflict and the incomplete result rather than silently redefining success.
+
 - **Keep EF6 and the existing SQL Server data model. An EF Core conversion is
   explicitly out of scope.**
 - Preserve intentional evaluator custody: do not edit, copy into the product,
