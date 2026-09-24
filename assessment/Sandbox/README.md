@@ -15,6 +15,123 @@ files. A target can replace both with a tracked payload. It cannot prove compile
 production, even with unchanged source and `SkipCompilerExecution=false`.
 `-SignProducerProof` now fails before feature inspection, staging or VM startup.
 
+## Execution profiles: review required, historical observations are not reusable
+
+**Neither current profile is approved for acceptance.** Changing the legacy
+LOW worker to MEDIUM was rejected; no producer acceptance uses that change.
+Earlier LOW-profile producer/case observations remain historical evidence and
+must not be reused as new-profile acceptance. Every new observation records its
+profile identity, actual controller integrity and `AcceptanceProfileApproved=false`.
+
+The controller now verifies its **actual HIGH token**, rather than relying only
+on HIGH process/directory labels. Its CWD, TEMP, profile, module search path and
+NuGet/CLI state are private to `C:\Controller`. Trusted SDK/runtime initialization
+precedes worker execution. Every native worker launch requires an explicit,
+bounded, allowlisted Unicode environment block: it never inherits the controller's
+environment. Controller environment snapshots must remain identical. Workers use
+a guest-owned private window station/desktop, not the controller's desktop.
+These changes do not by themselves approve the legacy RC+World write-restricted
+profile (`restricted-low-explicit-environment-private-desktop-v2-unapproved`);
+RC+World is **not** an RC allowlist.
+
+`-AppContainerCompatibilityDiagnostic` is a separate bounded feasibility path,
+not a producer/compiler/acceptance job. It requires an existing managed net10
+runtime, an input directory and argument templates. It rejects expected-output,
+evidence-file, package/framework mapping and submitted-build/compiler options.
+It never supplies `HostExecutionVerification`, a signature, or a formal verdict.
+No Roslyn binary, source, public API or private reflection behavior is modified.
+
+The diagnostic creates and deletes an **owned guest-only** AppContainer profile
+using documented userenv/process APIs. Before resuming each suspended child, it
+verifies LOW integrity, the exact AppContainer SID, AppContainer token membership
+and **zero capabilities**. Admin membership/privileges are disabled. This is not
+the legacy RC token: `IsTokenRestricted=false` and no RC restricting SIDs are
+expected for this model, not presented as proof of an RC restriction. The owned
+kill-on-close job, standard-handle allowlist, descendant-quiescence checks, disabled
+Sandbox network/devices and configuration-bound VM shutdown remain in force.
+
+Only public SDK 10.0.401/runtime 10.0.12 material, the unchanged producer runtime,
+owned probe and explicit fixture are copied into guest-readonly
+`C:\OwnedAppContainerPublic`. Private writable state is under
+`C:\OwnedAppContainerWork`. SDK targeting packs include NETCore, WindowsDesktop
+and AspNetCore 10.0.12; omitting the latter two caused an actual offline restore
+failure, not a conversion/MMF failure. Guest ACLs are set on the root, then
+descendants reset to inherit: recursively removing inheritance while granting
+inherit-only ACEs previously produced empty descendant file DACLs. No host mapped
+directory ACL or global named-object namespace ACL is changed.
+
+The owned probe records named/unnamed MMF behavior, job/child termination,
+controller process/token/thread opens, readonly and controller-directory
+write/delete/DACL/ownership opens, and the token's HKCU registry view. Access-open
+probes do not mutate these objects or prove an actual rename; registry
+virtualization means a worker HKCU result must not be called access to the
+controller's physical registry view. The public export remains worker-writable:
+the deliberately forged result is not trusted, and authenticated publication
+occurs only after worker descendants stop. Enumeration/canaries are not a
+complete IPC/broker/ambient-state security argument. Independent follow-up review
+is still required before enabling any changed acceptance profile.
+
+AppContainer results use
+`low-appcontainer-private-environment-desktop-compatibility-v1-unapproved`.
+Host-only expectations, keys and assessor implementation never enter the guest.
+Compatibility success does not establish output behavior, determinism,
+idempotence, unsupported cases, frozen checkpoints or full TOOL002 acceptance.
+
+### Actual unchanged-language compatibility result
+
+The bounded 2026-09-12 run
+`Artifacts\sandbox-probe-2d3ee36d21b44cc29619e2a6289e72f2` completed the
+**original** language producer: exit 0, one converted project/document and
+`migration-manifest.json` reporting `succeeded`. It emitted `Arithmetic.cs`,
+`Arithmetic.csproj` and the manifest. Host comparison checked all **192** staged
+runtime files against the previously protected runtime manifest and the unchanged
+current runtime. The main DLL remains SHA256
+`9D9AE1C986B5AB30F19CE99E8027DCD74B2C2843D04F4806B4F44DF7C8E9CDC6`.
+No diagnostic logging clone was substituted.
+
+Named and unnamed MMF checks succeeded. Actual controller integrity was HIGH
+`S-1-16-12288`; worker integrity was LOW `S-1-16-4096`, with AppContainer membership
+and zero capabilities. Controller environment snapshots matched. All tested
+sensitive controller process/token opens and opens against 13 captured controller
+threads returned false. All five tested mutation-related handle rights on the
+ten controller/module/readonly-input directories failed with Win32 error 5.
+None of the tested HKCU rights opened successfully in the worker's registry view.
+Owned storage remained writable, the owned child job terminated, and the forged
+export was not accepted. Host-observed VM lifecycle PIDs 49732/44528/19404 stopped.
+
+Private results:
+`Artifacts\appcontainer-original-language-compatibility-v7.json` and
+`Artifacts\appcontainer-original-language-host-observation-v7.json`.
+These are nonce-authenticated controller observations plus independent host
+runtime/input/output hash observations, **not signed acceptance receipts**.
+Observed output was not promoted into a frozen oracle or executed as behavior.
+
+The separate LOW RC control, using the same private-controller/explicit-worker
+environment changes, bootstrapped and passed its restricted controller canary
+(exit 7) but **failed** SDK restore at `NuGet.Common.Migrations.MigrationRunner`
+with `UnauthorizedAccessException` opening/creating the named `NuGet-Migrations`
+mutex. Its artifacts are
+`Artifacts\sandbox-probe-b0cceb22921e46fbb68cf1d243958dbb` and
+`Artifacts\private-environment-low-v2-failure.json`; its VM stopped. Thus the
+legacy LOW build/CLI path is currently unsupported with the required private
+environment, not a validated fallback. It fails closed before submitted work.
+Do not restore the old controller/worker shared environment, invent NuGet
+migration markers, or reinterpret this infrastructure failure as unsupported
+input. The AppContainer diagnostic above completed real restore and conversion
+without those workarounds. Enabling that profile for protected build/compiler
+and replay jobs still requires review and dedicated implementation/reruns.
+
+Reproduction (private diagnostic fixtures, no acceptance expectations):
+
+```powershell
+$runtime = Get-Content .\assessment\Artifacts\protected-real-tools\language-runtime.json -Raw | ConvertFrom-Json
+& .\assessment\Sandbox\Invoke-SandboxProbe.ps1 -AppContainerCompatibilityDiagnostic `
+  -BinaryRoot $runtime.BinaryRoot -EntryAssembly $runtime.EntryAssembly `
+  -InputRoot .\assessment\Artifacts\protected-tool-cases\language-input `
+  -CommandArguments @('convert-language','--input','{input}','--output','{output}',
+    '--project','Arithmetic.vbproj','--restore') -TimeoutSeconds 900
+```
+
 ## Protected second compilation: supported console producers
 
 `Invoke-ProtectedProducer.ps1` adds a **different**, bounded route. It does not
@@ -58,7 +175,7 @@ The sequence is:
 4. Start a **fresh VM**, with only the selected data inputs, trusted SDK and
    optional selected package references. Do not run submitted targets or tools
    there. A trusted supervisor invokes SDK **10.0.401 `csc.dll` directly**, with a
-   response file it constructs from the validated argument array. No submitted
+   readonly response file the host constructs from the validated argument array. No submitted
    response file, analyzer, generator or hook is loaded. Removed build-plugin
    arguments remain in the host plan as observations. Missing generated semantics
    must cause compilation or byte comparison to fail, not a fallback to build DLLs.

@@ -102,6 +102,7 @@ try {
         $passInputHash=SnapshotHash (Snapshot $input)
         $result=& (Join-Path $PSScriptRoot 'Invoke-SandboxProbe.ps1') @parameters -InputRoot $input
         if($result.SandboxStopped -ne $true) { throw 'CLI VM termination was not observed.' }
+        if([string]::IsNullOrWhiteSpace($result.ProfileIdentity)) { throw 'Execution profile identity is missing.' }
         $execution=$result.HostExecutionVerification
         $actual=Join-Path $execution.Export 'output'
         $actualFiles=$(if(Test-Path -LiteralPath $actual -PathType Container) { Snapshot $actual } else { $null })
@@ -131,7 +132,8 @@ try {
             ($ExpectedOutputRoot -and (SnapshotHash (Snapshot $ExpectedOutputRoot)) -cne $expectedHash)) {
             throw 'Host fixture, oracle or producer artifact changed during execution.'
         }
-        $runs.Add(@{ Run=$pass; Artifacts=$result.Artifacts; Execution=$execution; SandboxProcessIds=$result.SandboxProcessIds; SandboxStopped=$true })
+        $runs.Add(@{ Run=$pass; Artifacts=$result.Artifacts; Execution=$execution; SandboxProcessIds=$result.SandboxProcessIds; SandboxStopped=$true
+            ProfileIdentity=$result.ProfileIdentity; AcceptanceProfileApproved=$false })
         Start-Sleep -Seconds 10
     }
     $report.OutputChecksPassed=$true

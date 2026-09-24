@@ -18,6 +18,7 @@ param(
     [switch] $PrepareOnly,
     [switch] $SignProducerProof,
     [ValidateSet('low','medium')][string] $OwnedProfileDiagnostic,
+    [switch] $AppContainerCompatibilityDiagnostic,
     [ValidateRange(0,300)][int] $OwnedControllerDelaySeconds = 0,
     [ValidateRange(60,600)][int] $CliTimeoutSeconds = 120,
     [ValidateRange(60,900)][int] $TimeoutSeconds = 240
@@ -35,6 +36,11 @@ if($OwnedProfileDiagnostic -and ($SourceRoot -or $Projects -or $BinaryRoot -or $
     $InputRoot -or $CommandArguments -or $ExpectedOutputRoot -or $EvidenceFile -or
     $PublicPackageRoot -or $PublicFrameworkRoot -or $OwnedControllerDelaySeconds)) {
     throw 'Owned profile diagnostics cannot be combined with submitted material, replay or lifecycle-delay jobs.'
+}
+if($AppContainerCompatibilityDiagnostic -and ($OwnedProfileDiagnostic -or $SourceRoot -or $Projects -or $CompilerJobRoot -or
+    $ExpectedOutputRoot -or $EvidenceFile -or $PublicPackageRoot -or $PublicFrameworkRoot -or $OwnedControllerDelaySeconds -or
+    $ExecutionRuntime -cne 'net10' -or -not $BinaryRoot -or -not $InputRoot)) {
+    throw 'AppContainer compatibility is diagnostic-only and requires only explicit runtime/input material, never acceptance expectations or producer/compiler jobs.'
 }
 if (-not $PrepareOnly) {
     $feature = Get-CimInstance Win32_OptionalFeature -Filter "Name='Containers-DisposableClientVM'"
@@ -66,10 +72,17 @@ $output = Join-Path $run 'output'
 New-Item -ItemType Directory -Path $payload,$output | Out-Null
 Copy-Item (Join-Path $PSScriptRoot 'GuestProbe.ps1') $payload
 Copy-Item (Join-Path $PSScriptRoot 'RestrictedProcess.cs') $payload
+Copy-Item (Join-Path $PSScriptRoot 'GuestEnvironment.ps1') $payload
 Copy-Item (Join-Path $assessment 'global.json') $payload
 if($OwnedProfileDiagnostic) {
     . (Join-Path $PSScriptRoot 'OwnedProfileDiagnostic.ps1')
     New-OwnedProfilePayload $payload $sdk $OwnedProfileDiagnostic
+}
+if($AppContainerCompatibilityDiagnostic) {
+    . (Join-Path $PSScriptRoot 'OwnedProfileDiagnostic.ps1')
+    New-OwnedProfilePayload $payload $sdk 'low'
+    Remove-Item -LiteralPath (Join-Path $payload 'owned-profile.json')
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'GuestAppContainer.ps1') -Destination $payload
 }
 if($OwnedControllerDelaySeconds) {
     @{ Seconds=$OwnedControllerDelaySeconds } | ConvertTo-Json |
@@ -89,6 +102,8 @@ if ($SourceRoot -and $BinaryRoot) { throw 'Choose one producer build or CLI exec
 if ($CompilerJobRoot) {
     Copy-SourceTree ((Resolve-Path $CompilerJobRoot).Path) (Join-Path $payload 'compiler') $false
     Copy-Item (Join-Path $payload 'compiler\job.json') (Join-Path $payload 'job.json')
+    [IO.File]::WriteAllLines((Join-Path $payload 'compiler\compiler.rsp'),
+        @($compilerPlan.Arguments | ForEach-Object { '"'+$_+'"' }),[Text.Encoding]::UTF8)
 }
 if ($SourceRoot) {
     if (-not $Projects) { throw 'Producer mode requires explicit relative project paths.' }
@@ -121,7 +136,7 @@ if ($BinaryRoot) {
     if($ExecutionRuntime -eq 'framework472' -and [IO.Path]::GetExtension($EntryAssembly) -ine '.exe') {
         throw 'Framework execution requires an explicit managed executable.'
     }
-    @{ Kind='execute'; EntryAssembly=$EntryAssembly; Arguments=$CommandArguments; Runtime=$ExecutionRuntime; CliTimeoutSeconds=$CliTimeoutSeconds } | ConvertTo-Json -Depth 6 |
+    @{ Kind=$(if($AppContainerCompatibilityDiagnostic) { 'appcontainer-diagnostic' } else { 'execute' }); EntryAssembly=$EntryAssembly; Arguments=$CommandArguments; Runtime=$ExecutionRuntime; CliTimeoutSeconds=$CliTimeoutSeconds } | ConvertTo-Json -Depth 6 |
         Set-Content (Join-Path $payload 'job.json') -Encoding UTF8
 }
 function Get-TreeSnapshot([string]$root) {
@@ -266,6 +281,12 @@ $sandboxStopped=$true
 if ((Get-Item -LiteralPath $output -Force).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Untrusted export root after shutdown.' }
 if (Test-Path (Join-Path $payload 'forbidden-write.txt')) { throw 'Readonly mapping failed; no Sandbox acceptance is possible.' }
 if (-not $result.Success) { throw ('Owned Sandbox preflight failed: ' + ($result | ConvertTo-Json -Depth 8)) }
+$expectedProfile=$(if($AppContainerCompatibilityDiagnostic) { 'low-appcontainer-private-environment-desktop-compatibility-v1-unapproved' } else { 'restricted-low-explicit-environment-private-desktop-v2-unapproved' })
+if($result.ProfileIdentity -cne $expectedProfile -or
+    [int]($result.ControllerTokenIntegrity.Split('-')[-1]) -lt 12288 -or
+    $result.ControllerEnvironmentBefore -cne $result.ControllerEnvironmentAfter) {
+    throw 'Controller token/environment or execution profile evidence is incomplete.'
+}
 $producerObservation=$null
 $executionVerification=$null
 $signedProducerProof=$null
@@ -318,6 +339,7 @@ if($CompilerJobRoot) {
     $null=Assert-CompilerPlan (Join-Path $payload 'compiler') $sdk
     $compilerVerification=@{
         Protocol='protected-csc-v1'; Challenge=$compilerPlan.Challenge; Export=$export
+        ProfileIdentity=$result.ProfileIdentity; AcceptanceProfileApproved=$false
         CompilerSha256=$compilerPlan.CompilerSha256; Deterministic=$true
             CompilerFiles=$compilerPlan.CompilerFiles; SandboxStopped=$true
         PlanSha256=(Get-FileHash (Join-Path $payload 'compiler\job.json') -Algorithm SHA256).Hash
@@ -379,7 +401,7 @@ if ($SourceRoot) {
         Reason='Both observed output files and compiler arguments remain submitted-build-controlled; consistency is not compiler provenance.'
     }
 }
-if ($BinaryRoot) {
+if ($BinaryRoot -and -not $AppContainerCompatibilityDiagnostic) {
     if($result.Execution.ExportDirectory -notmatch '^execution-[0-9a-f]{32}$') { throw 'Invalid CLI export identity.' }
     $export=Join-Path $output $result.Execution.ExportDirectory
     $exportSnapshot=Get-TreeSnapshot $export
@@ -427,7 +449,15 @@ if ($BinaryRoot) {
     HostProducerObservation=$producerObservation
     HostCompilerVerification=$compilerVerification
     HostExecutionVerification=$executionVerification
+    ProfileIdentity=$result.ProfileIdentity
+    ControllerTokenIntegrity=$result.ControllerTokenIntegrity
+    ControllerEnvironmentBefore=$result.ControllerEnvironmentBefore
+    ControllerEnvironmentAfter=$result.ControllerEnvironmentAfter
+    WorkerEnvironment=$result.WorkerEnvironment
+    WorkerDesktop=$result.WorkerDesktop
+    AcceptanceProfileApproved=$false
     OwnedProfileDiagnostic=$profileDiagnostic
+    AppContainerCompatibility=$result.AppContainerCompatibility
     SignedProducerProof=$signedProducerProof
     SandboxStopped=$true
     SandboxProcessIds=@($lifecycle | ForEach-Object Id)

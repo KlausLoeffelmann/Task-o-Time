@@ -8,6 +8,20 @@ try {
     Add-Type -Path 'C:\ProbePayload\RestrictedProcess.cs'
     New-Item -ItemType Directory -Path 'C:\Controller' -Force | Out-Null
     [RestrictedProcess]::ProtectController('C:\Controller')
+    $result.ControllerTokenIntegrity=[RestrictedProcess]::CurrentIntegrity()
+    if([int]($result.ControllerTokenIntegrity.Split('-')[-1]) -lt 12288) { throw 'Controller actual token is not HIGH; labels alone are insufficient.' }
+    . 'C:\ProbePayload\GuestEnvironment.ps1'
+    Initialize-PrivateControllerEnvironment
+    $controllerEnvironment=Get-ControllerEnvironmentObservation | ConvertTo-Json -Compress
+    $result.ControllerEnvironmentBefore=$controllerEnvironment
+    $appContainerDiagnostic=$false
+    if(Test-Path 'C:\ProbePayload\job.json') {
+        $initialJob=Get-Content 'C:\ProbePayload\job.json' -Raw | ConvertFrom-Json
+        $appContainerDiagnostic=$initialJob.Kind -ceq 'appcontainer-diagnostic'
+    }
+    if($appContainerDiagnostic) { $result.AppContainerSid=[RestrictedProcess]::CreateOwnedAppContainer() }
+    $result.WorkerDesktop=[RestrictedProcess]::InitializeWorkerDesktop()
+    $result.ProfileIdentity=$(if($appContainerDiagnostic) { 'low-appcontainer-private-environment-desktop-compatibility-v1-unapproved' } else { 'restricted-low-explicit-environment-private-desktop-v2-unapproved' })
     $bytes=New-Object byte[] 32
     $rng=[Security.Cryptography.RandomNumberGenerator]::Create()
     try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
@@ -26,15 +40,6 @@ try {
         throw 'Owned lifecycle negative reached its delay without host cancellation.'
     }
     New-Item -ItemType Directory -Path 'C:\ProbeWork' -Force | Out-Null
-    Set-Location 'C:\ProbeWork'
-    $env:DOTNET_ROOT = 'C:\PublicSdk'
-    $env:PATH = 'C:\PublicSdk;' + $env:PATH
-    $env:DOTNET_CLI_HOME = 'C:\ProbeWork\home'
-    $env:DOTNET_CLI_TELEMETRY_OPTOUT = '1'
-    $env:DOTNET_NOLOGO = '1'
-    $env:DOTNET_GENERATE_ASPNET_CERTIFICATE = 'false'
-    $env:MSBUILDDISABLENODEREUSE = '1'
-    $env:UseSharedCompilation = 'false'
     Copy-Item 'C:\ProbePayload\global.json' '.\global.json'
     $result.SdkVersion = (& 'C:\PublicSdk\dotnet.exe' --version 2>&1 | Out-String).Trim()
     if ($LASTEXITCODE -ne 0) { throw "SDK launch failed: $($result.SdkVersion)" }
@@ -103,19 +108,22 @@ public static class Program {
     & icacls.exe $low /setintegritylevel '(OI)(CI)L' /T | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Cannot label guest-owned work directory low integrity.' }
     [IO.File]::WriteAllText('C:\ProbeWork\controller-marker.txt','trusted-controller')
-    $env:TEMP="$low\tmp"; $env:TMP="$low\tmp"; $env:DOTNET_CLI_HOME="$low\home"
-    $env:USERPROFILE="$low\profile"; $env:HOME="$low\profile"
-    $env:APPDATA="$low\profile\AppData\Roaming"; $env:LOCALAPPDATA="$low\profile\AppData\Local"
-    $env:NUGET_PACKAGES="$low\packages"
-    if (Test-Path 'C:\PublicPackages') { $env:NUGET_FALLBACK_PACKAGES='C:\PublicPackages' }
-    if (Test-Path 'C:\PublicFrameworkReferences') {
-        $env:TargetFrameworkRootPath='C:\PublicFrameworkReferences\'
-        $env:AutomaticallyUseReferenceAssemblyPackages='false'
-    }
-    $env:DOTNET_EnableDiagnostics='0'; $env:COMPlus_EnableDiagnostics='0'; $env:COMPlus_PerfEnabled='0'
+    $workerEnvironment=New-ExplicitWorkerEnvironment $low $env:WINDIR $PSHOME `
+        (Test-Path 'C:\PublicPackages') (Test-Path 'C:\PublicFrameworkReferences')
+    $result.WorkerEnvironment=$workerEnvironment
+    $result.RuntimeWarmup=(& 'C:\PublicSdk\dotnet.exe' 'C:\PublicSdk\sdk\10.0.401\MSBuild.dll' 'C:\Controller\owned\Probe.csproj' `
+        -restore -target:Build -nologo -verbosity:quiet -p:NuGetAudit=false -p:UseSharedCompilation=false -nodeReuse:false 2>&1 | Out-String)
+    if ($LASTEXITCODE -ne 0) { throw "Owned runtime warmup failed: $($result.RuntimeWarmup)" }
+    Copy-Item '.\Probe.csproj','.\Program.cs','.\global.json' $low
+    Copy-Item '.\bin' 'C:\ProbeWork\canary-bin' -Recurse
+    & icacls.exe 'C:\ProbeWork\canary-bin' /grant '*S-1-5-12:(OI)(CI)RX' /T | Out-Null
+    if($LASTEXITCODE -ne 0) { throw 'Owned canary read grant failed.' }
+    & icacls.exe 'C:\ProbeWork\canary-bin' /setintegritylevel '(OI)(CI)L' /T | Out-Null
+    if($LASTEXITCODE -ne 0) { throw 'Owned canary label failed.' }
+    if(-not $appContainerDiagnostic) {
     $result.BoundaryExit=[RestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',
-        @('C:\ProbeWork\bin\Debug\net10.0\Probe.dll','boundary',"$PID"),
-        $low,"$low\boundary.stdout","$low\boundary.stderr",60000)
+        @('C:\ProbeWork\canary-bin\Debug\net10.0\Probe.dll','boundary',"$PID"),
+        $low,"$low\boundary.stdout","$low\boundary.stderr",60000,$workerEnvironment)
     if ($result.BoundaryExit -ne 7 -or -not (Test-Path "$low\boundary.json")) {
         throw "Restricted controller probe failed with exit $($result.BoundaryExit): $(Get-Content "$low\boundary.stderr" -Raw)"
     }
@@ -125,21 +133,22 @@ public static class Program {
         -not $result.Boundary.OwnWrite -or (Get-Content 'C:\ProbeWork\controller-marker.txt' -Raw) -ne 'trusted-controller') {
         throw 'Restricted process can access protected controller state, or cannot use its own work directory.'
     }
-    Copy-Item '.\Probe.csproj','.\Program.cs','.\global.json' $low
-    $result.RuntimeWarmup=(& 'C:\PublicSdk\dotnet.exe' 'C:\PublicSdk\sdk\10.0.401\MSBuild.dll' 'C:\ProbeWork\Probe.csproj' `
-        -restore -target:Build -nologo -verbosity:quiet -p:NuGetAudit=false -p:UseSharedCompilation=false -nodeReuse:false 2>&1 | Out-String)
-    if ($LASTEXITCODE -ne 0) { throw "Owned runtime warmup failed: $($result.RuntimeWarmup)" }
     $result.RestrictedBuildExit=[RestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',
         @('C:\PublicSdk\sdk\10.0.401\MSBuild.dll',"$low\Probe.csproj",'-restore','-target:Build','-nologo','-verbosity:quiet','-p:NuGetAudit=false','-p:RestoreIgnoreFailedSources=true','-p:UseSharedCompilation=false','-nodeReuse:false'),
-        $low,"$low\build.stdout","$low\build.stderr",120000)
+        $low,"$low\build.stdout","$low\build.stderr",120000,$workerEnvironment)
     if ($result.RestrictedBuildExit -ne 0) {
-        throw "Restricted SDK build failed: $(Get-Content "$low\build.stdout","$low\build.stderr" -Raw)"
+        throw "Restricted SDK build failed under the unapproved legacy LOW/private-environment profile; no inherited-environment fallback is permitted: $(Get-Content "$low\build.stdout","$low\build.stderr" -Raw)"
+    }
     }
     if (Test-Path 'C:\ProbePayload\owned-profile.json') {
         . 'C:\ProbePayload\OwnedProfileDiagnostic.ps1'
-        $result.OwnedProfileDiagnostic=Invoke-OwnedProfileDiagnostic $low $PID
+        $result.OwnedProfileDiagnostic=Invoke-OwnedProfileDiagnostic $low $PID $workerEnvironment
     }
-    if (Test-Path 'C:\ProbePayload\job.json') {
+    if($appContainerDiagnostic) {
+        . 'C:\ProbePayload\GuestAppContainer.ps1'
+        $result.AppContainerCompatibility=Invoke-AppContainerCompatibility $initialJob $result.AppContainerSid $PID
+    }
+    if ((Test-Path 'C:\ProbePayload\job.json') -and -not $appContainerDiagnostic) {
         $job=Get-Content 'C:\ProbePayload\job.json' -Raw | ConvertFrom-Json
         if ($job.Kind -notin @('producer','execute','compile')) { throw 'Unsupported controlled job kind.' }
         $producerRoot=Join-Path $low 'producer'
@@ -165,7 +174,7 @@ public static class Program {
             $timedOut=$false; $exit=$null
             if($job.CliTimeoutSeconds -lt 60 -or $job.CliTimeoutSeconds -gt 600) { throw 'Invalid isolated CLI execution budget.' }
             try {
-                $exit=[RestrictedProcess]::Run($executable,$arguments,$low,"$low\cli.stdout","$low\cli.stderr",([int]$job.CliTimeoutSeconds*1000))
+                $exit=[RestrictedProcess]::Run($executable,$arguments,$low,"$low\cli.stdout","$low\cli.stderr",([int]$job.CliTimeoutSeconds*1000),$workerEnvironment)
             } catch {
                 if($_.Exception.InnerException.Message -cne 'Restricted command timed out after owned descendants terminated.') { throw }
                 $timedOut=$true
@@ -192,8 +201,7 @@ public static class Program {
             if($LASTEXITCODE -ne 0) { throw 'Compiler work ACL failed.' }
             & icacls.exe $low /setintegritylevel '(OI)(CI)L' /T | Out-Null
             if($LASTEXITCODE -ne 0) { throw 'Compiler work integrity label failed.' }
-            $response='C:\ProbeWork\compiler.rsp'
-            [IO.File]::WriteAllLines($response,@($job.Arguments | ForEach-Object { '"'+$_+'"' }),[Text.Encoding]::UTF8)
+            $response='C:\ProbePayload\compiler\compiler.rsp'
             $exportName='compile-'+[guid]::NewGuid().ToString('N')
             $export=Join-Path 'C:\ProbeOutput' $exportName
             $exits=@()
@@ -217,7 +225,7 @@ public static class Program {
                 }
                 $exit=[RestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',
                     @('C:\PublicSdk\sdk\10.0.401\Roslyn\bincore\csc.dll','/noconfig',('@'+$response)),
-                    $job.WorkingDirectory,"$low\compiler-$pass.stdout","$low\compiler-$pass.stderr",120000)
+                    $job.WorkingDirectory,"$low\compiler-$pass.stdout","$low\compiler-$pass.stderr",120000,$workerEnvironment)
                 $exits+=,$exit
                 if($exit -ne 0) { throw "Protected csc failed: $(Get-Content "$low\compiler-$pass.stdout","$low\compiler-$pass.stderr" -Raw)" }
                 Check-CompilerInputs
@@ -261,7 +269,7 @@ public static class Program {
                     ('-p:CompilerGeneratedFilesOutputPath='+ (Join-Path (Split-Path $project -Parent) 'obj\protected-generated')),
                     '-nodeReuse:false','-getProperty:TargetPath,SkipCompilerExecution',
                     '-getItem:CscCommandLineArgs,VbcCommandLineArgs'),
-                $producerRoot,$stdout,$stderr,120000)
+                $producerRoot,$stdout,$stderr,120000,$workerEnvironment)
             $outputText=Get-Content $stdout -Raw
             if ($exit -eq 0) {
                 $metadata=$outputText | ConvertFrom-Json
@@ -299,11 +307,23 @@ public static class Program {
         $result.Producer=@{ ExportDirectory=$exportName; Projects=$records }
         }
     }
+    $result.ControllerEnvironmentAfter=Get-ControllerEnvironmentObservation | ConvertTo-Json -Compress
+    if($result.ControllerEnvironmentAfter -cne $controllerEnvironment) { throw 'Controller environment or CWD changed during worker execution.' }
     $result.Success = $result.ReadonlyPayload -and $result.DefaultRoutes -eq 0 -and
-        $result.CanaryExit -eq 0 -and $result.CanaryOutput -eq 'owned-sandbox-canary' -and $result.RestrictedBuildExit -eq 0
+        $result.CanaryExit -eq 0 -and $result.CanaryOutput -eq 'owned-sandbox-canary' -and
+        ($appContainerDiagnostic -or $result.RestrictedBuildExit -eq 0)
 }
-catch { $result.Error = $_.Exception.ToString() }
+catch {
+    $result.Error = $_.Exception.ToString()
+    $chain=@()
+    for($exceptionCursor=$_.Exception; $exceptionCursor; $exceptionCursor=$exceptionCursor.InnerException) {
+        $chain+=@{ Type=$exceptionCursor.GetType().FullName; Message=$exceptionCursor.Message; HResult=$exceptionCursor.HResult
+            NativeErrorCode=$(if($exceptionCursor -is [ComponentModel.Win32Exception]) { $exceptionCursor.NativeErrorCode } else { $null }) }
+    }
+    $result.ExceptionChain=$chain
+}
 finally {
+    try { [RestrictedProcess]::CloseWorkerDesktop() } catch { $result.Success=$false; $result.DesktopCleanupError=$_.Exception.Message }
     if ($transportNonce) {
         $result.TransportNonce=$transportNonce
         [RestrictedProcess]::Publish('C:\ProbeOutput\probe.json',[Text.Encoding]::UTF8.GetBytes(($result | ConvertTo-Json -Depth 8)))

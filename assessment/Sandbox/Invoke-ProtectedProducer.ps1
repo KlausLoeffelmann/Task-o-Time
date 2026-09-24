@@ -35,6 +35,7 @@ $claimed=Join-Path $build.HostProducerObservation.Export $target.Substring($gues
 $matched=(Get-CompilerFileHash $claimed) -ceq (Get-CompilerFileHash $protected)
 $evidence=[ordered]@{
     Protocol='protected-producer-observation-v1'; BuildArtifacts=$build.Artifacts; CompilerArtifacts=$compiled.Artifacts
+    BuildProfileIdentity=$build.ProfileIdentity; CompilerProfileIdentity=$compiled.ProfileIdentity; AcceptanceProfileApproved=$false
     SourceFiles=$plan.AuthoredSourceFiles; CapturedCompilerInputs=$plan.Inputs
     CompilerVerification=$compiled.HostCompilerVerification
     ProtectedAssembly=$protected; ProtectedSha256=(Get-CompilerFileHash $protected)

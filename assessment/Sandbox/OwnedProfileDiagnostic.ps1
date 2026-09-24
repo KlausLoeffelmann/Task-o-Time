@@ -24,7 +24,7 @@ function New-OwnedProfilePayload([string]$payload,[string]$sdk,[string]$profile)
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'OwnedProfileDiagnostic.ps1') -Destination $payload
 }
 
-function Invoke-OwnedProfileDiagnostic([string]$low,[int]$controller) {
+function Invoke-OwnedProfileDiagnostic([string]$low,[int]$controller,[string[]]$environment) {
     $spec=Get-Content 'C:\ProbePayload\owned-profile.json' -Raw | ConvertFrom-Json
     if($spec.Profile -cnotin @('low','medium') -or (Test-Path 'C:\ProbePayload\job.json')) {
         throw 'Owned profile diagnostics cannot execute a submitted job.'
@@ -34,9 +34,11 @@ function Invoke-OwnedProfileDiagnostic([string]$low,[int]$controller) {
     $stdout=Join-Path $low 'profile.stdout'; $stderr=Join-Path $low 'profile.stderr'
     if($spec.Profile -eq 'medium') {
         Add-Type -Path 'C:\ProbePayload\owned-profile\OwnedMediumRestrictedProcess.cs'
-        $exit=[OwnedMediumRestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',@($assembly,"$controller",$work),$low,$stdout,$stderr,60000)
+        $null=[OwnedMediumRestrictedProcess]::InitializeWorkerDesktop()
+        try { $exit=[OwnedMediumRestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',@($assembly,"$controller",$work),$low,$stdout,$stderr,60000,$environment) }
+        finally { [OwnedMediumRestrictedProcess]::CloseWorkerDesktop() }
     } else {
-        $exit=[RestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',@($assembly,"$controller",$work),$low,$stdout,$stderr,60000)
+        $exit=[RestrictedProcess]::Run('C:\PublicSdk\dotnet.exe',@($assembly,"$controller",$work),$low,$stdout,$stderr,60000,$environment)
     }
     if($exit -ne 0 -or (Get-Item $stdout).Length -gt 65536 -or (Get-Item $stderr).Length -ne 0) {
         throw "Owned profile probe failed: $(Get-Content $stdout,$stderr -Raw)"
