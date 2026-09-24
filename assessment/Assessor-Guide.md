@@ -16,9 +16,11 @@ stage-table template:
 | `csharp-net10` / S3 | `assessment\Candidate-Prompt.S3.md` |
 
 Regenerate these versioned briefs with `assessment\Write-CandidatePrompts.ps1`
-after editing the shared `Candidate-Prompt.md`. Export only the selected brief,
-not the template, generator, other stage briefs, evaluator or preparation tools.
-S2/S3 prohibit production VB, not VB test projects.
+after editing the shared `Candidate-Prompt.md`. The S1, S2, and S3 candidate
+branches carry only their selected brief as root `Candidate-Prompt.md`; keep it
+in sync with the matching versioned brief. S0 receives its selected brief when
+exported. Never export the template, generator, other stage briefs, evaluator,
+or preparation tools. S2/S3 prohibit production VB, not VB test projects.
 
 ## Branch model
 

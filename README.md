@@ -38,12 +38,15 @@ Windows Docker container, using a completely new repository and working branch
 containing only the selected candidate snapshot. Do not clone this complete repository into a
 candidate environment: other refs and history expose the reference solution.
 
-Use `tools\ExportCandidate.ps1` with the selected standalone stage prompt to
-prepare the clean application payload, then initialize the new candidate
-repository from that payload. Keep Golden, evaluator sources, preparation tools,
-and private evidence out of the candidate repository. Do not retain a candidate
-remote that exposes the template repository's other refs. Use the same frozen
-snapshot and prompt for comparable trials.
+Use `tools\ExportCandidate.ps1` to prepare the clean application payload, then
+initialize the new candidate repository from that payload. S1, S2, and S3 carry
+their selected standalone prompt as root `Candidate-Prompt.md`; the exporter
+fails rather than accepting an external prompt that could mismatch those
+branches. S0 still requires its standalone prompt through `-PromptPath`. Keep
+Golden, evaluator sources, preparation tools, and private evidence out of the
+candidate repository. Do not retain a candidate remote that exposes the
+template repository's other refs. Use the same frozen snapshot and prompt for
+comparable trials.
 
 The `modernization-*` tags preserve the original S0-S4 checkpoints.
 `TheGoldenBranch` also carries subsequent prompt and handoff documentation

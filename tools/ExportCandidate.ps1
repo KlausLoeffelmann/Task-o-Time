@@ -4,7 +4,6 @@ param(
     [ValidateSet('original', 'vb-net472', 'csharp-net472', 'csharp-net10')]
     [string] $Stage,
 
-    [Parameter(Mandatory)]
     [string] $PromptPath,
 
     [Parameter(Mandatory)]
@@ -20,12 +19,8 @@ $refs = @{
 }
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $output = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputDirectory)
-$prompt = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PromptPath)
 if (Test-Path -LiteralPath $output) {
     throw "Output already exists; refusing to overwrite: $output"
-}
-if (-not (Test-Path -LiteralPath $prompt -PathType Leaf)) {
-    throw "Candidate prompt not found: $prompt"
 }
 $commit = & git -C $repository rev-parse --verify "$($refs[$Stage])^{commit}"
 if ($LASTEXITCODE -ne 0) {
@@ -36,7 +31,26 @@ $rootFiles = @(& git -C $repository ls-tree --name-only $commit)
 if ($LASTEXITCODE -ne 0) {
     throw "Could not inspect candidate commit $commit."
 }
+$hasEmbeddedPrompt = $rootFiles -contains 'Candidate-Prompt.md'
+$prompt = $null
+if ($hasEmbeddedPrompt) {
+    if ($PromptPath) {
+        throw "Stage $Stage already contains Candidate-Prompt.md; refusing an external prompt that could mismatch the branch."
+    }
+}
+else {
+    if (-not $PromptPath) {
+        throw "Stage $Stage has no embedded Candidate-Prompt.md; provide -PromptPath."
+    }
+    $prompt = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($PromptPath)
+    if (-not (Test-Path -LiteralPath $prompt -PathType Leaf)) {
+        throw "Candidate prompt not found: $prompt"
+    }
+}
 $exportPaths = @('src', 'README.md', '.gitignore')
+if ($hasEmbeddedPrompt) {
+    $exportPaths += 'Candidate-Prompt.md'
+}
 if ($rootFiles -contains 'global.json') {
     $exportPaths += 'global.json'
 }
@@ -47,7 +61,9 @@ try {
         throw "Could not export candidate stage $Stage."
     }
     Expand-Archive -LiteralPath $archive -DestinationPath $output
-    Copy-Item -LiteralPath $prompt -Destination (Join-Path $output 'Candidate-Prompt.md')
+    if ($prompt) {
+        Copy-Item -LiteralPath $prompt -Destination (Join-Path $output 'Candidate-Prompt.md')
+    }
 
     $files = @(Get-ChildItem -LiteralPath $output -Recurse -Force -File)
     $manifestFiles = foreach ($file in $files) {
