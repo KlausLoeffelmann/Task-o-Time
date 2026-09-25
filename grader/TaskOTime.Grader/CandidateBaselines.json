@@ -1,0 +1,69 @@
+{
+  "rubricVersion": "universal-v1",
+  "candidates": [
+    {
+      "branch": "candidate-vb-net472",
+      "commit": "d984617a284a103f2e5608c50559464995061cfb",
+      "overallScore": 0.054135338345864654,
+      "criteria": {
+        "Business correctness": 0,
+        "WPF MVVM architecture": 0.2857142857142857,
+        "Microsoft.Extensions.Localization and required UI": 0,
+        "Production VB to C#": 0,
+        "Theme coverage": 0,
+        "English comments and documentation": 0,
+        "Main Data naming": 0,
+        "SDK-style projects": 0,
+        ".NET 10 target": 0
+      }
+    },
+    {
+      "branch": "candidate-csharp-net472",
+      "commit": "e98b8753fff241d5fe0fb706c5c8debb1d980fb7",
+      "overallScore": 0.17593984962406017,
+      "criteria": {
+        "Business correctness": 0,
+        "WPF MVVM architecture": 0.42857142857142855,
+        "Microsoft.Extensions.Localization and required UI": 0,
+        "Production VB to C#": 1,
+        "Theme coverage": 0,
+        "English comments and documentation": 0,
+        "Main Data naming": 0,
+        "SDK-style projects": 0,
+        ".NET 10 target": 0
+      }
+    },
+    {
+      "branch": "candidate-csharp-sdkstyle-net472",
+      "commit": "3a147617886559d26f41b588265eca640064ccfb",
+      "overallScore": 0.21278195488721804,
+      "criteria": {
+        "Business correctness": 0,
+        "WPF MVVM architecture": 0.42857142857142855,
+        "Microsoft.Extensions.Localization and required UI": 0,
+        "Production VB to C#": 1,
+        "Theme coverage": 0,
+        "English comments and documentation": 0,
+        "Main Data naming": 0,
+        "SDK-style projects": 1,
+        ".NET 10 target": 0
+      }
+    },
+    {
+      "branch": "candidate-csharp-net10",
+      "commit": "73c24981de6f7c38bf818d4b05b3aae0be8792fa",
+      "overallScore": 0.24962406015037594,
+      "criteria": {
+        "Business correctness": 0,
+        "WPF MVVM architecture": 0.42857142857142855,
+        "Microsoft.Extensions.Localization and required UI": 0,
+        "Production VB to C#": 1,
+        "Theme coverage": 0,
+        "English comments and documentation": 0,
+        "Main Data naming": 0,
+        "SDK-style projects": 1,
+        ".NET 10 target": 1
+      }
+    }
+  ]
+}

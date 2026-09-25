@@ -15,8 +15,14 @@
     <Project Path="TaskOTime.Cli/TaskOTime.Cli.csproj" Id="416c4c60-289d-47eb-b8f3-b250dfb6aa8a" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="../../grader/TaskOTime.Grader/TaskOTime.Grader.csproj" />
+    <Project Path="TaskOTime.Localization.Core.Tests\TaskOTime.Localization.Core.Tests.csproj" />
+    <Project Path="TaskOTime.Localization.Tests\TaskOTime.Localization.Tests.csproj" />
     <Project Path="TaskOTime.AppServer.Tests/TaskOTime.AppServer.Tests.csproj" />
     <Project Path="TaskOTime.AppServer.IntegrationTests/TaskOTime.AppServer.IntegrationTests.csproj" />
     <Project Path="TaskOTime.TimeTrackingServices.Tests/TaskOTime.TimeTrackingServices.Tests.vbproj" />
+    <Project Path="TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj" />
+    <Project Path="TaskOTime.Theme.TestHost\TaskOTime.Theme.TestHost.vbproj" />
+    <Project Path="TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj" />
   </Folder>
 </Solution>

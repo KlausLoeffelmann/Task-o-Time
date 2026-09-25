@@ -9,22 +9,68 @@ using TaskOTime.DTOs;
 
 namespace TaskOTime.AppServer.Services
 {
-    public sealed class AdminMasterDataService : ApplicationServiceBase, IAdminMasterDataService
+    public sealed class AdminMainDataService : ApplicationServiceBase, IAdminMainDataService
     {
-        public AdminMasterDataService()
+        public AdminMainDataService()
         {
         }
 
-        public AdminMasterDataService(Func<TaskOTimeContext> contextFactory, IPasswordHasher passwordHasher)
+        public AdminMainDataService(Func<TaskOTimeContext> contextFactory, IPasswordHasher passwordHasher)
             : base(contextFactory, passwordHasher)
         {
         }
 
-        public ServiceResult<IReadOnlyList<ProjectMainDataDto>> GetProjects(MasterDataQueryRequest request)
+        public ServiceResult<TenantDto> GetTenant(GetTenantRequest request)
+        {
+            if (request == null)
+                return ServiceResult<TenantDto>.Fail("InvalidRequest", "A tenant request is required.");
+
+            using (var context = CreateContext())
+            {
+                var authorization = Authorize<TenantDto>(context, request.IdTenant, request.IdActingUser, allowInactiveTenant: true);
+                if (authorization != null) return authorization;
+                return ServiceResult<TenantDto>.Ok(ToTenantDto(context.Tenant.Single(t => t.IdTenant == request.IdTenant)));
+            }
+        }
+
+        public ServiceResult<TenantDto> UpdateTenant(UpdateTenantRequest request)
+        {
+            if (request == null)
+                return ServiceResult<TenantDto>.Fail("InvalidRequest", "A tenant update request is required.");
+
+            try
+            {
+                var name = NormalizeRequired(request.TenantName, nameof(request.TenantName));
+                if (name.Length > 200)
+                    return ServiceResult<TenantDto>.Fail("InvalidRequest", "TenantName cannot exceed 200 characters.");
+
+                using (var context = CreateContext())
+                {
+                    // An existing active admin may reactivate their tenant, but may never edit a deleted tenant.
+                    var authorization = Authorize<TenantDto>(context, request.IdTenant, request.IdActingUser, allowInactiveTenant: true);
+                    if (authorization != null) return authorization;
+                    if (context.Tenant.Any(t => t.IdTenant != request.IdTenant && !t.IsDeleted && t.TenantName == name))
+                        return ServiceResult<TenantDto>.Fail("TenantExists", "A tenant with this name already exists.");
+
+                    var tenant = context.Tenant.Single(t => t.IdTenant == request.IdTenant);
+                    tenant.TenantName = name;
+                    tenant.IsActive = request.IsActive;
+                    tenant.DateModified = DateTimeOffset.UtcNow;
+                    context.SaveChanges();
+                    return ServiceResult<TenantDto>.Ok(ToTenantDto(tenant));
+                }
+            }
+            catch (ArgumentException ex)
+            {
+                return ServiceResult<TenantDto>.Fail("InvalidRequest", ex.Message);
+            }
+        }
+
+        public ServiceResult<IReadOnlyList<ProjectMainDataDto>> GetProjects(MainDataQueryRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<IReadOnlyList<ProjectMainDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
+                return ServiceResult<IReadOnlyList<ProjectMainDataDto>>.Fail("InvalidRequest", "A main-data query request is required.");
             }
 
             using (var context = CreateContext())
@@ -60,18 +106,18 @@ namespace TaskOTime.AppServer.Services
                     .OrderBy(p => p.ProjectName)
                     .ThenBy(p => p.ProjectIdentifier)
                     .ToList()
-                    .Select(ToProjectMasterDataDto)
+                    .Select(ToProjectMainDataDto)
                     .ToList();
 
                 return ServiceResult<IReadOnlyList<ProjectMainDataDto>>.Ok(projects);
             }
         }
 
-        public ServiceResult<ProjectMainDataDto> GetProject(MasterDataItemRequest request)
+        public ServiceResult<ProjectMainDataDto> GetProject(MainDataItemRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<ProjectMainDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
+                return ServiceResult<ProjectMainDataDto>.Fail("InvalidRequest", "A main-data item request is required.");
             }
 
             using (var context = CreateContext())
@@ -88,7 +134,7 @@ namespace TaskOTime.AppServer.Services
                     return ServiceResult<ProjectMainDataDto>.Fail("ProjectNotFound", "The tenant project was not found.");
                 }
 
-                return ServiceResult<ProjectMainDataDto>.Ok(ToProjectMasterDataDto(project));
+                return ServiceResult<ProjectMainDataDto>.Ok(ToProjectMainDataDto(project));
             }
         }
 
@@ -150,7 +196,7 @@ namespace TaskOTime.AppServer.Services
                     context.SaveChanges();
                     transaction.Commit();
 
-                    return ServiceResult<ProjectMainDataDto>.Ok(ToProjectMasterDataDto(project));
+                    return ServiceResult<ProjectMainDataDto>.Ok(ToProjectMainDataDto(project));
                 }
             }
             catch (ArgumentException ex)
@@ -225,7 +271,7 @@ namespace TaskOTime.AppServer.Services
                     context.SaveChanges();
                     transaction.Commit();
 
-                    return ServiceResult<ProjectMainDataDto>.Ok(ToProjectMasterDataDto(project));
+                    return ServiceResult<ProjectMainDataDto>.Ok(ToProjectMainDataDto(project));
                 }
             }
             catch (ArgumentException ex)
@@ -234,16 +280,16 @@ namespace TaskOTime.AppServer.Services
             }
         }
 
-        public ServiceResult<MasterDataDeleteResult> DeleteProject(DeleteMasterDataRequest request)
+        public ServiceResult<MainDataDeleteResult> DeleteProject(DeleteMainDataRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<MasterDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
+                return ServiceResult<MainDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<MasterDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<MainDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -252,7 +298,7 @@ namespace TaskOTime.AppServer.Services
                 var project = context.Project.SingleOrDefault(p => p.IdTenant == request.IdTenant && p.IdProject == request.IdItem);
                 if (project == null)
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("ProjectNotFound", "The tenant project was not found.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("ProjectNotFound", "The tenant project was not found.");
                 }
 
                 var now = DateTimeOffset.UtcNow;
@@ -261,32 +307,32 @@ namespace TaskOTime.AppServer.Services
                     var dependency = GetProjectDependency(context, project.IdProject);
                     if (dependency != null)
                     {
-                        return ServiceResult<MasterDataDeleteResult>.Fail("DeleteWouldBreakRelationships", dependency);
+                        return ServiceResult<MainDataDeleteResult>.Fail("DeleteWouldBreakRelationships", dependency);
                     }
 
                     context.Project.Remove(project);
                     context.SaveChanges();
-                    return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, project.IdProject, "Project", true, true, now));
+                    return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, project.IdProject, "Project", true, true, now));
                 }
 
                 project.IsDeleted = true;
                 project.IsActive = false;
                 project.DateModified = now;
                 context.SaveChanges();
-                return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, project.IdProject, "Project", true, false, now));
+                return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, project.IdProject, "Project", true, false, now));
             }
         }
 
-        public ServiceResult<IReadOnlyList<CategoryMasterDataDto>> GetCategories(MasterDataQueryRequest request)
+        public ServiceResult<IReadOnlyList<CategoryMainDataDto>> GetCategories(MainDataQueryRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<IReadOnlyList<CategoryMasterDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
+                return ServiceResult<IReadOnlyList<CategoryMainDataDto>>.Fail("InvalidRequest", "A main-data query request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<IReadOnlyList<CategoryMasterDataDto>>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<IReadOnlyList<CategoryMainDataDto>>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -315,20 +361,20 @@ namespace TaskOTime.AppServer.Services
                     .Select(c => ToCategoryDto(c, request.IdTenant))
                     .ToList();
 
-                return ServiceResult<IReadOnlyList<CategoryMasterDataDto>>.Ok(categories);
+                return ServiceResult<IReadOnlyList<CategoryMainDataDto>>.Ok(categories);
             }
         }
 
-        public ServiceResult<CategoryMasterDataDto> GetCategory(MasterDataItemRequest request)
+        public ServiceResult<CategoryMainDataDto> GetCategory(MainDataItemRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<CategoryMasterDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
+                return ServiceResult<CategoryMainDataDto>.Fail("InvalidRequest", "A main-data item request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<CategoryMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<CategoryMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -337,18 +383,18 @@ namespace TaskOTime.AppServer.Services
                 var category = context.Category.SingleOrDefault(c => c.IdCategory == request.IdItem && c.User.IdTenant == request.IdTenant);
                 if (category == null)
                 {
-                    return ServiceResult<CategoryMasterDataDto>.Fail("CategoryNotFound", "The tenant category was not found.");
+                    return ServiceResult<CategoryMainDataDto>.Fail("CategoryNotFound", "The tenant category was not found.");
                 }
 
-                return ServiceResult<CategoryMasterDataDto>.Ok(ToCategoryDto(category, request.IdTenant));
+                return ServiceResult<CategoryMainDataDto>.Ok(ToCategoryDto(category, request.IdTenant));
             }
         }
 
-        public ServiceResult<CategoryMasterDataDto> CreateCategory(SaveCategoryRequest request)
+        public ServiceResult<CategoryMainDataDto> CreateCategory(SaveCategoryRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<CategoryMasterDataDto>.Fail("InvalidRequest", "A category item is required.");
+                return ServiceResult<CategoryMainDataDto>.Fail("InvalidRequest", "A category item is required.");
             }
 
             try
@@ -356,7 +402,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.CategoryName, nameof(request.Item.CategoryName));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<CategoryMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<CategoryMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -365,13 +411,13 @@ namespace TaskOTime.AppServer.Services
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<CategoryMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<CategoryMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<CategoryMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<CategoryMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     var category = new Category
@@ -387,20 +433,20 @@ namespace TaskOTime.AppServer.Services
 
                     context.Category.Add(category);
                     context.SaveChanges();
-                    return ServiceResult<CategoryMasterDataDto>.Ok(ToCategoryDto(category, request.IdTenant));
+                    return ServiceResult<CategoryMainDataDto>.Ok(ToCategoryDto(category, request.IdTenant));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<CategoryMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<CategoryMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<CategoryMasterDataDto> UpdateCategory(SaveCategoryRequest request)
+        public ServiceResult<CategoryMainDataDto> UpdateCategory(SaveCategoryRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<CategoryMasterDataDto>.Fail("InvalidRequest", "A category item is required.");
+                return ServiceResult<CategoryMainDataDto>.Fail("InvalidRequest", "A category item is required.");
             }
 
             try
@@ -408,7 +454,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.CategoryName, nameof(request.Item.CategoryName));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<CategoryMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<CategoryMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -417,19 +463,19 @@ namespace TaskOTime.AppServer.Services
                     var category = context.Category.SingleOrDefault(c => c.IdCategory == request.Item.IdCategory && c.User.IdTenant == request.IdTenant);
                     if (category == null)
                     {
-                        return ServiceResult<CategoryMasterDataDto>.Fail("CategoryNotFound", "The tenant category was not found.");
+                        return ServiceResult<CategoryMainDataDto>.Fail("CategoryNotFound", "The tenant category was not found.");
                     }
 
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<CategoryMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<CategoryMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<CategoryMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<CategoryMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     category.IdUser = userResult.Value;
@@ -440,25 +486,25 @@ namespace TaskOTime.AppServer.Services
                     category.IsPublic = request.Item.IsPublic;
                     context.SaveChanges();
 
-                    return ServiceResult<CategoryMasterDataDto>.Ok(ToCategoryDto(category, request.IdTenant));
+                    return ServiceResult<CategoryMainDataDto>.Ok(ToCategoryDto(category, request.IdTenant));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<CategoryMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<CategoryMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<MasterDataDeleteResult> DeleteCategory(DeleteMasterDataRequest request)
+        public ServiceResult<MainDataDeleteResult> DeleteCategory(DeleteMainDataRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<MasterDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
+                return ServiceResult<MainDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<MasterDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<MainDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -467,32 +513,32 @@ namespace TaskOTime.AppServer.Services
                 var category = context.Category.SingleOrDefault(c => c.IdCategory == request.IdItem && c.User.IdTenant == request.IdTenant);
                 if (category == null)
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("CategoryNotFound", "The tenant category was not found.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("CategoryNotFound", "The tenant category was not found.");
                 }
 
                 if (context.TimeItem.Any(t => t.IdCategory == category.IdCategory) ||
                     context.SharableProject.Any(s => s.IdDefaultCategory == category.IdCategory))
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The category is used by time items or shared projects.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The category is used by time items or shared projects.");
                 }
 
                 var now = DateTimeOffset.UtcNow;
                 context.Category.Remove(category);
                 context.SaveChanges();
-                return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, category.IdCategory, "Category", true, true, now));
+                return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, category.IdCategory, "Category", true, true, now));
             }
         }
 
-        public ServiceResult<IReadOnlyList<CategorySymbolMasterDataDto>> GetCategorySymbols(MasterDataQueryRequest request)
+        public ServiceResult<IReadOnlyList<CategorySymbolMainDataDto>> GetCategorySymbols(MainDataQueryRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<IReadOnlyList<CategorySymbolMasterDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
+                return ServiceResult<IReadOnlyList<CategorySymbolMainDataDto>>.Fail("InvalidRequest", "A main-data query request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<IReadOnlyList<CategorySymbolMasterDataDto>>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<IReadOnlyList<CategorySymbolMainDataDto>>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -524,20 +570,20 @@ namespace TaskOTime.AppServer.Services
                     .Select(s => ToCategorySymbolDto(s, request.IdTenant))
                     .ToList();
 
-                return ServiceResult<IReadOnlyList<CategorySymbolMasterDataDto>>.Ok(symbols);
+                return ServiceResult<IReadOnlyList<CategorySymbolMainDataDto>>.Ok(symbols);
             }
         }
 
-        public ServiceResult<CategorySymbolMasterDataDto> GetCategorySymbol(MasterDataItemRequest request)
+        public ServiceResult<CategorySymbolMainDataDto> GetCategorySymbol(MainDataItemRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<CategorySymbolMasterDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
+                return ServiceResult<CategorySymbolMainDataDto>.Fail("InvalidRequest", "A main-data item request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<CategorySymbolMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<CategorySymbolMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -548,18 +594,18 @@ namespace TaskOTime.AppServer.Services
                     (!s.IdProject.HasValue || s.Project.IdTenant == request.IdTenant));
                 if (symbol == null)
                 {
-                    return ServiceResult<CategorySymbolMasterDataDto>.Fail("CategorySymbolNotFound", "The tenant category symbol was not found.");
+                    return ServiceResult<CategorySymbolMainDataDto>.Fail("CategorySymbolNotFound", "The tenant category symbol was not found.");
                 }
 
-                return ServiceResult<CategorySymbolMasterDataDto>.Ok(ToCategorySymbolDto(symbol, request.IdTenant));
+                return ServiceResult<CategorySymbolMainDataDto>.Ok(ToCategorySymbolDto(symbol, request.IdTenant));
             }
         }
 
-        public ServiceResult<CategorySymbolMasterDataDto> CreateCategorySymbol(SaveCategorySymbolRequest request)
+        public ServiceResult<CategorySymbolMainDataDto> CreateCategorySymbol(SaveCategorySymbolRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<CategorySymbolMasterDataDto>.Fail("InvalidRequest", "A category symbol item is required.");
+                return ServiceResult<CategorySymbolMainDataDto>.Fail("InvalidRequest", "A category symbol item is required.");
             }
 
             try
@@ -567,7 +613,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.SymbolName, nameof(request.Item.SymbolName));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<CategorySymbolMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<CategorySymbolMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -575,13 +621,13 @@ namespace TaskOTime.AppServer.Services
 
                     if (!request.Item.IdProject.HasValue || request.Item.IdProject.Value == Guid.Empty)
                     {
-                        return ServiceResult<CategorySymbolMasterDataDto>.Fail("ProjectRequired", "Category symbols created by tenant admins must belong to a tenant project.");
+                        return ServiceResult<CategorySymbolMainDataDto>.Fail("ProjectRequired", "Category symbols created by tenant admins must belong to a tenant project.");
                     }
 
                     var projectResult = GetTenantProject(context, request.IdTenant, request.Item.IdProject.Value);
                     if (!projectResult.Success)
                     {
-                        return ServiceResult<CategorySymbolMasterDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
+                        return ServiceResult<CategorySymbolMainDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
                     }
 
                     var symbol = new CategorySymbol
@@ -600,20 +646,20 @@ namespace TaskOTime.AppServer.Services
 
                     context.CategorySymbol.Add(symbol);
                     context.SaveChanges();
-                    return ServiceResult<CategorySymbolMasterDataDto>.Ok(ToCategorySymbolDto(symbol, request.IdTenant));
+                    return ServiceResult<CategorySymbolMainDataDto>.Ok(ToCategorySymbolDto(symbol, request.IdTenant));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<CategorySymbolMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<CategorySymbolMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<CategorySymbolMasterDataDto> UpdateCategorySymbol(SaveCategorySymbolRequest request)
+        public ServiceResult<CategorySymbolMainDataDto> UpdateCategorySymbol(SaveCategorySymbolRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<CategorySymbolMasterDataDto>.Fail("InvalidRequest", "A category symbol item is required.");
+                return ServiceResult<CategorySymbolMainDataDto>.Fail("InvalidRequest", "A category symbol item is required.");
             }
 
             try
@@ -621,7 +667,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.SymbolName, nameof(request.Item.SymbolName));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<CategorySymbolMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<CategorySymbolMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -633,18 +679,18 @@ namespace TaskOTime.AppServer.Services
                         s.Project.IdTenant == request.IdTenant);
                     if (symbol == null)
                     {
-                        return ServiceResult<CategorySymbolMasterDataDto>.Fail("CategorySymbolNotFound", "The tenant category symbol was not found or is not tenant-scoped.");
+                        return ServiceResult<CategorySymbolMainDataDto>.Fail("CategorySymbolNotFound", "The tenant category symbol was not found or is not tenant-scoped.");
                     }
 
                     if (!request.Item.IdProject.HasValue || request.Item.IdProject.Value == Guid.Empty)
                     {
-                        return ServiceResult<CategorySymbolMasterDataDto>.Fail("ProjectRequired", "Category symbols updated by tenant admins must belong to a tenant project.");
+                        return ServiceResult<CategorySymbolMainDataDto>.Fail("ProjectRequired", "Category symbols updated by tenant admins must belong to a tenant project.");
                     }
 
                     var projectResult = GetTenantProject(context, request.IdTenant, request.Item.IdProject.Value);
                     if (!projectResult.Success)
                     {
-                        return ServiceResult<CategorySymbolMasterDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
+                        return ServiceResult<CategorySymbolMainDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
                     }
 
                     symbol.IdProject = projectResult.Value.IdProject;
@@ -658,25 +704,25 @@ namespace TaskOTime.AppServer.Services
                     symbol.SymbolColor = request.Item.SymbolColor;
                     context.SaveChanges();
 
-                    return ServiceResult<CategorySymbolMasterDataDto>.Ok(ToCategorySymbolDto(symbol, request.IdTenant));
+                    return ServiceResult<CategorySymbolMainDataDto>.Ok(ToCategorySymbolDto(symbol, request.IdTenant));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<CategorySymbolMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<CategorySymbolMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<MasterDataDeleteResult> DeleteCategorySymbol(DeleteMasterDataRequest request)
+        public ServiceResult<MainDataDeleteResult> DeleteCategorySymbol(DeleteMainDataRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<MasterDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
+                return ServiceResult<MainDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<MasterDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<MainDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -688,31 +734,31 @@ namespace TaskOTime.AppServer.Services
                     s.Project.IdTenant == request.IdTenant);
                 if (symbol == null)
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("CategorySymbolNotFound", "The tenant category symbol was not found or is not tenant-scoped.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("CategorySymbolNotFound", "The tenant category symbol was not found or is not tenant-scoped.");
                 }
 
                 if (HasCategorySymbolDependencies(context, symbol.IdCategorySymbol))
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The category symbol is still referenced by tenant data.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The category symbol is still referenced by tenant data.");
                 }
 
                 var now = DateTimeOffset.UtcNow;
                 context.CategorySymbol.Remove(symbol);
                 context.SaveChanges();
-                return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, symbol.IdCategorySymbol, "CategorySymbol", true, true, now));
+                return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, symbol.IdCategorySymbol, "CategorySymbol", true, true, now));
             }
         }
 
-        public ServiceResult<IReadOnlyList<TaskListMasterDataDto>> GetTaskLists(MasterDataQueryRequest request)
+        public ServiceResult<IReadOnlyList<TaskListMainDataDto>> GetTaskLists(MainDataQueryRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<IReadOnlyList<TaskListMasterDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
+                return ServiceResult<IReadOnlyList<TaskListMainDataDto>>.Fail("InvalidRequest", "A main-data query request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<IReadOnlyList<TaskListMasterDataDto>>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<IReadOnlyList<TaskListMainDataDto>>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -747,20 +793,20 @@ namespace TaskOTime.AppServer.Services
                     .Select(l => ToTaskListDto(l, request.IdTenant))
                     .ToList();
 
-                return ServiceResult<IReadOnlyList<TaskListMasterDataDto>>.Ok(taskLists);
+                return ServiceResult<IReadOnlyList<TaskListMainDataDto>>.Ok(taskLists);
             }
         }
 
-        public ServiceResult<TaskListMasterDataDto> GetTaskList(MasterDataItemRequest request)
+        public ServiceResult<TaskListMainDataDto> GetTaskList(MainDataItemRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<TaskListMasterDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
+                return ServiceResult<TaskListMainDataDto>.Fail("InvalidRequest", "A main-data item request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<TaskListMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<TaskListMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -769,18 +815,18 @@ namespace TaskOTime.AppServer.Services
                 var taskList = context.TaskList.SingleOrDefault(l => l.IdTaskList == request.IdItem && l.Project.IdTenant == request.IdTenant);
                 if (taskList == null)
                 {
-                    return ServiceResult<TaskListMasterDataDto>.Fail("TaskListNotFound", "The tenant task list was not found.");
+                    return ServiceResult<TaskListMainDataDto>.Fail("TaskListNotFound", "The tenant task list was not found.");
                 }
 
-                return ServiceResult<TaskListMasterDataDto>.Ok(ToTaskListDto(taskList, request.IdTenant));
+                return ServiceResult<TaskListMainDataDto>.Ok(ToTaskListDto(taskList, request.IdTenant));
             }
         }
 
-        public ServiceResult<TaskListMasterDataDto> CreateTaskList(SaveTaskListRequest request)
+        public ServiceResult<TaskListMainDataDto> CreateTaskList(SaveTaskListRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<TaskListMasterDataDto>.Fail("InvalidRequest", "A task list item is required.");
+                return ServiceResult<TaskListMainDataDto>.Fail("InvalidRequest", "A task list item is required.");
             }
 
             try
@@ -788,7 +834,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.TaskListName, nameof(request.Item.TaskListName));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<TaskListMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<TaskListMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -797,19 +843,19 @@ namespace TaskOTime.AppServer.Services
                     var projectResult = GetTenantProject(context, request.IdTenant, request.Item.IdProject);
                     if (!projectResult.Success)
                     {
-                        return ServiceResult<TaskListMasterDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
+                        return ServiceResult<TaskListMainDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
                     }
 
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<TaskListMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<TaskListMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<TaskListMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<TaskListMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     var taskList = new TaskList
@@ -826,20 +872,20 @@ namespace TaskOTime.AppServer.Services
 
                     context.TaskList.Add(taskList);
                     context.SaveChanges();
-                    return ServiceResult<TaskListMasterDataDto>.Ok(ToTaskListDto(taskList, request.IdTenant));
+                    return ServiceResult<TaskListMainDataDto>.Ok(ToTaskListDto(taskList, request.IdTenant));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<TaskListMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<TaskListMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<TaskListMasterDataDto> UpdateTaskList(SaveTaskListRequest request)
+        public ServiceResult<TaskListMainDataDto> UpdateTaskList(SaveTaskListRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<TaskListMasterDataDto>.Fail("InvalidRequest", "A task list item is required.");
+                return ServiceResult<TaskListMainDataDto>.Fail("InvalidRequest", "A task list item is required.");
             }
 
             try
@@ -847,7 +893,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.TaskListName, nameof(request.Item.TaskListName));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<TaskListMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<TaskListMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -856,25 +902,25 @@ namespace TaskOTime.AppServer.Services
                     var taskList = context.TaskList.SingleOrDefault(l => l.IdTaskList == request.Item.IdTaskList && l.Project.IdTenant == request.IdTenant);
                     if (taskList == null)
                     {
-                        return ServiceResult<TaskListMasterDataDto>.Fail("TaskListNotFound", "The tenant task list was not found.");
+                        return ServiceResult<TaskListMainDataDto>.Fail("TaskListNotFound", "The tenant task list was not found.");
                     }
 
                     var projectResult = GetTenantProject(context, request.IdTenant, request.Item.IdProject);
                     if (!projectResult.Success)
                     {
-                        return ServiceResult<TaskListMasterDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
+                        return ServiceResult<TaskListMainDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
                     }
 
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<TaskListMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<TaskListMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<TaskListMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<TaskListMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     taskList.IdProject = projectResult.Value.IdProject;
@@ -886,25 +932,25 @@ namespace TaskOTime.AppServer.Services
                     taskList.IsPublic = request.Item.IsPublic;
                     context.SaveChanges();
 
-                    return ServiceResult<TaskListMasterDataDto>.Ok(ToTaskListDto(taskList, request.IdTenant));
+                    return ServiceResult<TaskListMainDataDto>.Ok(ToTaskListDto(taskList, request.IdTenant));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<TaskListMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<TaskListMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<MasterDataDeleteResult> DeleteTaskList(DeleteMasterDataRequest request)
+        public ServiceResult<MainDataDeleteResult> DeleteTaskList(DeleteMainDataRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<MasterDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
+                return ServiceResult<MainDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<MasterDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<MainDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -913,31 +959,31 @@ namespace TaskOTime.AppServer.Services
                 var taskList = context.TaskList.SingleOrDefault(l => l.IdTaskList == request.IdItem && l.Project.IdTenant == request.IdTenant);
                 if (taskList == null)
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("TaskListNotFound", "The tenant task list was not found.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("TaskListNotFound", "The tenant task list was not found.");
                 }
 
                 if (context.TaskItem.Any(t => t.IdTaskList == taskList.IdTaskList))
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The task list is still used by task items.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The task list is still used by task items.");
                 }
 
                 var now = DateTimeOffset.UtcNow;
                 context.TaskList.Remove(taskList);
                 context.SaveChanges();
-                return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, taskList.IdTaskList, "TaskList", true, true, now));
+                return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, taskList.IdTaskList, "TaskList", true, true, now));
             }
         }
 
-        public ServiceResult<IReadOnlyList<TaskItemMasterDataDto>> GetTaskItems(MasterDataQueryRequest request)
+        public ServiceResult<IReadOnlyList<TaskItemMainDataDto>> GetTaskItems(MainDataQueryRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<IReadOnlyList<TaskItemMasterDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
+                return ServiceResult<IReadOnlyList<TaskItemMainDataDto>>.Fail("InvalidRequest", "A main-data query request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<IReadOnlyList<TaskItemMasterDataDto>>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<IReadOnlyList<TaskItemMainDataDto>>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -977,20 +1023,20 @@ namespace TaskOTime.AppServer.Services
                     .Select(t => ToTaskItemDto(t, request.IdTenant, LoadTagIds(context, t)))
                     .ToList();
 
-                return ServiceResult<IReadOnlyList<TaskItemMasterDataDto>>.Ok(taskItems);
+                return ServiceResult<IReadOnlyList<TaskItemMainDataDto>>.Ok(taskItems);
             }
         }
 
-        public ServiceResult<TaskItemMasterDataDto> GetTaskItem(MasterDataItemRequest request)
+        public ServiceResult<TaskItemMainDataDto> GetTaskItem(MainDataItemRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<TaskItemMasterDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
+                return ServiceResult<TaskItemMainDataDto>.Fail("InvalidRequest", "A main-data item request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<TaskItemMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<TaskItemMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -999,18 +1045,18 @@ namespace TaskOTime.AppServer.Services
                 var taskItem = context.TaskItem.SingleOrDefault(t => t.IdTaskItem == request.IdItem && t.Project.IdTenant == request.IdTenant);
                 if (taskItem == null)
                 {
-                    return ServiceResult<TaskItemMasterDataDto>.Fail("TaskItemNotFound", "The tenant task item was not found.");
+                    return ServiceResult<TaskItemMainDataDto>.Fail("TaskItemNotFound", "The tenant task item was not found.");
                 }
 
-                return ServiceResult<TaskItemMasterDataDto>.Ok(ToTaskItemDto(taskItem, request.IdTenant, LoadTagIds(context, taskItem)));
+                return ServiceResult<TaskItemMainDataDto>.Ok(ToTaskItemDto(taskItem, request.IdTenant, LoadTagIds(context, taskItem)));
             }
         }
 
-        public ServiceResult<TaskItemMasterDataDto> CreateTaskItem(SaveTaskItemRequest request)
+        public ServiceResult<TaskItemMainDataDto> CreateTaskItem(SaveTaskItemRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<TaskItemMasterDataDto>.Fail("InvalidRequest", "A task item is required.");
+                return ServiceResult<TaskItemMainDataDto>.Fail("InvalidRequest", "A task item is required.");
             }
 
             try
@@ -1018,7 +1064,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.TaskItemName, nameof(request.Item.TaskItemName));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<TaskItemMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<TaskItemMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -1027,25 +1073,25 @@ namespace TaskOTime.AppServer.Services
                     var validation = ValidateTaskProjectAndList(context, request.IdTenant, request.Item.IdProject, request.Item.IdTaskList);
                     if (!validation.Success)
                     {
-                        return ServiceResult<TaskItemMasterDataDto>.Fail(validation.ErrorCode, validation.ErrorMessage);
+                        return ServiceResult<TaskItemMainDataDto>.Fail(validation.ErrorCode, validation.ErrorMessage);
                     }
 
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<TaskItemMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<TaskItemMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<TaskItemMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<TaskItemMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     var tagsResult = GetTenantTags(context, request.IdTenant, request.Item.IdTagList);
                     if (!tagsResult.Success)
                     {
-                        return ServiceResult<TaskItemMasterDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
+                        return ServiceResult<TaskItemMainDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
                     }
 
                     var now = DateTimeOffset.UtcNow;
@@ -1083,20 +1129,20 @@ namespace TaskOTime.AppServer.Services
 
                     context.TaskItem.Add(taskItem);
                     context.SaveChanges();
-                    return ServiceResult<TaskItemMasterDataDto>.Ok(ToTaskItemDto(taskItem, request.IdTenant, LoadTagIds(context, taskItem)));
+                    return ServiceResult<TaskItemMainDataDto>.Ok(ToTaskItemDto(taskItem, request.IdTenant, LoadTagIds(context, taskItem)));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<TaskItemMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<TaskItemMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<TaskItemMasterDataDto> UpdateTaskItem(SaveTaskItemRequest request)
+        public ServiceResult<TaskItemMainDataDto> UpdateTaskItem(SaveTaskItemRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<TaskItemMasterDataDto>.Fail("InvalidRequest", "A task item is required.");
+                return ServiceResult<TaskItemMainDataDto>.Fail("InvalidRequest", "A task item is required.");
             }
 
             try
@@ -1104,7 +1150,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.TaskItemName, nameof(request.Item.TaskItemName));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<TaskItemMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<TaskItemMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -1113,31 +1159,31 @@ namespace TaskOTime.AppServer.Services
                     var taskItem = context.TaskItem.SingleOrDefault(t => t.IdTaskItem == request.Item.IdTaskItem && t.Project.IdTenant == request.IdTenant);
                     if (taskItem == null)
                     {
-                        return ServiceResult<TaskItemMasterDataDto>.Fail("TaskItemNotFound", "The tenant task item was not found.");
+                        return ServiceResult<TaskItemMainDataDto>.Fail("TaskItemNotFound", "The tenant task item was not found.");
                     }
 
                     var validation = ValidateTaskProjectAndList(context, request.IdTenant, request.Item.IdProject, request.Item.IdTaskList);
                     if (!validation.Success)
                     {
-                        return ServiceResult<TaskItemMasterDataDto>.Fail(validation.ErrorCode, validation.ErrorMessage);
+                        return ServiceResult<TaskItemMainDataDto>.Fail(validation.ErrorCode, validation.ErrorMessage);
                     }
 
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<TaskItemMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<TaskItemMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<TaskItemMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<TaskItemMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     var tagsResult = GetTenantTags(context, request.IdTenant, request.Item.IdTagList);
                     if (!tagsResult.Success)
                     {
-                        return ServiceResult<TaskItemMasterDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
+                        return ServiceResult<TaskItemMainDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
                     }
 
                     var now = DateTimeOffset.UtcNow;
@@ -1163,25 +1209,25 @@ namespace TaskOTime.AppServer.Services
                     ReplaceTags(context, taskItem, tagsResult.Value);
                     context.SaveChanges();
 
-                    return ServiceResult<TaskItemMasterDataDto>.Ok(ToTaskItemDto(taskItem, request.IdTenant, LoadTagIds(context, taskItem)));
+                    return ServiceResult<TaskItemMainDataDto>.Ok(ToTaskItemDto(taskItem, request.IdTenant, LoadTagIds(context, taskItem)));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<TaskItemMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<TaskItemMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<MasterDataDeleteResult> DeleteTaskItem(DeleteMasterDataRequest request)
+        public ServiceResult<MainDataDeleteResult> DeleteTaskItem(DeleteMainDataRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<MasterDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
+                return ServiceResult<MainDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<MasterDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<MainDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1190,7 +1236,7 @@ namespace TaskOTime.AppServer.Services
                 var taskItem = context.TaskItem.SingleOrDefault(t => t.IdTaskItem == request.IdItem && t.Project.IdTenant == request.IdTenant);
                 if (taskItem == null)
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("TaskItemNotFound", "The tenant task item was not found.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("TaskItemNotFound", "The tenant task item was not found.");
                 }
 
                 var now = DateTimeOffset.UtcNow;
@@ -1199,34 +1245,34 @@ namespace TaskOTime.AppServer.Services
                     if (context.TimeItem.Any(t => t.IdTask == taskItem.IdTaskItem) ||
                         context.Note.Any(n => n.IdTask == taskItem.IdTaskItem))
                     {
-                        return ServiceResult<MasterDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The task item is used by time items or notes.");
+                        return ServiceResult<MainDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The task item is used by time items or notes.");
                     }
 
                     context.Entry(taskItem).Collection(t => t.Tag).Load();
                     taskItem.Tag.Clear();
                     context.TaskItem.Remove(taskItem);
                     context.SaveChanges();
-                    return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, taskItem.IdTaskItem, "TaskItem", true, true, now));
+                    return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, taskItem.IdTaskItem, "TaskItem", true, true, now));
                 }
 
                 taskItem.IsDeleted = true;
                 taskItem.IsActive = false;
                 taskItem.DateModified = now;
                 context.SaveChanges();
-                return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, taskItem.IdTaskItem, "TaskItem", true, false, now));
+                return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, taskItem.IdTaskItem, "TaskItem", true, false, now));
             }
         }
 
-        public ServiceResult<IReadOnlyList<TagMasterDataDto>> GetTags(MasterDataQueryRequest request)
+        public ServiceResult<IReadOnlyList<TagMainDataDto>> GetTags(MainDataQueryRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<IReadOnlyList<TagMasterDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
+                return ServiceResult<IReadOnlyList<TagMainDataDto>>.Fail("InvalidRequest", "A main-data query request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<IReadOnlyList<TagMasterDataDto>>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<IReadOnlyList<TagMainDataDto>>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1254,20 +1300,20 @@ namespace TaskOTime.AppServer.Services
                     .Select(t => ToTagDto(t, request.IdTenant))
                     .ToList();
 
-                return ServiceResult<IReadOnlyList<TagMasterDataDto>>.Ok(tags);
+                return ServiceResult<IReadOnlyList<TagMainDataDto>>.Ok(tags);
             }
         }
 
-        public ServiceResult<TagMasterDataDto> GetTag(MasterDataItemRequest request)
+        public ServiceResult<TagMainDataDto> GetTag(MainDataItemRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<TagMasterDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
+                return ServiceResult<TagMainDataDto>.Fail("InvalidRequest", "A main-data item request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<TagMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<TagMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1276,18 +1322,18 @@ namespace TaskOTime.AppServer.Services
                 var tag = context.Tag.SingleOrDefault(t => t.IdTag == request.IdItem && t.User.IdTenant == request.IdTenant);
                 if (tag == null)
                 {
-                    return ServiceResult<TagMasterDataDto>.Fail("TagNotFound", "The tenant tag was not found.");
+                    return ServiceResult<TagMainDataDto>.Fail("TagNotFound", "The tenant tag was not found.");
                 }
 
-                return ServiceResult<TagMasterDataDto>.Ok(ToTagDto(tag, request.IdTenant));
+                return ServiceResult<TagMainDataDto>.Ok(ToTagDto(tag, request.IdTenant));
             }
         }
 
-        public ServiceResult<TagMasterDataDto> CreateTag(SaveTagRequest request)
+        public ServiceResult<TagMainDataDto> CreateTag(SaveTagRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<TagMasterDataDto>.Fail("InvalidRequest", "A tag item is required.");
+                return ServiceResult<TagMainDataDto>.Fail("InvalidRequest", "A tag item is required.");
             }
 
             try
@@ -1295,7 +1341,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.Tag, nameof(request.Item.Tag));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<TagMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<TagMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -1304,7 +1350,7 @@ namespace TaskOTime.AppServer.Services
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<TagMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<TagMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     var now = DateTimeOffset.UtcNow;
@@ -1320,20 +1366,20 @@ namespace TaskOTime.AppServer.Services
 
                     context.Tag.Add(tag);
                     context.SaveChanges();
-                    return ServiceResult<TagMasterDataDto>.Ok(ToTagDto(tag, request.IdTenant));
+                    return ServiceResult<TagMainDataDto>.Ok(ToTagDto(tag, request.IdTenant));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<TagMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<TagMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<TagMasterDataDto> UpdateTag(SaveTagRequest request)
+        public ServiceResult<TagMainDataDto> UpdateTag(SaveTagRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<TagMasterDataDto>.Fail("InvalidRequest", "A tag item is required.");
+                return ServiceResult<TagMainDataDto>.Fail("InvalidRequest", "A tag item is required.");
             }
 
             try
@@ -1341,7 +1387,7 @@ namespace TaskOTime.AppServer.Services
                 var name = NormalizeRequired(request.Item.Tag, nameof(request.Item.Tag));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<TagMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<TagMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -1350,13 +1396,13 @@ namespace TaskOTime.AppServer.Services
                     var tag = context.Tag.SingleOrDefault(t => t.IdTag == request.Item.IdTag && t.User.IdTenant == request.IdTenant);
                     if (tag == null)
                     {
-                        return ServiceResult<TagMasterDataDto>.Fail("TagNotFound", "The tenant tag was not found.");
+                        return ServiceResult<TagMainDataDto>.Fail("TagNotFound", "The tenant tag was not found.");
                     }
 
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<TagMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<TagMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     tag.IdUser = userResult.Value;
@@ -1365,25 +1411,25 @@ namespace TaskOTime.AppServer.Services
                     tag.DateModified = DateTimeOffset.UtcNow;
                     context.SaveChanges();
 
-                    return ServiceResult<TagMasterDataDto>.Ok(ToTagDto(tag, request.IdTenant));
+                    return ServiceResult<TagMainDataDto>.Ok(ToTagDto(tag, request.IdTenant));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<TagMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<TagMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<MasterDataDeleteResult> DeleteTag(DeleteMasterDataRequest request)
+        public ServiceResult<MainDataDeleteResult> DeleteTag(DeleteMainDataRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<MasterDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
+                return ServiceResult<MainDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<MasterDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<MainDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1392,33 +1438,33 @@ namespace TaskOTime.AppServer.Services
                 var tag = context.Tag.SingleOrDefault(t => t.IdTag == request.IdItem && t.User.IdTenant == request.IdTenant);
                 if (tag == null)
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("TagNotFound", "The tenant tag was not found.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("TagNotFound", "The tenant tag was not found.");
                 }
 
                 if (context.TaskItem.Any(t => t.Tag.Any(tagItem => tagItem.IdTag == tag.IdTag)) ||
                     context.Note.Any(n => n.Tag.Any(tagItem => tagItem.IdTag == tag.IdTag)) ||
                     context.WebLink.Any(w => w.Tag.Any(tagItem => tagItem.IdTag == tag.IdTag)))
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The tag is still assigned to task items, notes, or web links.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("DeleteWouldBreakRelationships", "The tag is still assigned to task items, notes, or web links.");
                 }
 
                 var now = DateTimeOffset.UtcNow;
                 context.Tag.Remove(tag);
                 context.SaveChanges();
-                return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, tag.IdTag, "Tag", true, true, now));
+                return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, tag.IdTag, "Tag", true, true, now));
             }
         }
 
-        public ServiceResult<IReadOnlyList<NoteMasterDataDto>> GetNotes(MasterDataQueryRequest request)
+        public ServiceResult<IReadOnlyList<NoteMainDataDto>> GetNotes(MainDataQueryRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<IReadOnlyList<NoteMasterDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
+                return ServiceResult<IReadOnlyList<NoteMainDataDto>>.Fail("InvalidRequest", "A main-data query request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<IReadOnlyList<NoteMasterDataDto>>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<IReadOnlyList<NoteMainDataDto>>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1447,20 +1493,20 @@ namespace TaskOTime.AppServer.Services
                     .Select(n => ToNoteDto(n, request.IdTenant, LoadTagIds(context, n)))
                     .ToList();
 
-                return ServiceResult<IReadOnlyList<NoteMasterDataDto>>.Ok(notes);
+                return ServiceResult<IReadOnlyList<NoteMainDataDto>>.Ok(notes);
             }
         }
 
-        public ServiceResult<NoteMasterDataDto> GetNote(MasterDataItemRequest request)
+        public ServiceResult<NoteMainDataDto> GetNote(MainDataItemRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<NoteMasterDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
+                return ServiceResult<NoteMainDataDto>.Fail("InvalidRequest", "A main-data item request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<NoteMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<NoteMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1469,23 +1515,23 @@ namespace TaskOTime.AppServer.Services
                 var note = context.Note.SingleOrDefault(n => n.IdNote == request.IdItem && n.User.IdTenant == request.IdTenant);
                 if (note == null)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail("NoteNotFound", "The tenant note was not found.");
+                    return ServiceResult<NoteMainDataDto>.Fail("NoteNotFound", "The tenant note was not found.");
                 }
 
-                return ServiceResult<NoteMasterDataDto>.Ok(ToNoteDto(note, request.IdTenant, LoadTagIds(context, note)));
+                return ServiceResult<NoteMainDataDto>.Ok(ToNoteDto(note, request.IdTenant, LoadTagIds(context, note)));
             }
         }
 
-        public ServiceResult<NoteMasterDataDto> CreateNote(SaveNoteRequest request)
+        public ServiceResult<NoteMainDataDto> CreateNote(SaveNoteRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<NoteMasterDataDto>.Fail("InvalidRequest", "A note item is required.");
+                return ServiceResult<NoteMainDataDto>.Fail("InvalidRequest", "A note item is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<NoteMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<NoteMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1494,25 +1540,25 @@ namespace TaskOTime.AppServer.Services
                 var validation = ValidateOptionalProjectAndTask(context, request.IdTenant, request.Item.IdProject, request.Item.IdTask);
                 if (validation != null)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail(validation.Item1, validation.Item2);
+                    return ServiceResult<NoteMainDataDto>.Fail(validation.Item1, validation.Item2);
                 }
 
                 var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                 if (!userResult.Success)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                    return ServiceResult<NoteMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                 }
 
                 var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                 if (symbolCheck != null)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                    return ServiceResult<NoteMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                 }
 
                 var tagsResult = GetTenantTags(context, request.IdTenant, request.Item.IdTagList);
                 if (!tagsResult.Success)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
+                    return ServiceResult<NoteMainDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
                 }
 
                 var now = DateTimeOffset.UtcNow;
@@ -1539,20 +1585,20 @@ namespace TaskOTime.AppServer.Services
 
                 context.Note.Add(note);
                 context.SaveChanges();
-                return ServiceResult<NoteMasterDataDto>.Ok(ToNoteDto(note, request.IdTenant, LoadTagIds(context, note)));
+                return ServiceResult<NoteMainDataDto>.Ok(ToNoteDto(note, request.IdTenant, LoadTagIds(context, note)));
             }
         }
 
-        public ServiceResult<NoteMasterDataDto> UpdateNote(SaveNoteRequest request)
+        public ServiceResult<NoteMainDataDto> UpdateNote(SaveNoteRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<NoteMasterDataDto>.Fail("InvalidRequest", "A note item is required.");
+                return ServiceResult<NoteMainDataDto>.Fail("InvalidRequest", "A note item is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<NoteMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<NoteMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1561,31 +1607,31 @@ namespace TaskOTime.AppServer.Services
                 var note = context.Note.SingleOrDefault(n => n.IdNote == request.Item.IdNote && n.User.IdTenant == request.IdTenant);
                 if (note == null)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail("NoteNotFound", "The tenant note was not found.");
+                    return ServiceResult<NoteMainDataDto>.Fail("NoteNotFound", "The tenant note was not found.");
                 }
 
                 var validation = ValidateOptionalProjectAndTask(context, request.IdTenant, request.Item.IdProject, request.Item.IdTask);
                 if (validation != null)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail(validation.Item1, validation.Item2);
+                    return ServiceResult<NoteMainDataDto>.Fail(validation.Item1, validation.Item2);
                 }
 
                 var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                 if (!userResult.Success)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                    return ServiceResult<NoteMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                 }
 
                 var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                 if (symbolCheck != null)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                    return ServiceResult<NoteMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                 }
 
                 var tagsResult = GetTenantTags(context, request.IdTenant, request.Item.IdTagList);
                 if (!tagsResult.Success)
                 {
-                    return ServiceResult<NoteMasterDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
+                    return ServiceResult<NoteMainDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
                 }
 
                 note.IdUser = userResult.Value;
@@ -1599,20 +1645,20 @@ namespace TaskOTime.AppServer.Services
                 ReplaceTags(context, note, tagsResult.Value);
                 context.SaveChanges();
 
-                return ServiceResult<NoteMasterDataDto>.Ok(ToNoteDto(note, request.IdTenant, LoadTagIds(context, note)));
+                return ServiceResult<NoteMainDataDto>.Ok(ToNoteDto(note, request.IdTenant, LoadTagIds(context, note)));
             }
         }
 
-        public ServiceResult<MasterDataDeleteResult> DeleteNote(DeleteMasterDataRequest request)
+        public ServiceResult<MainDataDeleteResult> DeleteNote(DeleteMainDataRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<MasterDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
+                return ServiceResult<MainDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<MasterDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<MainDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1621,7 +1667,7 @@ namespace TaskOTime.AppServer.Services
                 var note = context.Note.SingleOrDefault(n => n.IdNote == request.IdItem && n.User.IdTenant == request.IdTenant);
                 if (note == null)
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("NoteNotFound", "The tenant note was not found.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("NoteNotFound", "The tenant note was not found.");
                 }
 
                 var now = DateTimeOffset.UtcNow;
@@ -1629,20 +1675,20 @@ namespace TaskOTime.AppServer.Services
                 note.Tag.Clear();
                 context.Note.Remove(note);
                 context.SaveChanges();
-                return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, note.IdNote, "Note", true, true, now));
+                return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, note.IdNote, "Note", true, true, now));
             }
         }
 
-        public ServiceResult<IReadOnlyList<WebLinkMasterDataDto>> GetWebLinks(MasterDataQueryRequest request)
+        public ServiceResult<IReadOnlyList<WebLinkMainDataDto>> GetWebLinks(MainDataQueryRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<IReadOnlyList<WebLinkMasterDataDto>>.Fail("InvalidRequest", "A master-data query request is required.");
+                return ServiceResult<IReadOnlyList<WebLinkMainDataDto>>.Fail("InvalidRequest", "A main-data query request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<IReadOnlyList<WebLinkMasterDataDto>>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<IReadOnlyList<WebLinkMainDataDto>>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1666,20 +1712,20 @@ namespace TaskOTime.AppServer.Services
                     .Select(w => ToWebLinkDto(w, request.IdTenant, LoadTagIds(context, w)))
                     .ToList();
 
-                return ServiceResult<IReadOnlyList<WebLinkMasterDataDto>>.Ok(webLinks);
+                return ServiceResult<IReadOnlyList<WebLinkMainDataDto>>.Ok(webLinks);
             }
         }
 
-        public ServiceResult<WebLinkMasterDataDto> GetWebLink(MasterDataItemRequest request)
+        public ServiceResult<WebLinkMainDataDto> GetWebLink(MainDataItemRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<WebLinkMasterDataDto>.Fail("InvalidRequest", "A master-data item request is required.");
+                return ServiceResult<WebLinkMainDataDto>.Fail("InvalidRequest", "A main-data item request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<WebLinkMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<WebLinkMainDataDto>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1688,18 +1734,18 @@ namespace TaskOTime.AppServer.Services
                 var webLink = context.WebLink.SingleOrDefault(w => w.IdWebLink == request.IdItem && w.User.IdTenant == request.IdTenant);
                 if (webLink == null)
                 {
-                    return ServiceResult<WebLinkMasterDataDto>.Fail("WebLinkNotFound", "The tenant web link was not found.");
+                    return ServiceResult<WebLinkMainDataDto>.Fail("WebLinkNotFound", "The tenant web link was not found.");
                 }
 
-                return ServiceResult<WebLinkMasterDataDto>.Ok(ToWebLinkDto(webLink, request.IdTenant, LoadTagIds(context, webLink)));
+                return ServiceResult<WebLinkMainDataDto>.Ok(ToWebLinkDto(webLink, request.IdTenant, LoadTagIds(context, webLink)));
             }
         }
 
-        public ServiceResult<WebLinkMasterDataDto> CreateWebLink(SaveWebLinkRequest request)
+        public ServiceResult<WebLinkMainDataDto> CreateWebLink(SaveWebLinkRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<WebLinkMasterDataDto>.Fail("InvalidRequest", "A web link item is required.");
+                return ServiceResult<WebLinkMainDataDto>.Fail("InvalidRequest", "A web link item is required.");
             }
 
             try
@@ -1707,7 +1753,7 @@ namespace TaskOTime.AppServer.Services
                 var link = NormalizeRequired(request.Item.Link, nameof(request.Item.Link));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<WebLinkMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<WebLinkMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -1718,26 +1764,26 @@ namespace TaskOTime.AppServer.Services
                         var projectResult = GetTenantProject(context, request.IdTenant, request.Item.IdProject.Value);
                         if (!projectResult.Success)
                         {
-                            return ServiceResult<WebLinkMasterDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
+                            return ServiceResult<WebLinkMainDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
                         }
                     }
 
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<WebLinkMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<WebLinkMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<WebLinkMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<WebLinkMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     var tagsResult = GetTenantTags(context, request.IdTenant, request.Item.IdTagList);
                     if (!tagsResult.Success)
                     {
-                        return ServiceResult<WebLinkMasterDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
+                        return ServiceResult<WebLinkMainDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
                     }
 
                     var now = DateTimeOffset.UtcNow;
@@ -1765,20 +1811,20 @@ namespace TaskOTime.AppServer.Services
 
                     context.WebLink.Add(webLink);
                     context.SaveChanges();
-                    return ServiceResult<WebLinkMasterDataDto>.Ok(ToWebLinkDto(webLink, request.IdTenant, LoadTagIds(context, webLink)));
+                    return ServiceResult<WebLinkMainDataDto>.Ok(ToWebLinkDto(webLink, request.IdTenant, LoadTagIds(context, webLink)));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<WebLinkMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<WebLinkMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<WebLinkMasterDataDto> UpdateWebLink(SaveWebLinkRequest request)
+        public ServiceResult<WebLinkMainDataDto> UpdateWebLink(SaveWebLinkRequest request)
         {
             if (request == null || request.Item == null)
             {
-                return ServiceResult<WebLinkMasterDataDto>.Fail("InvalidRequest", "A web link item is required.");
+                return ServiceResult<WebLinkMainDataDto>.Fail("InvalidRequest", "A web link item is required.");
             }
 
             try
@@ -1786,7 +1832,7 @@ namespace TaskOTime.AppServer.Services
                 var link = NormalizeRequired(request.Item.Link, nameof(request.Item.Link));
                 using (var context = CreateContext())
                 {
-                    var authorization = Authorize<WebLinkMasterDataDto>(context, request.IdTenant, request.IdActingUser);
+                    var authorization = Authorize<WebLinkMainDataDto>(context, request.IdTenant, request.IdActingUser);
                     if (authorization != null)
                     {
                         return authorization;
@@ -1795,7 +1841,7 @@ namespace TaskOTime.AppServer.Services
                     var webLink = context.WebLink.SingleOrDefault(w => w.IdWebLink == request.Item.IdWebLink && w.User.IdTenant == request.IdTenant);
                     if (webLink == null)
                     {
-                        return ServiceResult<WebLinkMasterDataDto>.Fail("WebLinkNotFound", "The tenant web link was not found.");
+                        return ServiceResult<WebLinkMainDataDto>.Fail("WebLinkNotFound", "The tenant web link was not found.");
                     }
 
                     if (request.Item.IdProject.HasValue)
@@ -1803,26 +1849,26 @@ namespace TaskOTime.AppServer.Services
                         var projectResult = GetTenantProject(context, request.IdTenant, request.Item.IdProject.Value);
                         if (!projectResult.Success)
                         {
-                            return ServiceResult<WebLinkMasterDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
+                            return ServiceResult<WebLinkMainDataDto>.Fail(projectResult.ErrorCode, projectResult.ErrorMessage);
                         }
                     }
 
                     var userResult = ResolveActiveTenantUser(context, request.IdTenant, request.Item.IdUser, request.IdActingUser);
                     if (!userResult.Success)
                     {
-                        return ServiceResult<WebLinkMasterDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
+                        return ServiceResult<WebLinkMainDataDto>.Fail(userResult.ErrorCode, userResult.ErrorMessage);
                     }
 
                     var symbolCheck = EnsureSymbolBelongsToTenantOrSystem(context, request.IdTenant, request.Item.IdSymbol);
                     if (symbolCheck != null)
                     {
-                        return ServiceResult<WebLinkMasterDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
+                        return ServiceResult<WebLinkMainDataDto>.Fail(symbolCheck.Item1, symbolCheck.Item2);
                     }
 
                     var tagsResult = GetTenantTags(context, request.IdTenant, request.Item.IdTagList);
                     if (!tagsResult.Success)
                     {
-                        return ServiceResult<WebLinkMasterDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
+                        return ServiceResult<WebLinkMainDataDto>.Fail(tagsResult.ErrorCode, tagsResult.ErrorMessage);
                     }
 
                     webLink.IdUser = userResult.Value;
@@ -1837,25 +1883,25 @@ namespace TaskOTime.AppServer.Services
                     ReplaceTags(context, webLink, tagsResult.Value);
                     context.SaveChanges();
 
-                    return ServiceResult<WebLinkMasterDataDto>.Ok(ToWebLinkDto(webLink, request.IdTenant, LoadTagIds(context, webLink)));
+                    return ServiceResult<WebLinkMainDataDto>.Ok(ToWebLinkDto(webLink, request.IdTenant, LoadTagIds(context, webLink)));
                 }
             }
             catch (ArgumentException ex)
             {
-                return ServiceResult<WebLinkMasterDataDto>.Fail("InvalidRequest", ex.Message);
+                return ServiceResult<WebLinkMainDataDto>.Fail("InvalidRequest", ex.Message);
             }
         }
 
-        public ServiceResult<MasterDataDeleteResult> DeleteWebLink(DeleteMasterDataRequest request)
+        public ServiceResult<MainDataDeleteResult> DeleteWebLink(DeleteMainDataRequest request)
         {
             if (request == null)
             {
-                return ServiceResult<MasterDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
+                return ServiceResult<MainDataDeleteResult>.Fail("InvalidRequest", "A delete request is required.");
             }
 
             using (var context = CreateContext())
             {
-                var authorization = Authorize<MasterDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
+                var authorization = Authorize<MainDataDeleteResult>(context, request.IdTenant, request.IdActingUser);
                 if (authorization != null)
                 {
                     return authorization;
@@ -1864,7 +1910,7 @@ namespace TaskOTime.AppServer.Services
                 var webLink = context.WebLink.SingleOrDefault(w => w.IdWebLink == request.IdItem && w.User.IdTenant == request.IdTenant);
                 if (webLink == null)
                 {
-                    return ServiceResult<MasterDataDeleteResult>.Fail("WebLinkNotFound", "The tenant web link was not found.");
+                    return ServiceResult<MainDataDeleteResult>.Fail("WebLinkNotFound", "The tenant web link was not found.");
                 }
 
                 var now = DateTimeOffset.UtcNow;
@@ -1872,18 +1918,18 @@ namespace TaskOTime.AppServer.Services
                 webLink.Tag.Clear();
                 context.WebLink.Remove(webLink);
                 context.SaveChanges();
-                return ServiceResult<MasterDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, webLink.IdWebLink, "WebLink", true, true, now));
+                return ServiceResult<MainDataDeleteResult>.Ok(ToDeleteResult(request.IdTenant, webLink.IdWebLink, "WebLink", true, true, now));
             }
         }
 
-        private static ServiceResult<T> Authorize<T>(TaskOTimeContext context, Guid idTenant, Guid idActingUser)
+        private static ServiceResult<T> Authorize<T>(TaskOTimeContext context, Guid idTenant, Guid idActingUser, bool allowInactiveTenant = false)
         {
             if (idTenant == Guid.Empty || idActingUser == Guid.Empty)
             {
                 return ServiceResult<T>.Fail("InvalidRequest", "Tenant and acting user ids are required.");
             }
 
-            if (!context.Tenant.Any(t => t.IdTenant == idTenant && t.IsActive && !t.IsDeleted))
+            if (!context.Tenant.Any(t => t.IdTenant == idTenant && (allowInactiveTenant || t.IsActive) && !t.IsDeleted))
             {
                 return ServiceResult<T>.Fail("TenantNotFound", "The tenant was not found or is inactive.");
             }
@@ -2134,7 +2180,7 @@ namespace TaskOTime.AppServer.Services
             return webLink.Tag.Select(t => t.IdTag).OrderBy(id => id).ToList();
         }
 
-        private static ProjectMainDataDto ToProjectMasterDataDto(Project project)
+        private static ProjectMainDataDto ToProjectMainDataDto(Project project)
         {
             return new ProjectMainDataDto
             {
@@ -2162,9 +2208,9 @@ namespace TaskOTime.AppServer.Services
             };
         }
 
-        private static CategoryMasterDataDto ToCategoryDto(Category category, Guid idTenant)
+        private static CategoryMainDataDto ToCategoryDto(Category category, Guid idTenant)
         {
-            return new CategoryMasterDataDto
+            return new CategoryMainDataDto
             {
                 IdCategory = category.IdCategory,
                 IdTenant = idTenant,
@@ -2177,9 +2223,9 @@ namespace TaskOTime.AppServer.Services
             };
         }
 
-        private static CategorySymbolMasterDataDto ToCategorySymbolDto(CategorySymbol symbol, Guid idTenant)
+        private static CategorySymbolMainDataDto ToCategorySymbolDto(CategorySymbol symbol, Guid idTenant)
         {
-            return new CategorySymbolMasterDataDto
+            return new CategorySymbolMainDataDto
             {
                 IdCategorySymbol = symbol.IdCategorySymbol,
                 IdTenant = idTenant,
@@ -2195,9 +2241,9 @@ namespace TaskOTime.AppServer.Services
             };
         }
 
-        private static TaskListMasterDataDto ToTaskListDto(TaskList taskList, Guid idTenant)
+        private static TaskListMainDataDto ToTaskListDto(TaskList taskList, Guid idTenant)
         {
-            return new TaskListMasterDataDto
+            return new TaskListMainDataDto
             {
                 IdTaskList = taskList.IdTaskList,
                 IdTenant = idTenant,
@@ -2211,9 +2257,9 @@ namespace TaskOTime.AppServer.Services
             };
         }
 
-        private static TaskItemMasterDataDto ToTaskItemDto(TaskItem taskItem, Guid idTenant, IReadOnlyList<Guid> tagIds)
+        private static TaskItemMainDataDto ToTaskItemDto(TaskItem taskItem, Guid idTenant, IReadOnlyList<Guid> tagIds)
         {
-            return new TaskItemMasterDataDto
+            return new TaskItemMainDataDto
             {
                 IdTaskItem = taskItem.IdTaskItem,
                 IdTenant = idTenant,
@@ -2241,9 +2287,9 @@ namespace TaskOTime.AppServer.Services
             };
         }
 
-        private static TagMasterDataDto ToTagDto(Tag tag, Guid idTenant)
+        private static TagMainDataDto ToTagDto(Tag tag, Guid idTenant)
         {
-            return new TagMasterDataDto
+            return new TagMainDataDto
             {
                 IdTag = tag.IdTag,
                 IdTenant = idTenant,
@@ -2255,9 +2301,9 @@ namespace TaskOTime.AppServer.Services
             };
         }
 
-        private static NoteMasterDataDto ToNoteDto(Note note, Guid idTenant, IReadOnlyList<Guid> tagIds)
+        private static NoteMainDataDto ToNoteDto(Note note, Guid idTenant, IReadOnlyList<Guid> tagIds)
         {
-            return new NoteMasterDataDto
+            return new NoteMainDataDto
             {
                 IdNote = note.IdNote,
                 IdTenant = idTenant,
@@ -2274,9 +2320,9 @@ namespace TaskOTime.AppServer.Services
             };
         }
 
-        private static WebLinkMasterDataDto ToWebLinkDto(WebLink webLink, Guid idTenant, IReadOnlyList<Guid> tagIds)
+        private static WebLinkMainDataDto ToWebLinkDto(WebLink webLink, Guid idTenant, IReadOnlyList<Guid> tagIds)
         {
-            return new WebLinkMasterDataDto
+            return new WebLinkMainDataDto
             {
                 IdWebLink = webLink.IdWebLink,
                 IdTenant = idTenant,
@@ -2294,9 +2340,9 @@ namespace TaskOTime.AppServer.Services
             };
         }
 
-        private static MasterDataDeleteResult ToDeleteResult(Guid idTenant, Guid idItem, string entityName, bool deleted, bool hardDeleted, DateTimeOffset deletedAt)
+        private static MainDataDeleteResult ToDeleteResult(Guid idTenant, Guid idItem, string entityName, bool deleted, bool hardDeleted, DateTimeOffset deletedAt)
         {
-            return new MasterDataDeleteResult
+            return new MainDataDeleteResult
             {
                 IdTenant = idTenant,
                 IdItem = idItem,

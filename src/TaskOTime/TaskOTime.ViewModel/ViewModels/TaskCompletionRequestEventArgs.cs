@@ -13,5 +13,6 @@ namespace TaskOTime.ViewModel.ViewModels
         public TaskItemViewModel Task { get; private set; }
         public DateTime CompletedAt { get; private set; }
         public bool UseExistingBoundary { get; private set; }
+        internal Action RollbackBooking { get; set; }
     }
 }

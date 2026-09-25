@@ -152,8 +152,10 @@ $afterRollbackCount = $services.Bookings.GetBookingDay($dayRequest).Value.Items.
 if ($afterRollbackCount -ne $beforeCount) {
     throw "SQL errand verification was not rolled back: before=$beforeCount after=$afterRollbackCount"
 }
-$master = New-Object TaskOTime.ViewModel.Views.MasterDataWindow
-$masterVm = New-Object TaskOTime.ViewModel.ViewModels.MasterDataViewModel($master, $tenant, $session.IdUser, $services.Admin, $services.Users, $services.Bookings, 1)
+$master = New-Object TaskOTime.ViewModel.Views.MainDataWindow
+$maintenanceInteraction = New-Object TaskOTime.ViewModel.Views.MaintenanceInteraction($master)
+$masterVm = New-Object TaskOTime.ViewModel.ViewModels.MainDataViewModel($tenant, $session.IdUser, $services.Admin, $services.Users, $services.Bookings, 1, $maintenanceInteraction)
+$master.DataContext = $masterVm
 $loginWindow = New-Object TaskOTime.App.LoginWindow($login, $services.ModeDescription)
 $options = New-Object TaskOTime.App.OptionsDialog($vm.Options)
 $window.Close()

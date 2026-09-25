@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>10</LangVersion>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.6.4" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.6.4" />
+    <ProjectReference Include="..\TaskOTime.App\TaskOTime.App.csproj" />
+    <ProjectReference Include="..\TaskOTime.TimeTrackingServices.Tests\TestDoubles\TaskOTime.TimeTrackingServices.TestDoubles.csproj" />
+    <Content Include="..\TaskOTime.ViewModel\Resources\*.resx" Link="Resources\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\TaskOTime.App\LoginWindow.xaml;..\TaskOTime.App\MainWindow.xaml;..\TaskOTime.App\TimeEntryEditDialog.xaml;..\TaskOTime.App\OptionsDialog.xaml;..\TaskOTime.App\DialogShell.xaml;..\TaskOTime.App\TaskListEditDialog.xaml"
+             Link="Views\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\TaskOTime.ViewModel\Views\ProjectView.xaml;..\TaskOTime.ViewModel\Views\MainDataWindow.xaml"
+             Link="Views\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

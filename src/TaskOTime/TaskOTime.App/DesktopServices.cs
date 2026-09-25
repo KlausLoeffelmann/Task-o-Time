@@ -8,17 +8,23 @@ using TaskOTime.AppServer.Security;
 using TaskOTime.AppServer.Services;
 using TaskOTime.DataLayer;
 using TaskOTime.ViewModel.ViewModels;
+using TaskOTime.ViewModel.Localization;
 
 namespace TaskOTime.App
 {
     public sealed class DesktopServices
     {
         public IAuthenticationService Authentication { get; private set; }
-        public IAdminMasterDataService Admin { get; private set; }
+        public IAdminMainDataService Admin { get; private set; }
         public IUserAdministrationService Users { get; private set; }
         public ITimeBookingService Bookings { get; private set; }
-        public string ModeDescription { get; private set; }
-        private Func<TaskOTimeContext> contextFactory;
+        private string customModeDescription;
+        public string ModeDescriptionKey { get; private set; }
+        public string ModeDescription
+        {
+            get => ModeDescriptionKey == null ? customModeDescription : ViewModel.Localization.LocalizationService.Current[ModeDescriptionKey];
+            private set => customModeDescription = value;
+        }
         private TenantDto configuredTenant;
 
         public static DesktopServices Create()
@@ -30,20 +36,20 @@ namespace TaskOTime.App
                 string.Equals(mode, "LocalDemo", StringComparison.OrdinalIgnoreCase))
             {
                 factory = TaskOTimeContextFactory.Create;
-                description = "Lokale SQL-demo – LocalDB-database TaskOTime. Wijzigingen worden permanent in de database opgeslagen.";
+                description = "Login_ModeDemo";
             }
             else if (string.Equals(mode, "Production", StringComparison.OrdinalIgnoreCase))
             {
                 var connection = Environment.GetEnvironmentVariable("TASKOTIME_CONNECTION_STRING");
                 if (string.IsNullOrWhiteSpace(connection))
-                    throw new InvalidOperationException("Production benötigt TASKOTIME_CONNECTION_STRING für eine eingerichtete Task-o-Time-Datenbank.");
+                    throw new InvalidOperationException(LocalizationService.Current["Login_ConnectionRequired"]);
                 var entityConnection = ResolveProductionConnection(connection);
                 factory = () => TaskOTimeContextFactory.Create(entityConnection);
-                description = "Productiediensten – geconfigureerde SQL Server-database. Wijzigingen worden permanent in de database opgeslagen.";
+                description = "Login_ModeProduction";
             }
             else
             {
-                throw new InvalidOperationException("TASKOTIME_MODE muss Demo, LocalDemo oder Production sein.");
+                throw new InvalidOperationException(LocalizationService.Current["Login_InvalidMode"]);
             }
 
             VerifyDatabase(factory);
@@ -51,21 +57,20 @@ namespace TaskOTime.App
             return new DesktopServices
             {
                 Authentication = new AuthenticationService(factory, hasher),
-                Admin = new AdminMasterDataService(factory, hasher),
+                Admin = new AdminMainDataService(factory, hasher),
                 Users = new UserAdministrationService(factory, hasher),
                 Bookings = new TimeBookingService(factory, hasher),
-                ModeDescription = description,
-                contextFactory = factory
+                ModeDescriptionKey = description
             };
         }
 
         public static DesktopServices CreateForServices(
             IAuthenticationService authentication,
-            IAdminMasterDataService admin,
+            IAdminMainDataService admin,
             IUserAdministrationService users,
             ITimeBookingService bookings,
             TenantDto tenant,
-            string modeDescription = "Konfigurierte Testdienste")
+            string modeDescription = null)
         {
             if (authentication == null) throw new ArgumentNullException(nameof(authentication));
             if (admin == null) throw new ArgumentNullException(nameof(admin));
@@ -79,7 +84,8 @@ namespace TaskOTime.App
                 Users = users,
                 Bookings = bookings,
                 configuredTenant = tenant,
-                ModeDescription = modeDescription
+                ModeDescription = modeDescription,
+                ModeDescriptionKey = modeDescription == null ? "Login_ModeConfigured" : null
             };
         }
 
@@ -89,29 +95,12 @@ namespace TaskOTime.App
             if (configuredTenant != null)
             {
                 if (configuredTenant.IdTenant != user.IdTenant)
-                    throw new InvalidOperationException("Der konfigurierte Mandant stimmt nicht mit der Anmeldung überein.");
-                return configuredTenant;
+                    throw new InvalidOperationException(LocalizationService.Current["Login_TenantMismatch"]);
             }
-            if (contextFactory == null)
-                throw new InvalidOperationException("Für den Mandanten ist kein Datenbankkontext konfiguriert.");
-
-            using (var context = contextFactory())
+            return Require(Admin.GetTenant(new GetTenantRequest
             {
-                var tenant = context.Tenant.SingleOrDefault(item => item.IdTenant == user.IdTenant);
-                if (tenant == null)
-                    throw new InvalidOperationException("Der angemeldete Mandant wurde in der Datenbank nicht gefunden.");
-                return new TenantDto
-                {
-                    IdTenant = tenant.IdTenant,
-                    TenantName = tenant.TenantName,
-                    TenantIdentifier = tenant.TenantIdentifier,
-                    Description = tenant.Description,
-                    IsActive = tenant.IsActive,
-                    IsDeleted = tenant.IsDeleted,
-                    DateCreated = tenant.DateCreated,
-                    DateModified = tenant.DateModified
-                };
-            }
+                IdTenant = user.IdTenant, IdActingUser = user.IdUser
+            }));
         }
 
         public VmMain CreateMain(TenantUserDto user)
@@ -143,9 +132,9 @@ namespace TaskOTime.App
                 tasks.Where(task => task.IdTaskList == list.IdTaskList).Select(task =>
                 {
                     var result = new TaskItemViewModel(task.IdTaskItem, task.TaskItemName,
-                        task.TaskItemDescription, task.DueDate?.ToString("dd.MM.yyyy") ?? "")
+                        task.TaskItemDescription, "")
                     {
-                        IdProject = task.IdProject, IdTask = task.IdTaskItem
+                        IdProject = task.IdProject, IdTask = task.IdTaskItem, DueDate = task.DueDate
                     };
                     if (task.IsCompleted) result.MarkDone();
                     return result;
@@ -165,14 +154,14 @@ namespace TaskOTime.App
             }));
         }
 
-        public static MasterDataQueryRequest Query(TenantUserDto user) => new MasterDataQueryRequest
+        public static MainDataQueryRequest Query(TenantUserDto user) => new MainDataQueryRequest
         {
             IdTenant = user.IdTenant, IdActingUser = user.IdUser
         };
 
         public static T Require<T>(ServiceResult<T> result)
         {
-            if (result == null) throw new InvalidOperationException("Keine Antwort vom Dienst.");
+            if (result == null) throw new InvalidOperationException(LocalizationService.Current["Common_NoServiceResult"]);
             if (!result.Success) throw new InvalidOperationException(result.ErrorCode + ": " + result.ErrorMessage);
             return result.Value;
         }
@@ -190,7 +179,7 @@ namespace TaskOTime.App
 
             var local = ConfigurationManager.ConnectionStrings["TaskOTimeContext"];
             if (local == null || string.IsNullOrWhiteSpace(local.ConnectionString))
-                throw new InvalidOperationException("Die EF6-Verbindung TaskOTimeContext fehlt in App.config.");
+                throw new InvalidOperationException(LocalizationService.Current["Login_ModelConnectionMissing"]);
             var builder = new EntityConnectionStringBuilder(local.ConnectionString)
             {
                 ProviderConnectionString = value
@@ -205,13 +194,13 @@ namespace TaskOTime.App
                 using (var context = factory())
                 {
                     if (!context.Tenant.Any())
-                        throw new InvalidOperationException("Die konfigurierte Task-o-Time-Datenbank enthält keine Mandanten.");
+                        throw new InvalidOperationException(LocalizationService.Current["Login_NoTenants"]);
                 }
             }
             catch (Exception ex)
             {
                 throw new InvalidOperationException(
-                    "Die konfigurierte Task-o-Time-SQL-Datenbank konnte nicht geladen werden. " + ex.Message, ex);
+                    LocalizationService.Current.Format("Login_DatabaseFailed", ex.Message), ex);
             }
         }
     }

@@ -28,6 +28,14 @@ namespace TaskOTime.App.Properties
         }
 
         [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("en")]
+        public string CultureName
+        {
+            get { return ((string)(this["CultureName"])); }
+            set { this["CultureName"] = value; }
+        }
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("True")]
         public bool RestoreMainWindowPlacement
         {
