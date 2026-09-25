@@ -51,3 +51,18 @@ make evaluation invalid rather than returning a misleading low grade.
 
 Analyzer test count measures grader implementation coverage; it is not the
 grading scale. Fixed prompt-derived criterion/subrule weights define the grade.
+
+## Reference validation
+
+`TheGoldenBranch` commit `9689f33` is the validated reference snapshot for the
+canonical `universal-v1` grader. A clean restore/build/grading run produced:
+
+- compilation valid: `true`
+- evaluation valid: `true`
+- definition of done: `true`
+- diagnostics: `0`
+- overall score: `1.000`
+- grader tests: `279` passed, `0` failed
+
+The four ideal branches contain byte-identical application and grader trees and
+produce the same deterministic report for a given build configuration.

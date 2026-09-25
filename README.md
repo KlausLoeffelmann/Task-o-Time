@@ -50,6 +50,17 @@ Migration tooling and migration history are not required final deliverables and
 do not affect the score. Grading requires no replay plan, external executor,
 signed receipt, Sandbox, or AppContainer.
 
+## Verified reference result
+
+A clean checkout of `TheGoldenBranch` commit `9689f33` was restored, built, and
+graded with the canonical `universal-v1` grader. All 279 grader tests passed,
+all nine weighted criteria passed, no grading diagnostics were emitted, and the
+95-point rubric produced the normalized score `1.000`.
+
+The four matching ideal branches contain byte-identical application and grader
+trees. Their Debug reports are byte-identical to one another, as are their
+Release reports, and both configurations produce `1.000`.
+
 See `assessment\Assessor-Guide.md` for the complete assessor workflow and
 `grader\TaskOTime.Grader\README.md` for commands, report locations, and rubric.
 Application setup is documented in
