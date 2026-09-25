@@ -1,14 +1,16 @@
 <Window x:Class="TaskOTime.App.TimeEntryEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Zeitbuchung"
+        xmlns:loc="clr-namespace:TaskOTime.ViewModel.Localization;assembly=TaskOTime.ViewModel"
+        Language="{loc:Culture}"
+        Title="{loc:Loc Booking_Title}"
         MinWidth="460"
         SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource WindowBackgroundBrush}">
+        Background="{DynamicResource WindowBackgroundBrush}">
     <Border Style="{StaticResource PanelBorderStyle}" Margin="12">
         <StackPanel>
-            <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Zeitbuchung" />
+            <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="{loc:Loc Booking_Title}" />
             <Grid Margin="0,0,0,8">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -16,33 +18,33 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                    <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Projekt" />
+                    <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Project}" />
                     <ComboBox x:Name="ProjectSelection" Margin="0,2,0,0" DisplayMemberPath="ProjectName"
                               ItemsSource="{Binding Projects}" SelectedItem="{Binding SelectedProject, Mode=TwoWay}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                    <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Kategorie" />
+                    <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Category}" />
                     <ComboBox x:Name="CategorySelection" Margin="0,2,0,0" DisplayMemberPath="CategoryName"
                               IsEditable="False"
                               ItemsSource="{Binding Categories}" SelectedItem="{Binding SelectedCategory, Mode=TwoWay}"/>
                 </StackPanel>
             </Grid>
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Startzeit" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Start}" />
             <TextBox x:Name="StartTimeTextBox" Margin="0,2,0,8" Text="{Binding EntryTime, StringFormat={}{0:HH:mm}, Mode=OneWay}" />
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Titel" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Name}" />
             <TextBox Margin="0,2,0,8" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Beschreibung" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Description}" />
             <TextBox Margin="0,2,0,8" Text="{Binding Description, UpdateSourceTrigger=PropertyChanged}" />
             <CheckBox Margin="0,0,0,16"
-                      Foreground="{StaticResource MutedForegroundBrush}"
-                      Content="{StaticResource CompleteRecordingTaskCheckBoxText}"
+                      Foreground="{DynamicResource MutedForegroundBrush}"
+                      Content="{loc:Loc CompleteRecordingTaskCheckBoxText}"
                       IsChecked="{Binding CompleteRunningTask}" />
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <Button MinWidth="42" ToolTip="OK" IsDefault="True" Click="OnOkClick">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button MinWidth="42" ToolTip="{loc:Loc Common_OK}" IsDefault="True" Click="OnOkClick">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button MinWidth="42" ToolTip="Abbrechen" IsCancel="True">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button MinWidth="42" ToolTip="{loc:Loc Common_Cancel}" IsCancel="True">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
             </StackPanel>
         </StackPanel>

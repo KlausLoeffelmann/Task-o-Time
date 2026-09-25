@@ -1,0 +1,39 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Color x:Key="WindowBackgroundColor">#FF202428</Color>
+    <Color x:Key="PanelBackgroundColor">#FF292F35</Color>
+    <Color x:Key="PanelBorderColor">#FF8997A5</Color>
+    <Color x:Key="ContentBackgroundColor">#FF202428</Color>
+    <Color x:Key="ListItemBackgroundColor">#FF202428</Color>
+    <Color x:Key="ListItemSelectedBackgroundColor">#FF285D8C</Color>
+    <Color x:Key="ListItemSelectedBorderColor">#FFADDCFF</Color>
+    <Color x:Key="ContentForegroundColor">#FFF4F6F8</Color>
+    <Color x:Key="ListItemForegroundColor">#FFF4F6F8</Color>
+    <Color x:Key="MutedForegroundColor">#FFC0CAD4</Color>
+    <Color x:Key="MenuForegroundColor">#FFF4F6F8</Color>
+    <Color x:Key="MenuPopupBackgroundColor">#FF202428</Color>
+    <Color x:Key="CommandBackgroundColor">#FF292F35</Color>
+    <Color x:Key="AccentColor">#FFADDCFF</Color>
+    <SolidColorBrush x:Key="WindowBackgroundBrush" Color="{DynamicResource WindowBackgroundColor}" />
+    <SolidColorBrush x:Key="PanelBackgroundBrush" Color="{DynamicResource PanelBackgroundColor}" />
+    <SolidColorBrush x:Key="PanelBorderBrush" Color="{DynamicResource PanelBorderColor}" />
+    <SolidColorBrush x:Key="ContentBackgroundBrush" Color="{DynamicResource ContentBackgroundColor}" />
+    <SolidColorBrush x:Key="ListItemBackgroundBrush" Color="{DynamicResource ListItemBackgroundColor}" />
+    <SolidColorBrush x:Key="ListItemSelectedBackgroundBrush" Color="{DynamicResource ListItemSelectedBackgroundColor}" />
+    <SolidColorBrush x:Key="ListItemSelectedBorderBrush" Color="{DynamicResource ListItemSelectedBorderColor}" />
+    <SolidColorBrush x:Key="ContentForegroundBrush" Color="{DynamicResource ContentForegroundColor}" />
+    <SolidColorBrush x:Key="ListItemForegroundBrush" Color="{DynamicResource ListItemForegroundColor}" />
+    <SolidColorBrush x:Key="MutedForegroundBrush" Color="{DynamicResource MutedForegroundColor}" />
+    <SolidColorBrush x:Key="MenuForegroundBrush" Color="{DynamicResource MenuForegroundColor}" />
+    <SolidColorBrush x:Key="MenuPopupBackgroundBrush" Color="{DynamicResource MenuPopupBackgroundColor}" />
+    <SolidColorBrush x:Key="CommandBackgroundBrush" Color="{DynamicResource CommandBackgroundColor}" />
+    <SolidColorBrush x:Key="AccentBrush" Color="{DynamicResource AccentColor}" />
+    <SolidColorBrush x:Key="SelectedForegroundBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="HoverBackgroundBrush" Color="#FF3E4C59" />
+    <SolidColorBrush x:Key="HoverForegroundBrush" Color="#FFFFFFFF" />
+    <SolidColorBrush x:Key="DisabledBackgroundBrush" Color="#FF30363C" />
+    <SolidColorBrush x:Key="DisabledForegroundBrush" Color="#FFBEC7CF" />
+    <SolidColorBrush x:Key="FocusBrush" Color="#FFFFD166" />
+    <SolidColorBrush x:Key="RecordingForegroundBrush" Color="#FFFFB4B4" />
+    <SolidColorBrush x:Key="ErrorForegroundBrush" Color="#FFFFB4B4" />
+</ResourceDictionary>

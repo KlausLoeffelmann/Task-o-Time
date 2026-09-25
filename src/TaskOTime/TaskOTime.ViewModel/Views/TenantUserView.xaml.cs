@@ -1,6 +1,7 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Media;
+using TaskOTime.ViewModel.ViewModels;
 
 namespace TaskOTime.ViewModel.Views
 {
@@ -8,15 +9,28 @@ namespace TaskOTime.ViewModel.Views
     {
         public TenantUserView()
         {
-            Loaded += TenantUserView_Loaded;
             InitializeComponent();
+            DataContextChanged += OnDataContextChanged;
         }
 
-        private void TenantUserView_Loaded(object sender, RoutedEventArgs e)
+        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            ((TextBlock)FindName("HeadingLabel")).FontFamily = new FontFamily("Cambria");
-            ((ListView)FindName("UserListView")).Background = Brushes.White;
-            ((Button)FindName("SaveTenantButton")).FontWeight = FontWeights.Bold;
+            if (e.OldValue is TenantUserViewModel oldModel) oldModel.PropertyChanged -= OnModelPropertyChanged;
+            if (e.NewValue is TenantUserViewModel model) model.PropertyChanged += OnModelPropertyChanged;
+            TemporaryPasswordBox.Clear();
+        }
+
+        // PasswordBox deliberately has no bindable Password property.
+        private void OnTemporaryPasswordChanged(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is TenantUserViewModel model) model.TemporaryPassword = TemporaryPasswordBox.Password;
+        }
+
+        private void OnModelPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(TenantUserViewModel.TemporaryPassword)
+                && string.IsNullOrEmpty(((TenantUserViewModel)sender).TemporaryPassword))
+                TemporaryPasswordBox.Clear();
         }
     }
 }

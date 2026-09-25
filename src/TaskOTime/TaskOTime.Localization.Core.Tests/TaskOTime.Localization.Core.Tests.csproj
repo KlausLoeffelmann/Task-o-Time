@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.0" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="MSTest.TestAdapter" Version="3.6.4" />
+    <PackageReference Include="MSTest.TestFramework" Version="3.6.4" />
+    <ProjectReference Include="..\TaskOTime.AppServer\TaskOTime.AppServer.csproj" />
+    <ProjectReference Include="..\TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- Compile the actual provider/model sources without WindowsDesktop or WPF references. -->
+    <Compile Include="..\TaskOTime.ViewModel\Localization\*.cs" Link="Production\Localization\%(Filename)%(Extension)" />
+    <Compile Include="..\TaskOTime.ViewModel\Base\*.cs" Link="Production\Base\%(Filename)%(Extension)" />
+    <Compile Include="..\TaskOTime.ViewModel\ServiceWorkspace.cs;..\TaskOTime.ViewModel\IMaintenanceInteraction.cs"
+             Link="Production\%(Filename)%(Extension)" />
+    <Compile Include="..\TaskOTime.ViewModel\ViewModels\MaintenanceViewModel.cs;..\TaskOTime.ViewModel\ViewModels\ProjectViewModel.cs;..\TaskOTime.ViewModel\ViewModels\TimeEntryViewModel.cs;..\TaskOTime.ViewModel\ViewModels\TaskItemViewModel.cs;..\TaskOTime.ViewModel\ViewModels\DialogShellViewModel.cs"
+             Link="Production\ViewModels\%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\TaskOTime.ViewModel\Resources\Strings*.resx" Link="Resources\%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

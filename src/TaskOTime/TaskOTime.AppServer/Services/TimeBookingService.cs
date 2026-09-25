@@ -751,6 +751,10 @@ namespace TaskOTime.AppServer.Services
         {
             foreach (var item in changeSet.TimelineItems)
             {
+                // SQL time represents a time of day, not a multi-day interval.
+                // Keep full durations in the existing bigint tick columns.
+                item.DurationToNext = SqlTimeDuration(item.DurationToNext);
+                item.DurationToPrevious = SqlTimeDuration(item.DurationToPrevious);
                 item.DateModified = now;
                 if (item.DateCreated == default(DateTimeOffset))
                 {
@@ -777,6 +781,13 @@ namespace TaskOTime.AppServer.Services
 
                 context.TimeItem.Remove(removedItem);
             }
+        }
+
+        private static TimeSpan? SqlTimeDuration(TimeSpan? duration)
+        {
+            return duration.HasValue && duration.Value >= TimeSpan.Zero && duration.Value < TimeSpan.FromDays(1)
+                ? duration
+                : null;
         }
 
         private static TimeBookingMutationResult ToMutationResult(
@@ -812,7 +823,9 @@ namespace TaskOTime.AppServer.Services
 
             foreach (var item in timelineItems)
             {
-                var duration = item.DurationToNext ?? TimeSpan.Zero;
+                var duration = item.DurationTicksToNext.HasValue
+                    ? TimeSpan.FromTicks(item.DurationTicksToNext.Value)
+                    : item.DurationToNext ?? TimeSpan.Zero;
                 if (duration <= TimeSpan.Zero)
                 {
                     continue;
@@ -860,8 +873,8 @@ namespace TaskOTime.AppServer.Services
                 EventInfo = item.EventInfo,
                 EventTypeInfo = item.EventTypeInfo,
                 MarkerKind = options.GetMarkerKind(item),
-                DurationToNext = item.DurationToNext,
-                DurationToPrevious = item.DurationToPrevious,
+                DurationToNext = item.DurationTicksToNext.HasValue ? TimeSpan.FromTicks(item.DurationTicksToNext.Value) : item.DurationToNext,
+                DurationToPrevious = item.DurationTicksToPrevious.HasValue ? TimeSpan.FromTicks(item.DurationTicksToPrevious.Value) : item.DurationToPrevious,
                 IdParentItem = item.IdParentItem,
                 IsItemCompleted = item.IsItemCompleted,
                 IsItemDeleted = item.IsItemDeleted,

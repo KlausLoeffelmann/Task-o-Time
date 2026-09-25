@@ -2,17 +2,32 @@ using System;
 using TaskOTime.AppServer.Models;
 using TaskOTime.AppServer.Services;
 using TaskOTime.ViewModel.Base;
+using TaskOTime.ViewModel.Localization;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class LoginViewModel : ViewModelBase
+    /// <summary>
+    /// Coordinates authentication, pending temporary-password changes and localized login errors.
+    /// </summary>
+    /// <remarks>
+    /// A user awaiting a mandatory password change is kept separate from the authenticated session.
+    /// A new login attempt clears previous local state; successful password replacement is followed
+    /// by authentication with the new password before a session is exposed.
+    /// </remarks>
+    public class LoginViewModel : LocalizedViewModelBase
     {
 
         private readonly IAuthenticationService _authentication;
         private TenantUserDto _session;
-        private string _errorMessage;
+        private string _errorKey;
+        private object[] _errorArguments = Array.Empty<object>();
+        private string _errorCode;
         private TenantUserDto _pendingUser;
 
+        /// <summary>
+        /// Creates login state backed by the supplied authentication service.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">The authentication service is null.</exception>
         public LoginViewModel(IAuthenticationService authentication)
         {
             if (authentication is null)
@@ -20,6 +35,9 @@ namespace TaskOTime.ViewModel.ViewModels
             _authentication = authentication;
         }
 
+        /// <summary>
+        /// Gets the authenticated user, or null when no local session exists; pending password changes are excluded.
+        /// </summary>
         public TenantUserDto Session
         {
             get
@@ -28,14 +46,22 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
+        /// <summary>
+        /// Gets the current error in the active culture, prefixed by a service error code when available.
+        /// </summary>
         public string ErrorMessage
         {
             get
             {
-                return _errorMessage;
+                if (string.IsNullOrEmpty(_errorKey)) return string.Empty;
+                var message = Text(_errorKey, _errorArguments);
+                return string.IsNullOrEmpty(_errorCode) ? message : _errorCode + ": " + message;
             }
         }
 
+        /// <summary>
+        /// Indicates that a pending user must replace a temporary password before authentication can finish.
+        /// </summary>
         public bool MustChangePassword
         {
             get
@@ -44,13 +70,7 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
-        // '' <summary>
-        // ''  wist eerst de lokale aanmeldstatus en vraagt daarna de aanmeldservice om een resultaat.
-        // '' </summary>
-        // '' <remarks>
-        // ''  een verplichte wachtwoordwijziging bewaart alleen de wachtende gebruiker, niet de sessie.
-        // ''  dat pad geeft onwaar terug.  pas zonder die verplichting wordt <see cref="Session"/> gevuld.
-        // '' </remarks>
+        /// <summary>Authenticates after clearing local state; a required password change does not create a session.</summary>
         public bool Login(string userName, string password, Guid? tenant = default)
         {
             Logout();
@@ -59,14 +79,15 @@ namespace TaskOTime.ViewModel.ViewModels
                 var result = _authentication.Authenticate(new AuthenticateUserRequest() { UserIdentOrEmail = userName, Password = password, IdTenant = tenant });
                 if (result is null || !result.Success || result.Value is null || result.Value.User is null)
                 {
-                    SetError(result is null ? "Geen antwoord van de aanmeldservice." : result.ErrorCode + ": " + GetDutchErrorMessage(result.ErrorCode));
+                    if (result is null) SetError("Login_NoResponse");
+                    else SetServiceError(result.ErrorCode);
                     return false;
                 }
                 if (result.Value.MustChangePassword)
                 {
                     _pendingUser = result.Value.User;
                     OnPropertyChanged(nameof(MustChangePassword));
-                    SetError("Vervang het tijdelijke wachtwoord door een nieuw wachtwoord.");
+                    SetError("Login_ChangeRequired");
                     return false;
                 }
                 _session = result.Value.User;
@@ -75,18 +96,12 @@ namespace TaskOTime.ViewModel.ViewModels
             }
             catch (Exception ex)
             {
-                SetError("Aanmelden is mislukt: " + ex.Message);
+                SetError("Login_Failed", ex.Message);
                 return false;
             }
         }
 
-        // '' <summary>
-        // ''  vraagt een wachtwoordwijziging aan voor de wachtende gebruiker en meldt daarna opnieuw aan.
-        // '' </summary>
-        // '' <remarks>
-        // ''  een geslaagde wijziging maakt niet rechtstreeks een sessie.  het resultaat van de nieuwe
-        // ''  aanmelding bepaalt de terugkeerwaarde; zonder wachtende gebruiker gebeurt er niets.
-        // '' </remarks>
+        /// <summary>Changes the pending user's temporary password, then authenticates with the new password.</summary>
         public bool ChangeTemporaryPassword(string temporaryPassword, string newPassword)
         {
             if (_pendingUser is null)
@@ -96,7 +111,7 @@ namespace TaskOTime.ViewModel.ViewModels
                 var result = _authentication.ChangeTemporaryPassword(_pendingUser.IdTenant, _pendingUser.IdUser, temporaryPassword, newPassword);
                 if (!result.Success)
                 {
-                    SetError(result.ErrorCode + ": " + GetDutchErrorMessage(result.ErrorCode));
+                    SetServiceError(result.ErrorCode);
                     return false;
                 }
                 string user = _pendingUser.UserIdent;
@@ -105,18 +120,12 @@ namespace TaskOTime.ViewModel.ViewModels
             }
             catch (Exception ex)
             {
-                SetError("Het wijzigen van het wachtwoord is mislukt: " + ex.Message);
+                SetError("Login_ChangeFailed", ex.Message);
                 return false;
             }
         }
 
-        // '' <summary>
-        // ''  wist sessie, wachtende gebruiker en fouttekst in dit weergavemodel.
-        // '' </summary>
-        // '' <remarks>
-        // ''  de meldingen volgen ook als de waarden al leeg waren.  deze methode doet geen afmeldverzoek
-        // ''  aan de service en zegt daarmee niets over eventuele sessies buiten dit object.
-        // '' </remarks>
+        /// <summary>Clears local session, pending user, and localized error state without calling the service.</summary>
         public void Logout()
         {
             _session = null;
@@ -126,50 +135,34 @@ namespace TaskOTime.ViewModel.ViewModels
             OnPropertyChanged(nameof(MustChangePassword));
         }
 
-        private void SetError(string value)
+        private void SetError(string key, params object[] arguments)
         {
-            _errorMessage = value;
+            _errorKey = key;
+            _errorArguments = arguments;
+            _errorCode = null;
             OnPropertyChanged(nameof(ErrorMessage));
         }
 
-        private static string GetDutchErrorMessage(string errorCode)
+        private void SetServiceError(string errorCode)
         {
             switch (errorCode ?? "")
             {
                 case "InvalidRequest":
-                    {
-                        return "Vul de vereiste aanmeldgegevens in.";
-                    }
                 case "InvalidCredentials":
-                    {
-                        return "De gebruikersnaam of het wachtwoord is ongeldig.";
-                    }
                 case "UserInactive":
-                    {
-                        return "Deze gebruiker is niet actief.";
-                    }
+                case "TenantInactive":
                 case "UserLockedOut":
-                    {
-                        return "Deze gebruiker is tijdelijk geblokkeerd.";
-                    }
                 case "TemporaryPasswordExpired":
-                    {
-                        return "Het tijdelijke wachtwoord is verlopen.";
-                    }
                 case "UserNotFound":
-                    {
-                        return "De actieve gebruiker is niet gevonden.";
-                    }
                 case "PasswordChangeNotRequired":
-                    {
-                        return "Voor deze gebruiker hoeft het tijdelijke wachtwoord niet te worden gewijzigd.";
-                    }
-
+                    SetError("Login_" + errorCode);
+                    break;
                 default:
-                    {
-                        return "De aanmeldservice heeft de aanvraag geweigerd (" + errorCode + ").";
-                    }
+                    SetError("Login_Rejected", errorCode);
+                    break;
             }
+            _errorCode = errorCode;
+            OnPropertyChanged(nameof(ErrorMessage));
         }
     }
 }

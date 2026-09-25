@@ -56,6 +56,11 @@ namespace TaskOTime.AppServer.Services
                     return ServiceResult<AuthenticationResult>.Fail("UserInactive", "The user is inactive or deleted.");
                 }
 
+                if (!IsTenantActive(context, user.IdTenant))
+                {
+                    return ServiceResult<AuthenticationResult>.Fail("TenantInactive", "The tenant is inactive, deleted, or unavailable.");
+                }
+
                 if (user.LockoutUntil.HasValue && user.LockoutUntil.Value > now)
                 {
                     return ServiceResult<AuthenticationResult>.Fail("UserLockedOut", "The user is temporarily locked out.");
@@ -118,6 +123,11 @@ namespace TaskOTime.AppServer.Services
                     return ServiceResult<TenantUserDto>.Fail("UserNotFound", "The active tenant user was not found.");
                 }
 
+                if (!IsTenantActive(context, user.IdTenant))
+                {
+                    return ServiceResult<TenantUserDto>.Fail("TenantInactive", "The tenant is inactive, deleted, or unavailable.");
+                }
+
                 if (requireTemporaryPassword && !user.MustChangePassword)
                 {
                     return ServiceResult<TenantUserDto>.Fail("PasswordChangeNotRequired", "The user is not required to change the temporary password.");
@@ -143,6 +153,9 @@ namespace TaskOTime.AppServer.Services
                 return ServiceResult<TenantUserDto>.Ok(ToUserDto(user));
             }
         }
+
+        private static bool IsTenantActive(TaskOTimeContext context, Guid tenantId) =>
+            context.Tenant.Any(tenant => tenant.IdTenant == tenantId && tenant.IsActive && !tenant.IsDeleted);
 
         private static void RegisterFailedLogin(TaskOTimeContext context, User user, DateTimeOffset now)
         {
