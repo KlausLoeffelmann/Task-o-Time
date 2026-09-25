@@ -48,7 +48,7 @@ namespace TaskOTime.AppServer.Models
         public string ExternalId { get; set; }
     }
 
-    public sealed class CategoryMasterDataDto
+    public sealed class CategoryMainDataDto
     {
         public Guid IdCategory { get; set; }
 
@@ -67,7 +67,7 @@ namespace TaskOTime.AppServer.Models
         public bool IsPublic { get; set; }
     }
 
-    public sealed class CategorySymbolMasterDataDto
+    public sealed class CategorySymbolMainDataDto
     {
         public Guid IdCategorySymbol { get; set; }
 
@@ -92,7 +92,7 @@ namespace TaskOTime.AppServer.Models
         public int SymbolColor { get; set; }
     }
 
-    public sealed class TaskListMasterDataDto
+    public sealed class TaskListMainDataDto
     {
         public Guid IdTaskList { get; set; }
 
@@ -113,7 +113,7 @@ namespace TaskOTime.AppServer.Models
         public bool IsPublic { get; set; }
     }
 
-    public sealed class TaskItemMasterDataDto
+    public sealed class TaskItemMainDataDto
     {
         public Guid IdTaskItem { get; set; }
 
@@ -162,7 +162,7 @@ namespace TaskOTime.AppServer.Models
         public IReadOnlyList<Guid> IdTagList { get; set; }
     }
 
-    public sealed class TagMasterDataDto
+    public sealed class TagMainDataDto
     {
         public Guid IdTag { get; set; }
 
@@ -179,7 +179,7 @@ namespace TaskOTime.AppServer.Models
         public DateTimeOffset DateModified { get; set; }
     }
 
-    public sealed class NoteMasterDataDto
+    public sealed class NoteMainDataDto
     {
         public Guid IdNote { get; set; }
 
@@ -206,7 +206,7 @@ namespace TaskOTime.AppServer.Models
         public IReadOnlyList<Guid> IdTagList { get; set; }
     }
 
-    public sealed class WebLinkMasterDataDto
+    public sealed class WebLinkMainDataDto
     {
         public Guid IdWebLink { get; set; }
 

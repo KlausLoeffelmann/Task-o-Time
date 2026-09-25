@@ -1,7 +1,7 @@
-<Solution>
+﻿<?xml version="1.0" encoding="utf-8"?><Solution>
   <Folder Name="/AppFrontEnd/">
     <Project Path="TaskOTime.App/TaskOTime.App.csproj" />
-    <Project Path="TaskOTime.ViewModel/TaskOTime.ViewModel.vbproj" />
+    <Project Path="TaskOTime.ViewModel\TaskOTime.ViewModel.csproj" />
   </Folder>
   <Folder Name="/AppServer/">
     <Project Path="TaskOTime.AppServer/TaskOTime.AppServer.csproj" />
@@ -9,14 +9,20 @@
   <Folder Name="/DataLayer/">
     <Project Path="TaskOTime.DataLayer/TaskOTime.DataLayer.csproj" Id="10748f5e-3d82-49da-a37d-ed291c39d362" />
     <Project Path="TaskOTime.DTOs/TaskOTime.DTOs.csproj" Id="5627e69e-7076-43b3-a9c1-afce82d7b6dd" />
-    <Project Path="TaskOTime.TimeTrackingServices/TaskOTime.TimeTrackingServices.vbproj" />
+    <Project Path="TaskOTime.TimeTrackingServices\TaskOTime.TimeTrackingServices.csproj" />
   </Folder>
   <Folder Name="/Tools/">
     <Project Path="TaskOTime.Cli/TaskOTime.Cli.csproj" Id="416c4c60-289d-47eb-b8f3-b250dfb6aa8a" />
   </Folder>
   <Folder Name="/Tests/">
+    <Project Path="../../grader/TaskOTime.Grader/TaskOTime.Grader.csproj" />
+    <Project Path="TaskOTime.Localization.Core.Tests\TaskOTime.Localization.Core.Tests.csproj" />
+    <Project Path="TaskOTime.Localization.Tests\TaskOTime.Localization.Tests.csproj" />
     <Project Path="TaskOTime.AppServer.Tests/TaskOTime.AppServer.Tests.csproj" />
     <Project Path="TaskOTime.AppServer.IntegrationTests/TaskOTime.AppServer.IntegrationTests.csproj" />
     <Project Path="TaskOTime.TimeTrackingServices.Tests/TaskOTime.TimeTrackingServices.Tests.vbproj" />
+    <Project Path="TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj" />
+    <Project Path="TaskOTime.Theme.TestHost\TaskOTime.Theme.TestHost.vbproj" />
+    <Project Path="TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj" />
   </Folder>
 </Solution>

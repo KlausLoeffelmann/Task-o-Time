@@ -1,6 +1,9 @@
 using System;
 using System.Windows;
+using TaskOTime.App.Themes;
 using TaskOTime.ViewModel.ViewModels;
+using TaskOTime.ViewModel.Localization;
+using TaskOTime.ViewModel.Views.Localization;
 
 namespace TaskOTime.App
 {
@@ -8,34 +11,52 @@ namespace TaskOTime.App
     {
         private LoginViewModel login;
         private DesktopServices services;
+        private ThemeService themes;
+        private IDisposable cultureContext;
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            cultureContext = LocalizationService.Current.UseChangeContext(new WpfCultureChangeContext(Dispatcher));
+            TaskOTime.ViewModel.Localization.LocalizationService.Current.SetCulture(TaskOTime.App.Properties.Settings.Default.CultureName);
             base.OnStartup(e);
             DispatcherUnhandledException += (_, args) =>
             {
                 if (args.Exception is InvalidOperationException || args.Exception is ArgumentException)
                 {
-                    MessageBox.Show(args.Exception.Message, "Task-o-Time", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(args.Exception.Message, LocalizationService.Current["AppTitle"], MessageBoxButton.OK, MessageBoxImage.Error);
                     args.Handled = true;
                 }
             };
             try
             {
+                themes = ThemeService.Start(this);
                 services = DesktopServices.Create();
                 login = new LoginViewModel(services.Authentication);
                 ShowLogin();
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Task-o-Time – Start fehlgeschlagen", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, ViewModel.Localization.LocalizationService.Current["Login_StartupFailed"], MessageBoxButton.OK, MessageBoxImage.Error);
                 Shutdown(1);
+            }
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            try
+            {
+                themes?.Dispose();
+            }
+            finally
+            {
+                cultureContext?.Dispose();
+                base.OnExit(e);
             }
         }
 
         private void ShowLogin()
         {
-            var dialog = new LoginWindow(login, services.ModeDescription);
+            var dialog = new LoginWindow(login, services.ModeDescription, services.ModeDescriptionKey);
             if (dialog.ShowDialog() != true)
             {
                 login.Logout();
@@ -59,7 +80,7 @@ namespace TaskOTime.App
             catch (Exception ex)
             {
                 login.Logout();
-                MessageBox.Show(ex.Message, "Arbeitsplatz konnte nicht geladen werden", MessageBoxButton.OK, MessageBoxImage.Error);
+                MessageBox.Show(ex.Message, ViewModel.Localization.LocalizationService.Current["Login_WorkspaceFailed"], MessageBoxButton.OK, MessageBoxImage.Error);
                 Dispatcher.BeginInvoke(new Action(ShowLogin));
             }
         }

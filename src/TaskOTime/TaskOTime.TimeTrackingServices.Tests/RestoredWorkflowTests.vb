@@ -4,6 +4,7 @@ Imports System.Linq
 Imports Microsoft.VisualStudio.TestTools.UnitTesting
 Imports TaskOTime.AppServer.Models
 Imports TaskOTime.AppServer.TimeBooking
+Imports TaskOTime.AppServer.Services
 Imports TaskOTime.DTOs
 Imports TaskOTime.TimeTrackingServices.Tests.Doubles
 Imports TaskOTime.ViewModel.ViewModels
@@ -12,6 +13,317 @@ Namespace TaskOTime.TimeTrackingServices.Tests
     <TestClass>
     Public Class RestoredWorkflowTests
         Private Shared ReadOnly BookingDay As New DateTime(2026, 7, 1)
+
+        <TestMethod>
+        Public Sub NonFirstProject_AddEditAndReloadRetainTheSelectedProject()
+            Dim fixture As New Workspace()
+            Dim vm = fixture.Times
+            Dim original = vm.TimeItems
+            Dim selected = vm.Projects.Last()
+            Assert.AreNotEqual(vm.Projects.First().IdProject, selected.IdProject)
+            vm.SelectedProject = selected
+            SaveDialog(vm, BookingDay.AddHours(9), "Selected project")
+            Dim id = fixture.Stored().Single().IdTimeItem
+            Assert.AreEqual(selected.IdProject, fixture.Stored().Single().IdProject)
+            vm.BookingDate = BookingDay.AddDays(1)
+            vm.BookingDate = BookingDay
+            SaveDialog(vm, BookingDay.AddHours(10), "Edited project", edit:=True)
+            Assert.AreEqual(id, fixture.Stored().Single().IdTimeItem)
+            Assert.AreEqual(selected.IdProject, fixture.Stored().Single().IdProject)
+            Assert.AreSame(original, vm.TimeItems)
+        End Sub
+
+        <DataTestMethod>
+        <DataRow(False, 90.0)>
+        <DataRow(True, 90.0)>
+        <DataRow(False, 1530.5)>
+        <DataRow(True, 1530.5)>
+        <DataRow(False, 90.0125)>
+        <DataRow(True, 90.0125)>
+        Public Sub TaskCompletion_PreservesFullDurationProjectAndReload(recorded As Boolean, minutes As Double)
+            Dim fixture As New Workspace()
+            Dim expected = TimeSpan.FromMinutes(minutes)
+            Dim task = fixture.Tasks.SelectedTaskItem
+            task.IdProject = fixture.Times.Projects.Last().IdProject
+            Dim original = fixture.Times.TimeItems
+            If recorded Then
+                fixture.Tasks.StartTaskCommand.Execute(Nothing)
+                fixture.NowValue = fixture.NowValue.Add(expected)
+                fixture.Main.UpdateRecordingClock(fixture.NowValue)
+            Else
+                fixture.Main.ManualCompletionStartText = "08:00"
+                fixture.Main.ManualCompletionDurationText = expected.ToString("c")
+            End If
+            fixture.Tasks.CompleteTaskCommand.Execute(Nothing)
+            Assert.IsTrue(task.IsDone)
+            Assert.AreEqual(expected, fixture.Times.BookedTime)
+            Dim stored = fixture.Stored()
+            Assert.AreEqual(2, stored.Count)
+            Assert.AreEqual(BookingDay.AddHours(8).Add(expected), stored.Last().EventTime.Value.DateTime)
+            Assert.IsTrue(stored.All(Function(item) item.IdProject = task.IdProject))
+            Assert.IsTrue(stored.All(Function(item) item.BookingDate.Value = BookingDay))
+            fixture.Times.BookingDate = BookingDay.AddDays(3)
+            fixture.Times.BookingDate = BookingDay
+            Assert.AreEqual(expected, fixture.Times.BookedTime)
+            Assert.AreSame(original, fixture.Times.TimeItems)
+        End Sub
+
+        <DataTestMethod>
+        <DataRow("pause")>
+        <DataRow("downtime")>
+        <DataRow("errand")>
+        <DataRow("stop")>
+        <DataRow("checkout")>
+        <DataRow("next")>
+        Public Sub LongRecordingBoundary_PreservesActualCrossDayInstant(operation As String)
+            Dim fixture As New Workspace()
+            Dim expected = TimeSpan.FromMinutes(1530.5125)
+            fixture.Tasks.StartTaskCommand.Execute(Nothing)
+            fixture.NowValue = fixture.NowValue.Add(expected)
+            fixture.Main.SelectedDate = BookingDay.AddDays(1)
+            Select Case operation
+                Case "pause"
+                    fixture.Times.InsertWorkBreakCommand.Execute(Nothing)
+                Case "downtime"
+                    fixture.Times.InsertDownTimeCommand.Execute(Nothing)
+                Case "errand"
+                    fixture.Times.InsertErrandCommand.Execute(Nothing)
+                Case "stop"
+                    fixture.Times.InsertStopMarkCommand.Execute(Nothing)
+                Case "checkout"
+                    fixture.Times.CheckOutCommand.Execute(Nothing)
+                Case "next"
+                    SaveDialog(fixture.Times, fixture.NowValue, "Next interval")
+            End Select
+            Assert.IsFalse(fixture.Tasks.IsTaskRecording)
+            Assert.IsFalse(fixture.Tasks.SelectedTaskItem.IsDone)
+            Assert.AreEqual(expected, fixture.Times.BookedTime)
+            Assert.AreEqual(fixture.NowValue, fixture.Stored().Last().EventTime.Value.DateTime)
+            Assert.AreEqual(2, fixture.Stored().Count)
+            fixture.Times.BookingDate = BookingDay.AddDays(3)
+            fixture.Times.BookingDate = BookingDay
+            Assert.AreEqual(expected, fixture.Times.BookedTime)
+        End Sub
+
+        <TestMethod>
+        Public Sub CheckoutFailure_RollsBackBoundaryAndLeavesRecordingRetryable()
+            Dim fixture As New Workspace(True)
+            Dim original = fixture.Times.TimeItems
+            fixture.Tasks.StartTaskCommand.Execute(Nothing)
+            Dim expected = TimeSpan.FromMinutes(1530.5125)
+            fixture.NowValue = fixture.NowValue.Add(expected)
+            fixture.Faults.RejectNextSave = Function(request) request.Item.MarkerKind = SystemTimeMarkerKind.StopMark
+            Assert.ThrowsException(Of InvalidOperationException)(Sub() fixture.Times.CheckOutCommand.Execute(Nothing))
+            Assert.AreEqual(0, fixture.Stored().Count)
+            Assert.AreEqual(0, original.Count)
+            Assert.IsTrue(fixture.Tasks.IsTaskRecording)
+            Assert.IsFalse(fixture.Tasks.SelectedTaskItem.IsDone)
+            fixture.Times.CheckOutCommand.Execute(Nothing)
+            Assert.AreEqual(expected, fixture.Times.BookedTime)
+            Assert.IsFalse(fixture.Tasks.IsTaskRecording)
+            Assert.AreSame(original, fixture.Times.TimeItems)
+        End Sub
+
+        <TestMethod>
+        Public Sub TaskSaveFailure_CheckoutRestoresRecordingAndCompletionFlagForRetry()
+            Dim rejectSave = True
+            Dim attempts = 0
+            Dim saved = 0
+            Dim fixture As Workspace = Nothing
+            fixture = New Workspace(saveTask:=Sub(candidate)
+                                                  attempts += 1
+                                                  Assert.IsTrue(candidate.IsDone)
+                                                  Assert.AreNotSame(fixture.Tasks.SelectedTaskItem, candidate)
+                                                  Assert.IsFalse(fixture.Tasks.SelectedTaskItem.IsDone)
+                                                  Assert.IsTrue(fixture.Tasks.SelectedTaskItem.IsStarted)
+                                                  Assert.AreEqual(fixture.Tasks.SelectedTaskItem.Id, candidate.Id)
+                                                  Assert.AreEqual(fixture.Tasks.SelectedTaskItem.IdTask, candidate.IdTask)
+                                                  Assert.AreEqual(fixture.Tasks.SelectedTaskItem.IdProject, candidate.IdProject)
+                                                  Assert.AreEqual(fixture.Tasks.SelectedTaskItem.Title, candidate.Title)
+                                                  Assert.AreEqual(fixture.Tasks.SelectedTaskItem.Description, candidate.Description)
+                                                  Assert.AreEqual(fixture.Tasks.SelectedTaskItem.DueText, candidate.DueText)
+                                                  If rejectSave Then Throw New InvalidOperationException("Task save rejected")
+                                                  saved += 1
+                                              End Sub)
+            Dim task = fixture.Tasks.SelectedTaskItem
+            Dim original = fixture.Times.TimeItems
+            fixture.Tasks.StartTaskCommand.Execute(Nothing)
+            Dim startedAt = task.StartedAt
+            fixture.NowValue = fixture.NowValue.AddMinutes(90)
+            fixture.Main.UpdateRecordingClock(fixture.NowValue)
+            fixture.Tasks.CompleteRecordingOnNextTimeEntry = True
+
+            Assert.ThrowsException(Of InvalidOperationException)(Sub() fixture.Times.CheckOutCommand.Execute(Nothing))
+            Assert.IsFalse(task.IsDone)
+            Assert.IsTrue(task.IsStarted)
+            Assert.IsFalse(task.NeedsMore)
+            Assert.AreEqual(startedAt, task.StartedAt)
+            Assert.AreEqual(TimeSpan.FromMinutes(90), task.RecordingElapsed)
+            Assert.AreSame(task, fixture.Tasks.CurrentRecordingTask)
+            Assert.IsTrue(fixture.Tasks.IsTaskRecording)
+            Assert.IsTrue(fixture.Tasks.CompleteRecordingOnNextTimeEntry)
+            Assert.IsTrue(fixture.Tasks.CompleteTaskCommand.CanExecute(Nothing))
+            Assert.IsFalse(fixture.Tasks.StartTaskCommand.CanExecute(Nothing))
+            Assert.AreEqual(0, fixture.Stored().Count)
+            Assert.AreEqual(0, original.Count)
+            Assert.AreEqual(0, saved)
+
+            rejectSave = False
+            fixture.Times.CheckOutCommand.Execute(Nothing)
+            Assert.IsTrue(task.IsDone)
+            Assert.IsNull(task.StartedAt)
+            Assert.IsNull(fixture.Tasks.CurrentRecordingTask)
+            Assert.IsFalse(fixture.Tasks.CompleteRecordingOnNextTimeEntry)
+            Assert.AreEqual(2, fixture.Stored().Count)
+            Assert.AreEqual(2, fixture.Stored().Select(Function(item) item.IdTimeItem).Distinct().Count())
+            Assert.AreEqual(TimeSpan.FromMinutes(90), fixture.Times.BookedTime)
+            Assert.AreEqual(2, attempts)
+            Assert.AreEqual(1, saved)
+            Assert.AreSame(original, fixture.Times.TimeItems)
+        End Sub
+
+        <DataTestMethod>
+        <DataRow(False)>
+        <DataRow(True)>
+        Public Sub TaskSaveFailure_NormalCompletionRestoresBookingsAndTaskState(recorded As Boolean)
+            Dim rejectSave = True
+            Dim saved = 0
+            Dim fixture As New Workspace(saveTask:=Sub(candidate)
+                                                      Assert.IsTrue(candidate.IsDone)
+                                                      If rejectSave Then Throw New InvalidOperationException("Task save rejected")
+                                                      saved += 1
+                                                  End Sub)
+            Dim task = fixture.Tasks.SelectedTaskItem
+            task.MarkNeedsMore()
+            If recorded Then
+                fixture.Tasks.StartTaskCommand.Execute(Nothing)
+                fixture.NowValue = fixture.NowValue.AddMinutes(90)
+                fixture.Main.UpdateRecordingClock(fixture.NowValue)
+            Else
+                fixture.Main.ManualCompletionStartText = "10:00"
+                fixture.Main.ManualCompletionDurationText = "01:30"
+            End If
+            Dim startedAt = task.StartedAt
+            Dim elapsed = task.RecordingElapsed
+            Dim original = fixture.Times.TimeItems
+            fixture.Tasks.CompleteRecordingOnNextTimeEntry = recorded
+            Assert.ThrowsException(Of InvalidOperationException)(Sub() fixture.Tasks.CompleteTaskCommand.Execute(Nothing))
+            Assert.IsFalse(task.IsDone)
+            Assert.AreEqual(recorded, task.IsStarted)
+            Assert.AreEqual(Not recorded, task.NeedsMore)
+            Assert.AreEqual(startedAt, task.StartedAt)
+            Assert.AreEqual(elapsed, task.RecordingElapsed)
+            Assert.AreEqual(recorded, fixture.Tasks.IsTaskRecording)
+            Assert.AreEqual(recorded, fixture.Tasks.CompleteRecordingOnNextTimeEntry)
+            Assert.IsTrue(fixture.Tasks.CompleteTaskCommand.CanExecute(Nothing))
+            Assert.AreEqual(Not recorded, fixture.Tasks.StartTaskCommand.CanExecute(Nothing))
+            Assert.AreEqual(0, fixture.Stored().Count)
+            Assert.AreEqual(0, original.Count)
+            Assert.AreEqual(0, saved)
+            rejectSave = False
+            fixture.Tasks.CompleteTaskCommand.Execute(Nothing)
+            Assert.IsTrue(task.IsDone)
+            Assert.IsFalse(task.NeedsMore)
+            Assert.IsFalse(fixture.Tasks.IsTaskRecording)
+            Assert.IsFalse(fixture.Tasks.CompleteRecordingOnNextTimeEntry)
+            Assert.AreEqual(2, fixture.Stored().Count)
+            Assert.AreEqual(TimeSpan.FromMinutes(90), fixture.Times.BookedTime)
+            Assert.AreEqual(1, saved)
+            Assert.AreSame(original, fixture.Times.TimeItems)
+        End Sub
+
+        <TestMethod>
+        Public Sub TaskSaveFailure_RestoresThePreviouslyPersistedTimeline()
+            Dim fixture As New Workspace(saveTask:=Sub(candidate)
+                                                      Throw New InvalidOperationException("Task save rejected")
+                                                  End Sub)
+            SaveDialog(fixture.Times, BookingDay.AddHours(8), "Previous work")
+            fixture.NowValue = BookingDay.AddHours(9)
+            fixture.Times.CheckOutCommand.Execute(Nothing)
+            Dim originalIds = fixture.Stored().Select(Function(item) item.IdTimeItem).ToArray()
+            fixture.Main.ManualCompletionStartText = "10:00"
+            fixture.Main.ManualCompletionDurationText = "01:30"
+            Assert.ThrowsException(Of InvalidOperationException)(Sub() fixture.Tasks.CompleteTaskCommand.Execute(Nothing))
+            CollectionAssert.AreEqual(originalIds, fixture.Stored().Select(Function(item) item.IdTimeItem).ToArray())
+            Assert.AreEqual(TimeSpan.FromHours(1), fixture.Times.BookedTime)
+            Assert.IsFalse(fixture.Tasks.SelectedTaskItem.IsDone)
+            Assert.IsTrue(fixture.Tasks.CompleteTaskCommand.CanExecute(Nothing))
+        End Sub
+
+        <TestMethod>
+        Public Sub CompletionFailure_RestoresStopRemovedByServiceNormalization()
+            Dim fixture As New Workspace(True)
+            SaveDialog(fixture.Times, BookingDay.AddHours(8), "Earlier work")
+            fixture.NowValue = BookingDay.AddHours(9)
+            fixture.Times.CheckOutCommand.Execute(Nothing)
+            Dim originalIds = fixture.Stored().Select(Function(item) item.IdTimeItem).ToArray()
+            fixture.NowValue = BookingDay.AddHours(10)
+            fixture.Tasks.StartTaskCommand.Execute(Nothing)
+            fixture.NowValue = fixture.NowValue.AddMinutes(1530.5)
+            fixture.Faults.RejectNextSave = Function(request) request.Item.MarkerKind = SystemTimeMarkerKind.StopMark
+            Assert.ThrowsException(Of InvalidOperationException)(Sub() fixture.Tasks.CompleteTaskCommand.Execute(Nothing))
+            CollectionAssert.AreEqual(originalIds, fixture.Stored().Select(Function(item) item.IdTimeItem).ToArray())
+            Assert.AreEqual(TimeSpan.FromHours(1), fixture.Times.BookedTime)
+            Assert.IsTrue(fixture.Tasks.IsTaskRecording)
+            Assert.IsFalse(fixture.Tasks.SelectedTaskItem.IsDone)
+            fixture.Times.BookingDate = BookingDay.AddDays(3)
+            fixture.Times.BookingDate = BookingDay
+            Assert.AreEqual(TimeSpan.FromHours(1), fixture.Times.BookedTime)
+        End Sub
+
+        <TestMethod>
+        Public Sub NonPositiveRecordingDuration_DoesNotCreateSyntheticMinute()
+            Dim fixture As New Workspace()
+            fixture.Tasks.StartTaskCommand.Execute(Nothing)
+            Assert.ThrowsException(Of InvalidOperationException)(Sub() fixture.Tasks.CompleteTaskCommand.Execute(Nothing))
+            Assert.AreEqual(0, fixture.Stored().Count)
+            Assert.IsTrue(fixture.Tasks.IsTaskRecording)
+            Assert.IsFalse(fixture.Tasks.SelectedTaskItem.IsDone)
+        End Sub
+
+        <TestMethod>
+        Public Sub CrossDayStopEdit_DoesNotRebaseItsTimestampToTheBookingDate()
+            Dim fixture As New Workspace()
+            Dim expected = TimeSpan.FromMinutes(1530.5125)
+            fixture.Main.ManualCompletionStartText = "08:00"
+            fixture.Main.ManualCompletionDurationText = expected.ToString("c")
+            fixture.Tasks.CompleteTaskCommand.Execute(Nothing)
+            fixture.Times.SelectedEntry = fixture.Times.TimeItems.Last()
+            Dim endTime = BookingDay.AddHours(8).Add(expected)
+            SaveDialog(fixture.Times, endTime, "Edited cross-day stop", edit:=True)
+            Assert.AreEqual(endTime, fixture.Stored().Last().EventTime.Value.DateTime)
+            Assert.AreEqual(expected, fixture.Times.BookedTime)
+        End Sub
+
+        <TestMethod>
+        Public Sub Completion_ReusesTheExactExistingBoundaryWithoutShiftingIt()
+            Dim fixture As New Workspace()
+            Dim endTime = fixture.NowValue.AddMinutes(90).AddMilliseconds(750)
+            SaveDialog(fixture.Times, endTime, "Existing next interval")
+            Dim boundaryId = fixture.Stored().Single().IdTimeItem
+            fixture.Tasks.StartTaskCommand.Execute(Nothing)
+            fixture.NowValue = endTime
+            fixture.Tasks.CompleteTaskCommand.Execute(Nothing)
+            Assert.AreEqual(2, fixture.Stored().Count)
+            Assert.AreEqual(boundaryId, fixture.Stored().Last().IdTimeItem)
+            Assert.AreEqual(endTime, fixture.Stored().Last().EventTime.Value.DateTime)
+            Assert.AreEqual(TimeSpan.FromMinutes(90).Add(TimeSpan.FromMilliseconds(750)), fixture.Times.BookedTime)
+        End Sub
+
+        <TestMethod>
+        Public Sub RepeatedTaskInterruptions_PreserveTheEarlierPauseAndResumedInterval()
+            Dim fixture As New Workspace()
+            fixture.Tasks.StartTaskCommand.Execute(Nothing)
+            fixture.NowValue = BookingDay.AddHours(8).AddMinutes(30)
+            fixture.Times.InsertWorkBreakCommand.Execute(Nothing)
+            fixture.NowValue = BookingDay.AddHours(9)
+            fixture.Tasks.StartTaskCommand.Execute(Nothing)
+            fixture.NowValue = BookingDay.AddHours(10)
+            fixture.Times.InsertWorkBreakCommand.Execute(Nothing)
+            Assert.AreEqual(4, fixture.Stored().Count)
+            Assert.AreEqual(TimeSpan.FromMinutes(90), fixture.Times.BookedTime)
+            Assert.AreEqual(TimeSpan.FromMinutes(30), fixture.Times.WorkBreakTime)
+        End Sub
 
         <TestMethod>
         Public Sub BookingAddEditDelete_PersistsAndKeepsOriginalCollection()
@@ -246,7 +558,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Dim fixture As New Workspace()
             Dim category = fixture.Services.CreateCategory(New SaveCategoryRequest With {
                 .IdTenant = fixture.Services.Tenant.IdTenant, .IdActingUser = fixture.Services.ActingUserId,
-                .Item = New CategoryMasterDataDto With {
+                .Item = New CategoryMainDataDto With {
                     .IdTenant = fixture.Services.Tenant.IdTenant, .IdUser = fixture.Services.ActingUserId,
                     .CategoryName = "Support"
                 }
@@ -261,7 +573,7 @@ Namespace TaskOTime.TimeTrackingServices.Tests
                 }
             })
             Assert.IsTrue(result.Success)
-            fixture.Times.RefreshCategories(fixture.Services.GetCategories(New MasterDataQueryRequest With {
+            fixture.Times.RefreshCategories(fixture.Services.GetCategories(New MainDataQueryRequest With {
                 .IdTenant = fixture.Services.Tenant.IdTenant, .IdActingUser = fixture.Services.ActingUserId
             }).Value)
             fixture.Times.BookingDate = BookingDay.AddDays(1)
@@ -281,12 +593,12 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Dim fixture As New Workspace()
             Dim category = fixture.Services.CreateCategory(New SaveCategoryRequest With {
                 .IdTenant = fixture.Services.Tenant.IdTenant, .IdActingUser = fixture.Services.ActingUserId,
-                .Item = New CategoryMasterDataDto With {
+                .Item = New CategoryMainDataDto With {
                     .IdTenant = fixture.Services.Tenant.IdTenant, .IdUser = fixture.Services.ActingUserId,
                     .CategoryName = "Kundendienst"
                 }
             }).Value
-            Dim query = New MasterDataQueryRequest With {
+            Dim query = New MainDataQueryRequest With {
                 .IdTenant = fixture.Services.Tenant.IdTenant, .IdActingUser = fixture.Services.ActingUserId
             }
 
@@ -384,24 +696,27 @@ Namespace TaskOTime.TimeTrackingServices.Tests
             Public ReadOnly Tasks As TaskManagementViewModel
             Public ReadOnly Main As VmMain
             Public ReadOnly Access As TimeBookingAccessContextDto
+            Public ReadOnly Faults As FailingBookingService
             Public NowValue As DateTime = BookingDay.AddHours(8)
 
-            Public Sub New()
+            Public Sub New(Optional injectFailures As Boolean = False, Optional saveTask As Action(Of TaskItemViewModel) = Nothing)
                 Access = New TimeBookingAccessContextDto With {
                     .IdTenant = Services.Tenant.IdTenant, .IdActingUser = Services.ActingUserId, .IdBookingUser = Services.ActingUserId
                 }
-                Dim projects = Services.GetProjects(New MasterDataQueryRequest With {
+                Dim projects = Services.GetProjects(New MainDataQueryRequest With {
                     .IdTenant = Services.Tenant.IdTenant, .IdActingUser = Services.ActingUserId
                 }).Value
-                Dim categories = Services.GetCategories(New MasterDataQueryRequest With {
+                Dim categories = Services.GetCategories(New MainDataQueryRequest With {
                     .IdTenant = Services.Tenant.IdTenant, .IdActingUser = Services.ActingUserId
                 }).Value
+                Faults = New FailingBookingService(Services)
+                Dim bookingService As ITimeBookingService = If(injectFailures, DirectCast(Faults, ITimeBookingService), Services)
                 Times = New TimeCollectionViewModel(
-                    BookingDay, Services, Access, projects, Services.CategoryId, Function() NowValue, categories)
+                    BookingDay, bookingService, Access, projects, Services.CategoryId, Function() NowValue, categories)
                 Dim task = New TaskItemViewModel("Aufgabe", "Beschreibung", "") With {
                     .IdProject = Services.ProjectId, .IdTask = Guid.NewGuid()
                 }
-                Tasks = New TaskManagementViewModel({New TaskListViewModel("Liste", "", {task})}, Function() NowValue)
+                Tasks = New TaskManagementViewModel({New TaskListViewModel("Liste", "", {task})}, Function() NowValue, saveTask)
                 Main = New VmMain(Times, Tasks)
             End Sub
 

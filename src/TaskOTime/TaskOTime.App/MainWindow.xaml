@@ -7,11 +7,15 @@
         xmlns:data="clr-namespace:System.Windows.Data;assembly=PresentationFramework"
         xmlns:vm="clr-namespace:TaskOTime.ViewModel.ViewModels;assembly=TaskOTime.ViewModel"
         mc:Ignorable="d"
-        Title="{StaticResource AppTitle}"
+        xmlns:loc="clr-namespace:TaskOTime.ViewModel.Localization;assembly=TaskOTime.ViewModel"
+        Language="{loc:Culture}"
+        Title="{loc:Loc AppTitle}"
         MinHeight="640"
         MinWidth="820"
         Height="760"
-        Width="1120">
+        Width="1120"
+        Background="{DynamicResource WindowBackgroundBrush}"
+        Foreground="{DynamicResource ContentForegroundBrush}">
     <Window.Resources>
         <convert:BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
         <convert:BooleanToGridLengthConverter x:Key="TaskPanelColumnWidthConverter"
@@ -24,11 +28,6 @@
                                               TrueLength="0"
                                               FalseLength="Auto" />
         <convert:TimeSpanDisplayConverter x:Key="TimeSpanDisplayConverter" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#FF2F3842" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#FFF3F7FA" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#FF050505" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.MenuBrushKey}" Color="#FF050505" />
-        <SolidColorBrush x:Key="{x:Static SystemColors.MenuTextBrushKey}" Color="#FFF3F7FA" />
         <CollectionViewSource x:Key="BookedDatesView" Source="{Binding BookedDates}">
             <CollectionViewSource.GroupDescriptions>
                 <data:PropertyGroupDescription PropertyName="GroupName" />
@@ -36,15 +35,15 @@
         </CollectionViewSource>
 
         <Style TargetType="{x:Type Menu}">
-            <Setter Property="Background" Value="{StaticResource CommandBackgroundBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
-            <Setter Property="TextElement.Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CommandBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MenuForegroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource MenuForegroundBrush}" />
         </Style>
 
         <Style TargetType="{x:Type MenuItem}">
-            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
-            <Setter Property="Background" Value="{StaticResource MenuPopupBackgroundBrush}" />
-            <Setter Property="TextElement.Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MenuForegroundBrush}" />
+            <Setter Property="Background" Value="{DynamicResource MenuPopupBackgroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource MenuForegroundBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="10,4" />
             <Setter Property="Template">
@@ -57,7 +56,7 @@
                                     Padding="{TemplateBinding Padding}">
                                 <ContentPresenter ContentSource="Header"
                                                   RecognizesAccessKey="True"
-                                                  TextElement.Foreground="{StaticResource MenuForegroundBrush}" />
+                                                  TextElement.Foreground="{TemplateBinding Foreground}" />
                             </Border>
                             <Popup x:Name="PART_Popup"
                                    AllowsTransparency="True"
@@ -65,8 +64,8 @@
                                    IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}"
                                    Placement="Bottom"
                                    PopupAnimation="Fade">
-                                <Border Background="{StaticResource MenuPopupBackgroundBrush}"
-                                        BorderBrush="{StaticResource MenuPopupBackgroundBrush}"
+                                <Border Background="{DynamicResource MenuPopupBackgroundBrush}"
+                                        BorderBrush="{DynamicResource MenuPopupBackgroundBrush}"
                                         BorderThickness="0"
                                         Padding="4">
                                     <StackPanel IsItemsHost="True"
@@ -76,16 +75,19 @@
                         </Grid>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsHighlighted" Value="True">
-                                <Setter TargetName="MenuItemBorder" Property="Background" Value="#FF1D252E" />
+                                <Setter Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource HoverForegroundBrush}" />
                             </Trigger>
                             <Trigger Property="IsSubmenuOpen" Value="True">
-                                <Setter TargetName="MenuItemBorder" Property="Background" Value="#FF1D252E" />
+                                <Setter Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource HoverForegroundBrush}" />
                             </Trigger>
                             <Trigger Property="Role" Value="SubmenuItem">
                                 <Setter TargetName="PART_Popup" Property="Placement" Value="Right" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.55" />
+                                <Setter Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledForegroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -94,10 +96,10 @@
         </Style>
 
         <Style TargetType="{x:Type Button}">
-            <Setter Property="Background" Value="{StaticResource ListItemBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource PanelBorderBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
-            <Setter Property="TextElement.Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ListItemBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource PanelBorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MenuForegroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource MenuForegroundBrush}" />
             <Setter Property="MinHeight" Value="34" />
             <Setter Property="Padding" Value="10,7" />
             <Setter Property="Margin" Value="0,0,6,0" />
@@ -116,15 +118,18 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF3E454D" />
-                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource HoverForegroundBrush}" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF27313A" />
-                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{StaticResource MenuForegroundBrush}" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource ListItemSelectedBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SelectedForegroundBrush}" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource MenuForegroundBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledForegroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -133,10 +138,10 @@
         </Style>
 
         <Style x:Key="CommandStripIconButtonStyle" TargetType="{x:Type Button}">
-            <Setter Property="Background" Value="{StaticResource CommandBackgroundBrush}" />
-            <Setter Property="BorderBrush" Value="{StaticResource CommandBackgroundBrush}" />
-            <Setter Property="Foreground" Value="{StaticResource MenuForegroundBrush}" />
-            <Setter Property="TextElement.Foreground" Value="{StaticResource MenuForegroundBrush}" />
+            <Setter Property="Background" Value="{DynamicResource CommandBackgroundBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CommandBackgroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MenuForegroundBrush}" />
+            <Setter Property="TextElement.Foreground" Value="{DynamicResource MenuForegroundBrush}" />
             <Setter Property="MinWidth" Value="40" />
             <Setter Property="Height" Value="38" />
             <Setter Property="Padding" Value="11,8" />
@@ -155,14 +160,17 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF202832" />
-                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource HoverBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource HoverForegroundBrush}" />
+                                <Setter TargetName="ButtonBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="ButtonBorder" Property="Background" Value="#FF131A22" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource ListItemSelectedBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SelectedForegroundBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter Property="Opacity" Value="0.45" />
+                                <Setter TargetName="ButtonBorder" Property="Background" Value="{DynamicResource DisabledBackgroundBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledForegroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -171,18 +179,18 @@
         </Style>
 
         <Style x:Key="MutedTextStyle" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="{StaticResource MutedForegroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource MutedForegroundBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
         <Style x:Key="ContentTextStyle" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="{StaticResource ListItemForegroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ListItemForegroundBrush}" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
 
         <DataTemplate x:Key="PlaceholderItemTemplate">
-            <Border Background="{StaticResource ContentBackgroundBrush}"
-                    BorderBrush="{StaticResource PanelBorderBrush}"
+            <Border Background="{DynamicResource ContentBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}"
                     BorderThickness="1"
                     Margin="0,0,0,6"
                     Padding="8">
@@ -191,7 +199,7 @@
         </DataTemplate>
 
         <Style x:Key="TaskCardMutedTextStyle" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="{StaticResource ListItemForegroundBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource ListItemForegroundBrush}" />
             <Setter Property="Opacity" Value="0.82" />
             <Setter Property="TextWrapping" Value="Wrap" />
         </Style>
@@ -215,9 +223,9 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="SelectionBorder" Property="Background" Value="{StaticResource ListItemSelectedBackgroundBrush}" />
-                                <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource ListItemSelectedBorderBrush}" />
-                                <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
+                                <Setter TargetName="SelectionBorder" Property="Background" Value="{DynamicResource ListItemSelectedBackgroundBrush}" />
+                                <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{DynamicResource ListItemSelectedBorderBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource ContentForegroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -233,17 +241,17 @@
         </Style>
 
         <DataTemplate x:Key="TaskListTemplate" DataType="{x:Type vm:TaskListViewModel}">
-            <Border Background="{StaticResource ListItemBackgroundBrush}"
-                    BorderBrush="{StaticResource PanelBorderBrush}"
+            <Border Background="{DynamicResource ListItemBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="2"
                     Padding="5"
                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}">
                 <Border.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{StaticResource NewTaskListButtonText}"
+                        <MenuItem Header="{loc:Loc NewTaskListButtonText}"
                                   Command="{Binding PlacementTarget.Tag.NewTaskListCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="{StaticResource EditTaskListButtonText}"
+                        <MenuItem Header="{loc:Loc EditTaskListButtonText}"
                                   Command="{Binding PlacementTarget.Tag.EditTaskListCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
                     </ContextMenu>
                 </Border.ContextMenu>
@@ -267,23 +275,23 @@
         </DataTemplate>
 
         <DataTemplate x:Key="TaskItemTemplate" DataType="{x:Type vm:TaskItemViewModel}">
-            <Border Background="{StaticResource ListItemBackgroundBrush}"
-                    BorderBrush="{StaticResource PanelBorderBrush}"
+            <Border Background="{DynamicResource ListItemBackgroundBrush}"
+                    BorderBrush="{DynamicResource PanelBorderBrush}"
                     BorderThickness="1"
                     CornerRadius="2"
                     Padding="5"
                     Tag="{Binding DataContext, RelativeSource={RelativeSource AncestorType={x:Type ListBox}}}">
                 <Border.ContextMenu>
                     <ContextMenu>
-                        <MenuItem Header="{StaticResource NewTaskButtonText}"
+                        <MenuItem Header="{loc:Loc NewTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.NewTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="{StaticResource EditTaskButtonText}"
+                        <MenuItem Header="{loc:Loc EditTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.EditTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="{StaticResource StartTaskButtonText}"
+                        <MenuItem Header="{loc:Loc StartTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.StartTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="{StaticResource CompleteTaskButtonText}"
+                        <MenuItem Header="{loc:Loc CompleteTaskButtonText}"
                                   Command="{Binding PlacementTarget.Tag.CompleteTaskCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
-                        <MenuItem Header="More to do"
+                        <MenuItem Header="{loc:Loc Main_More}"
                                   Command="{Binding PlacementTarget.Tag.MoreToDoCommand, RelativeSource={RelativeSource AncestorType={x:Type ContextMenu}}}" />
                     </ContextMenu>
                 </Border.ContextMenu>
@@ -300,10 +308,8 @@
                                    FontSize="13"
                                    Margin="0,0,6,0"
                                    Text=""
+                                   Foreground="{DynamicResource RecordingForegroundBrush}"
                                    Visibility="{Binding IsStarted, Converter={StaticResource BooleanToVisibilityConverter}}">
-                            <TextBlock.Foreground>
-                                <SolidColorBrush Color="#FFFF5555" />
-                            </TextBlock.Foreground>
                             <TextBlock.Style>
                                 <Style TargetType="{x:Type TextBlock}">
                                     <Style.Triggers>
@@ -311,9 +317,9 @@
                                             <DataTrigger.EnterActions>
                                                 <BeginStoryboard x:Name="RecordingPulseStoryboard">
                                                     <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                                        <ColorAnimation Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
-                                                                        From="#FFFFBBBB"
-                                                                        To="#FF7A0000"
+                                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                                        From="1"
+                                                                        To="0.7"
                                                                         Duration="0:0:0.85" />
                                                     </Storyboard>
                                                 </BeginStoryboard>
@@ -345,7 +351,7 @@
                                Text="{Binding Description}" />
                     <DockPanel Grid.Row="2" Margin="0,6,0,0">
                         <TextBlock DockPanel.Dock="Right"
-                                   Foreground="{StaticResource AccentBrush}"
+                                   Foreground="{DynamicResource AccentBrush}"
                                    FontWeight="SemiBold"
                                    Text="{Binding StatusText}" />
                         <TextBlock Style="{StaticResource TaskCardMutedTextStyle}"
@@ -356,7 +362,7 @@
         </DataTemplate>
 
         <DataTemplate x:Key="BookedDateTemplate">
-            <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
+            <TextBlock Foreground="{DynamicResource ListItemForegroundBrush}"
                        Margin="0,0,0,4"
                        FontWeight="SemiBold"
                        Text="{Binding DisplayText}" />
@@ -380,9 +386,9 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="SelectionBorder" Property="Background" Value="{StaticResource ListItemSelectedBackgroundBrush}" />
-                                <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{StaticResource ListItemSelectedBorderBrush}" />
-                                <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
+                                <Setter TargetName="SelectionBorder" Property="Background" Value="{DynamicResource ListItemSelectedBackgroundBrush}" />
+                                <Setter TargetName="SelectionBorder" Property="BorderBrush" Value="{DynamicResource ListItemSelectedBorderBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource ContentForegroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -398,7 +404,7 @@
         </Style>
 
         <DataTemplate x:Key="TimeEntryItemTemplate" DataType="{x:Type vm:TimeEntryViewModel}">
-            <Border Background="{StaticResource ListItemBackgroundBrush}"
+            <Border Background="{DynamicResource ListItemBackgroundBrush}"
                     BorderBrush="{Binding MarkerAccent}"
                     BorderThickness="1"
                     CornerRadius="2"
@@ -412,7 +418,7 @@
                     </Grid.ColumnDefinitions>
 
                     <StackPanel Grid.Column="0">
-                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
+                        <TextBlock Foreground="{DynamicResource ListItemForegroundBrush}"
                                    FontSize="18"
                                    FontWeight="SemiBold"
                                    Text="{Binding EntryTimeText}" />
@@ -427,10 +433,10 @@
                             Margin="0,2,8,2" />
 
                     <StackPanel Grid.Column="2">
-                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
+                        <TextBlock Foreground="{DynamicResource ListItemForegroundBrush}"
                                    FontWeight="SemiBold"
                                    Text="{Binding Title}" />
-                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
+                        <TextBlock Foreground="{DynamicResource ListItemForegroundBrush}"
                                    Margin="0,2,0,4"
                                    Text="{Binding Description}" />
                         <TextBlock Foreground="{Binding MarkerAccent}"
@@ -440,20 +446,20 @@
                     </StackPanel>
 
                     <StackPanel Grid.Column="3" HorizontalAlignment="Right">
-                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
+                        <TextBlock Foreground="{DynamicResource ListItemForegroundBrush}"
                                    FontWeight="SemiBold"
                                    HorizontalAlignment="Right"
                                    Text="{Binding DurationToNextText}" />
-                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
+                        <TextBlock Foreground="{DynamicResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
-                                   Text="until next" />
-                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
+                                   Text="{loc:Loc Main_UntilNext}" />
+                        <TextBlock Foreground="{DynamicResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
                                    Margin="0,6,0,0"
-                                   Text="sinds vorige" />
-                        <TextBlock Foreground="{StaticResource ListItemForegroundBrush}"
+                                   Text="{loc:Loc Main_SincePrevious}" />
+                        <TextBlock Foreground="{DynamicResource ListItemForegroundBrush}"
                                    FontSize="11"
                                    HorizontalAlignment="Right"
                                    Text="{Binding DurationFromPreviousText}" />
@@ -485,10 +491,10 @@
                                Text="{Binding TaskPanelSummary}" />
 
                     <TextBlock Grid.Row="2"
-                               Foreground="{StaticResource AccentBrush}"
+                               Foreground="{DynamicResource AccentBrush}"
                                FontWeight="SemiBold"
                                Margin="0,0,0,6"
-                               Text="Lists" />
+                               Text="{loc:Loc Main_Lists}" />
                     <ListBox Grid.Row="3"
                              MaxHeight="170"
                              ItemTemplate="{StaticResource TaskListTemplate}"
@@ -499,17 +505,17 @@
 
                     <DockPanel Grid.Row="4" Margin="0,8,0,6">
                         <TextBlock DockPanel.Dock="Right"
-                                   Foreground="{StaticResource MutedForegroundBrush}"
+                                   Foreground="{DynamicResource MutedForegroundBrush}"
                                    Text="{Binding SelectedListSummary}" />
-                        <TextBlock Foreground="{StaticResource AccentBrush}"
+                        <TextBlock Foreground="{DynamicResource AccentBrush}"
                                    FontWeight="SemiBold"
-                                   Text="Taken" />
+                                   Text="{loc:Loc Main_Tasks}" />
                     </DockPanel>
 
                     <CheckBox Grid.Row="5"
-                              Foreground="{StaticResource MutedForegroundBrush}"
+                              Foreground="{DynamicResource MutedForegroundBrush}"
                               Margin="0,0,0,6"
-                              Content="{StaticResource CompleteRecordingTaskCheckBoxText}"
+                              Content="{loc:Loc CompleteRecordingTaskCheckBoxText}"
                               IsChecked="{Binding CompleteRecordingOnNextTimeEntry}" />
 
                     <ListBox Grid.Row="6"
@@ -527,7 +533,7 @@
         </DataTemplate>
     </Window.Resources>
 
-    <Grid Background="{StaticResource WindowBackgroundBrush}">
+    <Grid Background="{DynamicResource WindowBackgroundBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -536,128 +542,125 @@
         </Grid.RowDefinitions>
 
         <Menu Grid.Row="0">
-            <MenuItem Header="{StaticResource FileMenuHeader}">
-                <MenuItem Header="{StaticResource ExportDayMenuHeader}"
+            <MenuItem Header="{loc:Loc FileMenuHeader}">
+                <MenuItem Header="{loc:Loc ExportDayMenuHeader}"
                           Command="{Binding ExportSelectedDayCommand}" />
-                <MenuItem Header="{StaticResource ExportPeriodMenuHeader}"
+                <MenuItem Header="{loc:Loc ExportPeriodMenuHeader}"
                           Command="{Binding ExportPeriodCommand}" />
-                <MenuItem Header="Afmelden" Click="OnLogoutClick" />
-                <MenuItem Header="{StaticResource QuitMenuHeader}" Click="OnQuitMenuItemClick" />
+                <MenuItem Header="{loc:Loc Main_Logout}" Click="OnLogoutClick" />
+                <MenuItem Header="{loc:Loc QuitMenuHeader}" Click="OnQuitMenuItemClick" />
             </MenuItem>
-            <MenuItem Header="{StaticResource MasterDataMenuHeader}">
-                <MenuItem Header="{StaticResource ManageProjectsMenuHeader}"
+            <MenuItem Header="{loc:Loc MainDataMenuHeader}">
+                <MenuItem Header="{loc:Loc ManageProjectsMenuHeader}"
                           Command="{Binding ManageProjectsCommand}" />
-                <MenuItem Header="{StaticResource NewTaskListButtonText}"
+                <MenuItem Header="{loc:Loc NewTaskListButtonText}"
                           Command="{Binding TaskManagement.NewTaskListCommand}" />
-                <MenuItem Header="{StaticResource ManageTaskListsMenuHeader}"
+                <MenuItem Header="{loc:Loc ManageTaskListsMenuHeader}"
                           Command="{Binding ManageTaskListsCommand}" />
-                <MenuItem Header="{StaticResource ManageTasksMenuHeader}"
+                <MenuItem Header="{loc:Loc ManageTasksMenuHeader}"
                           Command="{Binding ManageTasksCommand}" />
-                <MenuItem Header="{StaticResource ManageUsersAdminMenuHeader}"
+                <MenuItem Header="{loc:Loc ManageUsersAdminMenuHeader}"
                           Command="{Binding ManageUsersAdminCommand}" />
             </MenuItem>
-            <MenuItem Header="{StaticResource AnalysisMenuHeader}">
-                <MenuItem Header="{StaticResource DailyStatementMenuHeader}"
+            <MenuItem Header="{loc:Loc AnalysisMenuHeader}">
+                <MenuItem Header="{loc:Loc DailyStatementMenuHeader}"
                           Command="{Binding ShowDailyStatementCommand}" />
-                <MenuItem Header="{StaticResource WeeklyStatementMenuHeader}"
+                <MenuItem Header="{loc:Loc WeeklyStatementMenuHeader}"
                           Command="{Binding ShowWeeklyStatementCommand}" />
-                <MenuItem Header="{StaticResource MonthlyStatementMenuHeader}"
+                <MenuItem Header="{loc:Loc MonthlyStatementMenuHeader}"
                           Command="{Binding ShowMonthlyStatementCommand}" />
-                <MenuItem Header="{StaticResource TenantAdminStatisticsMenuHeader}"
+                <MenuItem Header="{loc:Loc TenantAdminStatisticsMenuHeader}"
                           Command="{Binding ShowTenantAdminStatisticsCommand}" />
             </MenuItem>
-            <MenuItem Header="{StaticResource ToolsMenuHeader}">
-                <MenuItem Header="{StaticResource OptionsMenuHeader}"
+            <MenuItem Header="{loc:Loc ToolsMenuHeader}">
+                <MenuItem Header="{loc:Loc OptionsMenuHeader}"
                           Command="{Binding OptionsCommand}" />
             </MenuItem>
         </Menu>
 
-        <Border Grid.Row="1" Background="{StaticResource CommandBackgroundBrush}" Padding="8,3">
+        <Border Grid.Row="1" Background="{DynamicResource CommandBackgroundBrush}" Padding="8,3">
             <DockPanel LastChildFill="False">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
-                <Button Command="{Binding TaskManagement.NewTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="New task">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button Command="{Binding TaskManagement.NewTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc NewTaskButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.EditTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Taak bewerken">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button Command="{Binding TaskManagement.EditTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc EditTaskButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.NewTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Nieuwe takenlijst">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button Command="{Binding TaskManagement.NewTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc NewTaskListButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.EditTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Edit task list">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button Command="{Binding TaskManagement.EditTaskListCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc EditTaskListButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
-                <Button Command="{Binding TaskManagement.StartTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Start task">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button Command="{Binding TaskManagement.StartTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc StartTaskButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripCheckOutButton"
                         Click="OnCommandStripCheckOutClick"
                         Style="{StaticResource CommandStripIconButtonStyle}"
-                        ToolTip="{StaticResource CheckOutButtonText}">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                        ToolTip="{loc:Loc CheckOutButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
                 <StackPanel Orientation="Horizontal"
                             Margin="2,0,4,0"
                             Visibility="{Binding IsTaskRecording, Converter={StaticResource BooleanToVisibilityConverter}, ConverterParameter=Invert}">
                     <TextBlock VerticalAlignment="Center"
-                               Foreground="{StaticResource MenuForegroundBrush}"
+                               Foreground="{DynamicResource MenuForegroundBrush}"
                                Margin="0,0,4,0"
-                               Text="Start" />
+                               Text="{loc:Loc Main_Start}" />
                     <TextBox MinWidth="72"
                              Width="72"
                              Margin="0,0,4,0"
                              Text="{Binding ManualCompletionStartText, UpdateSourceTrigger=PropertyChanged}" />
                     <TextBlock VerticalAlignment="Center"
-                               Foreground="{StaticResource MenuForegroundBrush}"
+                               Foreground="{DynamicResource MenuForegroundBrush}"
                                Margin="0,0,4,0"
-                               Text="Duur" />
+                               Text="{loc:Loc Main_Duration}" />
                     <TextBox MinWidth="72"
                              Width="72"
                              Margin="0,0,4,0"
                              Text="{Binding ManualCompletionDurationText, UpdateSourceTrigger=PropertyChanged}" />
                 </StackPanel>
-                <Button Command="{Binding TaskManagement.CompleteTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="Complete task">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button Command="{Binding TaskManagement.CompleteTaskCommand}" Style="{StaticResource CommandStripIconButtonStyle}" ToolTip="{loc:Loc CompleteTaskButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripWorkBreakButton"
                         Click="OnCommandStripWorkBreakClick"
                         Style="{StaticResource CommandStripIconButtonStyle}"
-                        ToolTip="{StaticResource PauseButtonText}">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                        ToolTip="{loc:Loc PauseButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripDownTimeButton"
                         Click="OnCommandStripDownTimeClick"
                         Style="{StaticResource CommandStripIconButtonStyle}"
-                        ToolTip="{StaticResource DownTimeButtonText}">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                        ToolTip="{loc:Loc DownTimeButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
                 <Button x:Name="CommandStripErrandButton"
                         Click="OnCommandStripErrandClick"
                         Style="{StaticResource CommandStripIconButtonStyle}"
-                        ToolTip="{StaticResource ErrandButtonText}">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                        ToolTip="{loc:Loc ErrandButtonText}">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                 </Button>
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
                 <StackPanel Orientation="Horizontal" Visibility="{Binding IsTaskRecording, Converter={StaticResource BooleanToVisibilityConverter}}">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="">
-                        <TextBlock.Foreground>
-                            <SolidColorBrush Color="#FFFF7777" />
-                        </TextBlock.Foreground>
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Text="" Foreground="{DynamicResource RecordingForegroundBrush}">
                         <TextBlock.Triggers>
                             <EventTrigger RoutedEvent="Loaded">
                                 <BeginStoryboard>
                                     <Storyboard RepeatBehavior="Forever" AutoReverse="True">
-                                        <ColorAnimation Storyboard.TargetProperty="(TextBlock.Foreground).(SolidColorBrush.Color)"
-                                                        From="#FFFFCCCC"
-                                                        To="#FF780000"
+                                        <DoubleAnimation Storyboard.TargetProperty="Opacity"
+                                                        From="1"
+                                                        To="0.7"
                                                         Duration="0:0:0.85" />
                                     </Storyboard>
                                 </BeginStoryboard>
                             </EventTrigger>
                         </TextBlock.Triggers>
                     </TextBlock>
-                    <TextBlock Margin="6,0,0,0" Foreground="{StaticResource MenuForegroundBrush}" Text="{Binding RecordingStatusText}" />
+                    <TextBlock Margin="6,0,0,0" Foreground="{DynamicResource MenuForegroundBrush}" Text="{Binding RecordingStatusText}" />
                 </StackPanel>
                 </StackPanel>
             </DockPanel>
@@ -680,104 +683,34 @@
 
                     <TextBlock Grid.Row="0"
                                Style="{StaticResource SectionHeaderTextStyle}"
-                               Text="Date" />
+                               Text="{loc:Loc Main_Date}" />
 
                     <StackPanel Grid.Row="1"
                                 Margin="0,0,0,10"
                                 Orientation="Horizontal">
                         <Button Command="{Binding TodayCommand}"
-                                ToolTip="{StaticResource TodayButtonText}">
-                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                                ToolTip="{loc:Loc TodayButtonText}">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                         </Button>
                         <Button Command="{Binding YesterdayCommand}"
                                 Margin="0"
-                                ToolTip="{StaticResource YesterdayButtonText}">
-                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                                ToolTip="{loc:Loc YesterdayButtonText}">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                         </Button>
                     </StackPanel>
 
                     <Calendar Grid.Row="2"
-                             Background="{StaticResource ListItemBackgroundBrush}"
-                             Foreground="{StaticResource ListItemForegroundBrush}"
+                             Style="{DynamicResource ThemedCalendarStyle}"
                               Margin="0,0,0,12"
                              SelectedDate="{Binding SelectedDate, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}">
-                        <Calendar.Resources>
-                            <Style TargetType="{x:Type CalendarDayButton}">
-                               <Setter Property="Foreground" Value="{StaticResource ListItemForegroundBrush}" />
-                               <Setter Property="Background" Value="{StaticResource ListItemBackgroundBrush}" />
-                               <Setter Property="MinWidth" Value="28" />
-                               <Setter Property="MinHeight" Value="24" />
-                               <Setter Property="Template">
-                                   <Setter.Value>
-                                       <ControlTemplate TargetType="{x:Type CalendarDayButton}">
-                                           <Border x:Name="DayBorder"
-                                                   Background="{TemplateBinding Background}"
-                                                   BorderBrush="Transparent"
-                                                   BorderThickness="1"
-                                                   CornerRadius="1"
-                                                   Padding="2">
-                                               <ContentPresenter HorizontalAlignment="Center"
-                                                                 VerticalAlignment="Center"
-                                                                 TextElement.Foreground="{TemplateBinding Foreground}" />
-                                           </Border>
-                                           <ControlTemplate.Triggers>
-                                               <Trigger Property="IsMouseOver" Value="True">
-                                                   <Setter TargetName="DayBorder" Property="Background" Value="#FF3E454D" />
-                                                   <Setter TargetName="DayBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                                               </Trigger>
-                                               <Trigger Property="IsSelected" Value="True">
-                                                   <Setter TargetName="DayBorder" Property="Background" Value="{StaticResource ListItemSelectedBackgroundBrush}" />
-                                                   <Setter TargetName="DayBorder" Property="BorderBrush" Value="{StaticResource ListItemSelectedBorderBrush}" />
-                                                   <Setter Property="Foreground" Value="{StaticResource ContentForegroundBrush}" />
-                                               </Trigger>
-                                               <Trigger Property="IsToday" Value="True">
-                                                   <Setter TargetName="DayBorder" Property="BorderBrush" Value="{StaticResource MenuForegroundBrush}" />
-                                               </Trigger>
-                                               <Trigger Property="IsInactive" Value="True">
-                                                   <Setter Property="Opacity" Value="0.55" />
-                                               </Trigger>
-                                           </ControlTemplate.Triggers>
-                                       </ControlTemplate>
-                                   </Setter.Value>
-                               </Setter>
-                            </Style>
-                            <Style TargetType="{x:Type CalendarButton}">
-                               <Setter Property="Foreground" Value="{StaticResource ListItemForegroundBrush}" />
-                               <Setter Property="Background" Value="{StaticResource ListItemBackgroundBrush}" />
-                               <Setter Property="Template">
-                                   <Setter.Value>
-                                       <ControlTemplate TargetType="{x:Type CalendarButton}">
-                                           <Border x:Name="CalendarButtonBorder"
-                                                   Background="{TemplateBinding Background}"
-                                                   BorderBrush="Transparent"
-                                                   BorderThickness="1"
-                                                   Padding="4">
-                                               <ContentPresenter HorizontalAlignment="Center"
-                                                                 VerticalAlignment="Center"
-                                                                 TextElement.Foreground="{TemplateBinding Foreground}" />
-                                           </Border>
-                                           <ControlTemplate.Triggers>
-                                               <Trigger Property="IsMouseOver" Value="True">
-                                                   <Setter TargetName="CalendarButtonBorder" Property="Background" Value="#FF3E454D" />
-                                                   <Setter TargetName="CalendarButtonBorder" Property="BorderBrush" Value="{StaticResource AccentBrush}" />
-                                               </Trigger>
-                                               <Trigger Property="IsInactive" Value="True">
-                                                   <Setter Property="Opacity" Value="0.55" />
-                                               </Trigger>
-                                           </ControlTemplate.Triggers>
-                                       </ControlTemplate>
-                                   </Setter.Value>
-                               </Setter>
-                            </Style>
-                        </Calendar.Resources>
                     </Calendar>
 
                     <StackPanel Grid.Row="3">
                        <TextBlock Style="{StaticResource SectionHeaderTextStyle}"
-                                  Text="{StaticResource BookedDaysHeader}" />
-                       <ListBox Background="{StaticResource ListItemBackgroundBrush}"
-                                BorderBrush="{StaticResource PanelBorderBrush}"
-                                Foreground="{StaticResource ListItemForegroundBrush}"
+                                  Text="{loc:Loc BookedDaysHeader}" />
+                       <ListBox Background="{DynamicResource ListItemBackgroundBrush}"
+                                BorderBrush="{DynamicResource PanelBorderBrush}"
+                                Foreground="{DynamicResource ListItemForegroundBrush}"
                                 ItemTemplate="{StaticResource BookedDateTemplate}"
                                 ItemsSource="{Binding Source={StaticResource BookedDatesView}}"
                                 SelectedValue="{Binding SelectedDate, Mode=TwoWay}"
@@ -786,8 +719,8 @@
                                <GroupStyle>
                                    <GroupStyle.HeaderTemplate>
                                        <DataTemplate>
-                                           <Border Background="{StaticResource PanelBackgroundBrush}" Padding="4,3">
-                                               <TextBlock Foreground="{StaticResource AccentBrush}"
+                                           <Border Background="{DynamicResource PanelBackgroundBrush}" Padding="4,3">
+                                               <TextBlock Foreground="{DynamicResource AccentBrush}"
                                                           FontWeight="SemiBold"
                                                           Text="{Binding Name}" />
                                            </Border>
@@ -827,7 +760,7 @@
                                    Style="{StaticResource SectionHeaderTextStyle}"
                                    Text="{Binding CenterPanelTitle}" />
                         <TextBlock Grid.Row="1"
-                                   Foreground="{StaticResource AccentBrush}"
+                                   Foreground="{DynamicResource AccentBrush}"
                                    FontSize="22"
                                    FontWeight="SemiBold"
                                    Margin="0,0,0,4"
@@ -839,33 +772,33 @@
 
                         <WrapPanel Grid.Row="3" Margin="0,0,0,10">
                             <Button Command="{Binding TimeCollection.AddCommand}"
-                                    ToolTip="{StaticResource AddTimeEntryButtonText}">
-                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                                    ToolTip="{loc:Loc AddTimeEntryButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.EditCommand}"
-                                    ToolTip="{StaticResource EditTimeEntryButtonText}">
-                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                                    ToolTip="{loc:Loc EditTimeEntryButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.DeleteCommand}"
-                                    ToolTip="{StaticResource DeleteTimeEntryButtonText}">
-                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                                    ToolTip="{loc:Loc DeleteTimeEntryButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.InsertWorkBreakCommand}"
-                                    ToolTip="{StaticResource InsertWorkBreakButtonText}">
-                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                                    ToolTip="{loc:Loc InsertWorkBreakButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.InsertDownTimeCommand}"
-                                    ToolTip="{StaticResource InsertDownTimeButtonText}">
-                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                                    ToolTip="{loc:Loc InsertDownTimeButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.InsertErrandCommand}"
-                                    ToolTip="{StaticResource InsertErrandButtonText}">
-                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                                    ToolTip="{loc:Loc InsertErrandButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                             </Button>
                             <Button Command="{Binding TimeCollection.InsertStopMarkCommand}"
                                     Margin="0"
-                                    ToolTip="{StaticResource InsertStopMarkButtonText}">
-                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                                    ToolTip="{loc:Loc InsertStopMarkButtonText}">
+                                <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" Text="" />
                             </Button>
                         </WrapPanel>
 
@@ -881,7 +814,7 @@
                 <GridSplitter Grid.Row="0"
                               Grid.Column="1"
                               HorizontalAlignment="Stretch"
-                              Background="{StaticResource PanelBorderBrush}"
+                              Background="{DynamicResource PanelBorderBrush}"
                               Visibility="{Binding IsWideLayout, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
                 <ContentControl Grid.Row="0"
@@ -905,19 +838,19 @@
             </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Target: " />
+                    <TextBlock Text="{loc:Loc Main_Target}" />
                     <TextBlock Text="{Binding TargetTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Geboekt: " />
+                    <TextBlock Text="{loc:Loc Main_Booked}" />
                     <TextBlock Text="{Binding BookedTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="Open: " />
+                    <TextBlock Text="{loc:Loc Main_Open}" />
                     <TextBlock Text="{Binding RemainingTime, Converter={StaticResource TimeSpanDisplayConverter}}" />
                 </StackPanel>
             </StatusBarItem>
