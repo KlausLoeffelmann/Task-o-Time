@@ -1,0 +1,730 @@
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Task_PanelSummary" xml:space="preserve">
+    <value>Wählen Sie eine Liste und eine Aufgabe zur Zeiterfassung.</value>
+  </data>
+  <data name="Task_NoList" xml:space="preserve">
+    <value>Keine Aufgabenliste ausgewählt.</value>
+  </data>
+  <data name="Task_NoSelection" xml:space="preserve">
+    <value>Keine Aufgabe ausgewählt.</value>
+  </data>
+  <data name="Task_Done" xml:space="preserve">
+    <value>Erledigt</value>
+  </data>
+  <data name="Task_More" xml:space="preserve">
+    <value>Mehr zu tun</value>
+  </data>
+  <data name="Task_Running" xml:space="preserve">
+    <value>Läuft</value>
+  </data>
+  <data name="Task_Ready" xml:space="preserve">
+    <value>Bereit</value>
+  </data>
+  <data name="Task_Recording" xml:space="preserve">
+    <value>{0} seit {1:HH:mm} - {2}</value>
+  </data>
+  <data name="Task_DoneHint" xml:space="preserve">
+    <value>Diese Aufgabe ist abgeschlossen.</value>
+  </data>
+  <data name="Task_MoreHint" xml:space="preserve">
+    <value>Die Aufgabe bleibt offen und benötigt weitere Arbeit.</value>
+  </data>
+  <data name="Task_RunningHint" xml:space="preserve">
+    <value>Die Aufgabe läuft gerade.</value>
+  </data>
+  <data name="Task_ReadyHint" xml:space="preserve">
+    <value>Bereit zum Starten.</value>
+  </data>
+  <data name="Task_Progress" xml:space="preserve">
+    <value>{0} offen · {1} abgeschlossen</value>
+  </data>
+  <data name="Login_ModeDemo" xml:space="preserve">
+    <value>Lokale SQL-Demo – LocalDB-Datenbank TaskOTime. Änderungen werden dauerhaft gespeichert.</value>
+  </data>
+  <data name="Login_ModeProduction" xml:space="preserve">
+    <value>Produktivdienste – konfigurierte SQL-Server-Datenbank. Änderungen werden dauerhaft gespeichert.</value>
+  </data>
+  <data name="AppTitle" xml:space="preserve">
+    <value>Task-o-Time</value>
+  </data>
+  <data name="FileMenuHeader" xml:space="preserve">
+    <value>_Datei</value>
+  </data>
+  <data name="MainDataMenuHeader" xml:space="preserve">
+    <value>_Stammdaten</value>
+  </data>
+  <data name="AnalysisMenuHeader" xml:space="preserve">
+    <value>_Auswertung</value>
+  </data>
+  <data name="ExportDayMenuHeader" xml:space="preserve">
+    <value>Ausgewählten Tag als CSV exportieren</value>
+  </data>
+  <data name="ExportPeriodMenuHeader" xml:space="preserve">
+    <value>Zeitraum als CSV exportieren</value>
+  </data>
+  <data name="QuitMenuHeader" xml:space="preserve">
+    <value>Beenden</value>
+  </data>
+  <data name="ToolsMenuHeader" xml:space="preserve">
+    <value>_Extras</value>
+  </data>
+  <data name="OptionsMenuHeader" xml:space="preserve">
+    <value>Optionen…</value>
+  </data>
+  <data name="NewTaskButtonText" xml:space="preserve">
+    <value>Neue Aufgabe</value>
+  </data>
+  <data name="EditTaskButtonText" xml:space="preserve">
+    <value>Aufgabe bearbeiten</value>
+  </data>
+  <data name="NewTaskListButtonText" xml:space="preserve">
+    <value>Neue Aufgabenliste</value>
+  </data>
+  <data name="EditTaskListButtonText" xml:space="preserve">
+    <value>Aufgabenliste bearbeiten</value>
+  </data>
+  <data name="StartTaskButtonText" xml:space="preserve">
+    <value>Aufgabe starten</value>
+  </data>
+  <data name="CheckOutButtonText" xml:space="preserve">
+    <value>Ausbuchen</value>
+  </data>
+  <data name="CompleteTaskButtonText" xml:space="preserve">
+    <value>Aufgabe abschließen</value>
+  </data>
+  <data name="PauseButtonText" xml:space="preserve">
+    <value>Pause</value>
+  </data>
+  <data name="DownTimeButtonText" xml:space="preserve">
+    <value>Ausfallzeit</value>
+  </data>
+  <data name="ErrandButtonText" xml:space="preserve">
+    <value>Besorgung</value>
+  </data>
+  <data name="ManageProjectsMenuHeader" xml:space="preserve">
+    <value>Projekte…</value>
+  </data>
+  <data name="ManageTaskListsMenuHeader" xml:space="preserve">
+    <value>Aufgabenlisten…</value>
+  </data>
+  <data name="ManageTasksMenuHeader" xml:space="preserve">
+    <value>Aufgaben…</value>
+  </data>
+  <data name="ManageUsersAdminMenuHeader" xml:space="preserve">
+    <value>Benutzer / Verwaltung…</value>
+  </data>
+  <data name="DailyStatementMenuHeader" xml:space="preserve">
+    <value>Tagesnachweis…</value>
+  </data>
+  <data name="WeeklyStatementMenuHeader" xml:space="preserve">
+    <value>Wochennachweis…</value>
+  </data>
+  <data name="MonthlyStatementMenuHeader" xml:space="preserve">
+    <value>Monatsnachweis…</value>
+  </data>
+  <data name="TenantAdminStatisticsMenuHeader" xml:space="preserve">
+    <value>Mandantenstatistik…</value>
+  </data>
+  <data name="DialogCloseButtonText" xml:space="preserve">
+    <value>Schließen</value>
+  </data>
+  <data name="TodayButtonText" xml:space="preserve">
+    <value>Heute</value>
+  </data>
+  <data name="YesterdayButtonText" xml:space="preserve">
+    <value>Gestern</value>
+  </data>
+  <data name="AddTimeEntryButtonText" xml:space="preserve">
+    <value>Buchung hinzufügen</value>
+  </data>
+  <data name="EditTimeEntryButtonText" xml:space="preserve">
+    <value>Bearbeiten</value>
+  </data>
+  <data name="DeleteTimeEntryButtonText" xml:space="preserve">
+    <value>Löschen</value>
+  </data>
+  <data name="InsertWorkBreakButtonText" xml:space="preserve">
+    <value>Pause hinzufügen</value>
+  </data>
+  <data name="InsertDownTimeButtonText" xml:space="preserve">
+    <value>Ausfallzeit hinzufügen</value>
+  </data>
+  <data name="InsertErrandButtonText" xml:space="preserve">
+    <value>Besorgung hinzufügen</value>
+  </data>
+  <data name="InsertStopMarkButtonText" xml:space="preserve">
+    <value>Stoppmarke</value>
+  </data>
+  <data name="BookedDaysHeader" xml:space="preserve">
+    <value>Tage mit Buchungen</value>
+  </data>
+  <data name="CompleteRecordingTaskCheckBoxText" xml:space="preserve">
+    <value>Laufende Aufgabe abschließen</value>
+  </data>
+  <data name="Common_OK" xml:space="preserve">
+    <value>OK</value>
+  </data>
+  <data name="Common_Cancel" xml:space="preserve">
+    <value>Abbrechen</value>
+  </data>
+  <data name="Common_Save" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="Login_Title" xml:space="preserve">
+    <value>Task-o-Time – Anmelden</value>
+  </data>
+  <data name="Login_SignIn" xml:space="preserve">
+    <value>Anmelden</value>
+  </data>
+  <data name="Login_UserName" xml:space="preserve">
+    <value>Benutzername oder E-Mail-Adresse</value>
+  </data>
+  <data name="Login_Password" xml:space="preserve">
+    <value>Passwort</value>
+  </data>
+  <data name="Login_NewPassword" xml:space="preserve">
+    <value>Neues Passwort (bei einem temporären Passwort)</value>
+  </data>
+  <data name="Login_NoResponse" xml:space="preserve">
+    <value>Keine Antwort vom Anmeldedienst.</value>
+  </data>
+  <data name="Login_ChangeRequired" xml:space="preserve">
+    <value>Ersetzen Sie das temporäre Passwort durch ein neues.</value>
+  </data>
+  <data name="Login_Failed" xml:space="preserve">
+    <value>Anmeldung fehlgeschlagen: {0}</value>
+  </data>
+  <data name="Login_ChangeFailed" xml:space="preserve">
+    <value>Passwortänderung fehlgeschlagen: {0}</value>
+  </data>
+  <data name="Login_InvalidRequest" xml:space="preserve">
+    <value>Geben Sie die erforderlichen Anmeldedaten ein.</value>
+  </data>
+  <data name="Login_InvalidCredentials" xml:space="preserve">
+    <value>Benutzername oder Passwort ist ungültig.</value>
+  </data>
+  <data name="Login_UserInactive" xml:space="preserve">
+    <value>Dieser Benutzer ist inaktiv.</value>
+  </data>
+  <data name="Login_UserLockedOut" xml:space="preserve">
+    <value>Dieser Benutzer ist vorübergehend gesperrt.</value>
+  </data>
+  <data name="Login_TemporaryPasswordExpired" xml:space="preserve">
+    <value>Das temporäre Passwort ist abgelaufen.</value>
+  </data>
+  <data name="Login_UserNotFound" xml:space="preserve">
+    <value>Der aktive Benutzer wurde nicht gefunden.</value>
+  </data>
+  <data name="Login_PasswordChangeNotRequired" xml:space="preserve">
+    <value>Dieser Benutzer muss das temporäre Passwort nicht ändern.</value>
+  </data>
+  <data name="Login_Rejected" xml:space="preserve">
+    <value>Der Anmeldedienst hat die Anfrage abgelehnt ({0}).</value>
+  </data>
+  <data name="Main_More" xml:space="preserve">
+    <value>Weitere Aktionen</value>
+  </data>
+  <data name="Main_UntilNext" xml:space="preserve">
+    <value>Bis zur nächsten</value>
+  </data>
+  <data name="Main_SincePrevious" xml:space="preserve">
+    <value>Seit der vorherigen</value>
+  </data>
+  <data name="Main_Lists" xml:space="preserve">
+    <value>Listen</value>
+  </data>
+  <data name="Main_Tasks" xml:space="preserve">
+    <value>Aufgaben</value>
+  </data>
+  <data name="Main_Logout" xml:space="preserve">
+    <value>Abmelden</value>
+  </data>
+  <data name="Main_Start" xml:space="preserve">
+    <value>Start</value>
+  </data>
+  <data name="Main_Duration" xml:space="preserve">
+    <value>Dauer</value>
+  </data>
+  <data name="Main_Date" xml:space="preserve">
+    <value>Datum</value>
+  </data>
+  <data name="Main_Target" xml:space="preserve">
+    <value>Soll: </value>
+  </data>
+  <data name="Main_Booked" xml:space="preserve">
+    <value>Gebucht: </value>
+  </data>
+  <data name="Main_Open" xml:space="preserve">
+    <value>Offen: </value>
+  </data>
+  <data name="Main_Heading" xml:space="preserve">
+    <value>Zeiterfassung</value>
+  </data>
+  <data name="Main_EmptyDay" xml:space="preserve">
+    <value>Für diesen Tag wurden noch keine Zeiten erfasst.</value>
+  </data>
+  <data name="Main_DaySummary" xml:space="preserve">
+    <value>{0} Buchungen · {1} gebucht · {2} Pause · {3} offen</value>
+  </data>
+  <data name="Main_ThisWeek" xml:space="preserve">
+    <value>Diese Woche</value>
+  </data>
+  <data name="Main_LastWeek" xml:space="preserve">
+    <value>Letzte Woche</value>
+  </data>
+  <data name="Main_PreviousWeek" xml:space="preserve">
+    <value>Vorletzte Woche</value>
+  </data>
+  <data name="Main_WeekInMonth" xml:space="preserve">
+    <value>{0}. Woche im {1:MMMM}</value>
+  </data>
+  <data name="Main_NoStart" xml:space="preserve">
+    <value>Die Aufgabe hat keine Startzeit.</value>
+  </data>
+  <data name="Booking_Title" xml:space="preserve">
+    <value>Zeitbuchung</value>
+  </data>
+  <data name="Booking_Project" xml:space="preserve">
+    <value>Projekt</value>
+  </data>
+  <data name="Booking_Category" xml:space="preserve">
+    <value>Kategorie</value>
+  </data>
+  <data name="Booking_Start" xml:space="preserve">
+    <value>Startzeit</value>
+  </data>
+  <data name="Booking_Name" xml:space="preserve">
+    <value>Titel</value>
+  </data>
+  <data name="Booking_Description" xml:space="preserve">
+    <value>Beschreibung</value>
+  </data>
+  <data name="Booking_InvalidTime" xml:space="preserve">
+    <value>Geben Sie eine gültige Startzeit ein (zum Beispiel 14:30).</value>
+  </data>
+  <data name="Booking_InvalidDuration" xml:space="preserve">
+    <value>Geben Sie die Dauer als HH:mm ein.</value>
+  </data>
+  <data name="Booking_NoCategory" xml:space="preserve">
+    <value>Es ist keine buchbare Kategorie vorhanden.</value>
+  </data>
+  <data name="Booking_New" xml:space="preserve">
+    <value>Neue Zeitbuchung</value>
+  </data>
+  <data name="Booking_AddDescription" xml:space="preserve">
+    <value>Beschreibung ergänzen</value>
+  </data>
+  <data name="Booking_Stop" xml:space="preserve">
+    <value>Stopp</value>
+  </data>
+  <data name="Booking_BreakInserted" xml:space="preserve">
+    <value>Arbeitsunterbrechung eingefügt.</value>
+  </data>
+  <data name="Booking_StopInserted" xml:space="preserve">
+    <value>Stoppmarke eingefügt.</value>
+  </data>
+  <data name="Booking_DowntimeAdded" xml:space="preserve">
+    <value>Ausfallzeit nachgetragen.</value>
+  </data>
+  <data name="Booking_ErrandAdded" xml:space="preserve">
+    <value>Besorgung nachgetragen.</value>
+  </data>
+  <data name="Booking_BreakUpdated" xml:space="preserve">
+    <value>Pause aktualisiert.</value>
+  </data>
+  <data name="Booking_DayEndUpdated" xml:space="preserve">
+    <value>Tagesende aktualisiert.</value>
+  </data>
+  <data name="Booking_CompletionMissing" xml:space="preserve">
+    <value>Die Abschlussbuchung ist nicht mehr vorhanden.</value>
+  </data>
+  <data name="Booking_EndBeforeStart" xml:space="preserve">
+    <value>Die Abschlusszeit muss nach dem Aufgabenstart liegen.</value>
+  </data>
+  <data name="Booking_StartOccupied" xml:space="preserve">
+    <value>Die Aufgabenstartzeit ist bereits durch eine Systembuchung belegt.</value>
+  </data>
+  <data name="Booking_DuplicateTime" xml:space="preserve">
+    <value>Für diese Uhrzeit ist bereits eine Buchung vorhanden.</value>
+  </data>
+  <data name="Booking_Missing" xml:space="preserve">
+    <value>Die Buchung ist nicht mehr vorhanden.</value>
+  </data>
+  <data name="Booking_NoDay" xml:space="preserve">
+    <value>Der Buchungsdienst hat keinen Buchungstag zurückgegeben.</value>
+  </data>
+  <data name="Booking_NoResponse" xml:space="preserve">
+    <value>Keine Antwort vom Buchungsdienst.</value>
+  </data>
+  <data name="Options_Title" xml:space="preserve">
+    <value>Optionen</value>
+  </data>
+  <data name="Options_Language" xml:space="preserve">
+    <value>Sprache</value>
+  </data>
+  <data name="Options_RestorePlacement" xml:space="preserve">
+    <value>Position und Größe des Hauptfensters speichern und wiederherstellen.</value>
+  </data>
+  <data name="Options_Workdays" xml:space="preserve">
+    <value>Arbeitstage</value>
+  </data>
+  <data name="Options_Saturday" xml:space="preserve">
+    <value>Samstag ist Arbeitstag</value>
+  </data>
+  <data name="Options_Sunday" xml:space="preserve">
+    <value>Sonntag ist Arbeitstag</value>
+  </data>
+  <data name="Options_Days" xml:space="preserve">
+    <value>Tage</value>
+  </data>
+  <data name="Options_Weeks" xml:space="preserve">
+    <value>Wochen</value>
+  </data>
+  <data name="Options_Range" xml:space="preserve">
+    <value>{0} {1} mit Buchungen anzeigen.</value>
+  </data>
+  <data name="Project_Title" xml:space="preserve">
+    <value>Projekte</value>
+  </data>
+  <data name="Project_Heading" xml:space="preserve">
+    <value>Projektstammdaten</value>
+  </data>
+  <data name="Project_Identifier" xml:space="preserve">
+    <value>Kennung</value>
+  </data>
+  <data name="Project_Description" xml:space="preserve">
+    <value>Beschreibung</value>
+  </data>
+  <data name="Project_NoAssignments" xml:space="preserve">
+    <value>Keine Zuordnungen</value>
+  </data>
+  <data name="Project_Selected" xml:space="preserve">
+    <value>Projekt ausgewählt</value>
+  </data>
+  <data name="Project_Archive" xml:space="preserve">
+    <value>Archivieren</value>
+  </data>
+  <data name="Project_Archived" xml:space="preserve">
+    <value>Projekt archiviert.</value>
+  </data>
+  <data name="Project_Updated" xml:space="preserve">
+    <value>Projekt aktualisiert.</value>
+  </data>
+  <data name="Project_ServiceError" xml:space="preserve">
+    <value>Dienstfehler</value>
+  </data>
+  <data name="Login_StartupFailed" xml:space="preserve">
+    <value>Task-o-Time – Start fehlgeschlagen</value>
+  </data>
+  <data name="Login_WorkspaceFailed" xml:space="preserve">
+    <value>Der Arbeitsplatz konnte nicht geladen werden</value>
+  </data>
+  <data name="Project_Name" xml:space="preserve">
+    <value>Projektname</value>
+  </data>
+  <data name="Project_Category" xml:space="preserve">
+    <value>Kategorie</value>
+  </data>
+  <data name="Project_Categories" xml:space="preserve">
+    <value>Kategorien</value>
+  </data>
+  <data name="Project_Active" xml:space="preserve">
+    <value>Aktiv</value>
+  </data>
+  <data name="Project_New" xml:space="preserve">
+    <value>Neu</value>
+  </data>
+  <data name="Project_Save" xml:space="preserve">
+    <value>Speichern</value>
+  </data>
+  <data name="Project_Delete" xml:space="preserve">
+    <value>Projekt löschen</value>
+  </data>
+  <data name="Project_AddCategory" xml:space="preserve">
+    <value>Kategorie hinzufügen</value>
+  </data>
+  <data name="Project_RemoveCategory" xml:space="preserve">
+    <value>Kategorie entfernen</value>
+  </data>
+  <data name="Project_Ready" xml:space="preserve">
+    <value>Bereit.</value>
+  </data>
+  <data name="Project_Loaded" xml:space="preserve">
+    <value>{0} Projekte geladen.</value>
+  </data>
+  <data name="Project_Saved" xml:space="preserve">
+    <value>Projekt gespeichert.</value>
+  </data>
+  <data name="Project_Deleted" xml:space="preserve">
+    <value>Projekt gelöscht.</value>
+  </data>
+  <data name="Project_NameRequired" xml:space="preserve">
+    <value>Geben Sie einen Projektnamen ein.</value>
+  </data>
+  <data name="Project_Select" xml:space="preserve">
+    <value>Wählen Sie ein Projekt aus.</value>
+  </data>
+  <data name="Project_CategoryRequired" xml:space="preserve">
+    <value>Geben Sie einen Kategorienamen ein.</value>
+  </data>
+  <data name="Project_CategoryAdded" xml:space="preserve">
+    <value>Kategorie hinzugefügt.</value>
+  </data>
+  <data name="Project_CategoryRemoved" xml:space="preserve">
+    <value>Kategorie entfernt.</value>
+  </data>
+  <data name="Project_Failed" xml:space="preserve">
+    <value>Die Projektaktion ist fehlgeschlagen: {0}</value>
+  </data>
+  <data name="Project_NewName" xml:space="preserve">
+    <value>Neues Projekt</value>
+  </data>
+  <data name="Project_CreateOperation" xml:space="preserve">
+    <value>Projekt erstellen</value>
+  </data>
+  <data name="Project_SaveOperation" xml:space="preserve">
+    <value>Projekt speichern</value>
+  </data>
+  <data name="Project_ArchiveOperation" xml:space="preserve">
+    <value>Projekt archivieren</value>
+  </data>
+  <data name="Project_NotificationTitle" xml:space="preserve">
+    <value>Projekt</value>
+  </data>
+  <data name="Project_ArchiveTitle" xml:space="preserve">
+    <value>Archivieren</value>
+  </data>
+  <data name="Common_ServiceError" xml:space="preserve">
+    <value>Dienstfehler</value>
+  </data>
+  <data name="MainData_Title" xml:space="preserve">
+    <value>Task-o-Time Stammdaten</value>
+  </data>
+  <data name="Common_NoServiceResult" xml:space="preserve">
+    <value>{0}: keine Antwort vom Dienst.</value>
+  </data>
+  <data name="Common_ServiceFailure" xml:space="preserve">
+    <value>{0} fehlgeschlagen: {1} - {2}</value>
+  </data>
+  <data name="Common_ErrorDetail" xml:space="preserve">
+    <value>Die Aktion ist fehlgeschlagen: {0}</value>
+  </data>
+  <data name="Booking_CompletionRollbackFailed" xml:space="preserve">
+    <value>Der Aufgabenabschluss ist fehlgeschlagen und die Buchungen konnten nicht wiederhergestellt werden.</value>
+  </data>
+  <data name="Login_TenantInactive" xml:space="preserve">
+    <value>Der Mandant ist inaktiv, gelöscht oder nicht verfügbar.</value>
+  </data>
+  <data name="Sample_MyDay" xml:space="preserve">
+    <value>Mein Tag</value>
+  </data>
+  <data name="Sample_TodayFocus" xml:space="preserve">
+    <value>Fokus für heute</value>
+  </data>
+  <data name="Sample_CheckBookings" xml:space="preserve">
+    <value>Zeitbuchungen prüfen</value>
+  </data>
+  <data name="Sample_CheckBookingsDescription" xml:space="preserve">
+    <value>Tageszeiten mit dem Kalender abgleichen.</value>
+  </data>
+  <data name="Sample_ClarifyQuestions" xml:space="preserve">
+    <value>Rückfragen klären</value>
+  </data>
+  <data name="Sample_ClarifyQuestionsDescription" xml:space="preserve">
+    <value>Offene Punkte aus der Morgenrunde nachfassen.</value>
+  </data>
+  <data name="Sample_PrepareDayEnd" xml:space="preserve">
+    <value>Tagesabschluss vorbereiten</value>
+  </data>
+  <data name="Sample_PrepareDayEndDescription" xml:space="preserve">
+    <value>Notizen und offene Arbeiten für den Feierabend sammeln.</value>
+  </data>
+  <data name="Sample_ProjectWork" xml:space="preserve">
+    <value>Projektarbeit</value>
+  </data>
+  <data name="Sample_Deliverables" xml:space="preserve">
+    <value>Aktive Liefergegenstände</value>
+  </data>
+  <data name="Sample_CoordinateUi" xml:space="preserve">
+    <value>Oberfläche abstimmen</value>
+  </data>
+  <data name="Sample_CoordinateUiDescription" xml:space="preserve">
+    <value>Aufgabenbereich mit der Zeiterfassung verbinden.</value>
+  </data>
+  <data name="Sample_ServiceContract" xml:space="preserve">
+    <value>Dienstvertrag skizzieren</value>
+  </data>
+  <data name="Sample_ServiceContractDescription" xml:space="preserve">
+    <value>Felder für künftige Aufgaben des Anwendungsservers festhalten.</value>
+  </data>
+  <data name="Sample_Later" xml:space="preserve">
+    <value>Später</value>
+  </data>
+  <data name="Sample_FollowUp" xml:space="preserve">
+    <value>Nachverfolgung</value>
+  </data>
+  <data name="Sample_Waiting" xml:space="preserve">
+    <value>Wartet auf Antwort</value>
+  </data>
+  <data name="Sample_GetApproval" xml:space="preserve">
+    <value>Freigabe einholen</value>
+  </data>
+  <data name="Sample_GetApprovalDescription" xml:space="preserve">
+    <value>Status beim Fachbereich nachfragen.</value>
+  </data>
+  <data name="Sample_Tomorrow" xml:space="preserve">
+    <value>Morgen</value>
+  </data>
+  <data name="Sample_UpdateDocumentation" xml:space="preserve">
+    <value>Dokumentation ergänzen</value>
+  </data>
+  <data name="Sample_UpdateDocumentationDescription" xml:space="preserve">
+    <value>Eine kurze Bediennotiz zum Aufgabenstatus vorbereiten.</value>
+  </data>
+  <data name="Task_EditedTitle" xml:space="preserve">
+    <value>Bearbeitet: {0}</value>
+  </data>
+  <data name="Task_EditDescription" xml:space="preserve">
+    <value>Die Aufgabe wurde über die vorbereitete Bearbeitungsaktion geändert.</value>
+  </data>
+  <data name="Sample_DayPlanning" xml:space="preserve">
+    <value>Tagesplanung</value>
+  </data>
+  <data name="Sample_DayPlanningDescription" xml:space="preserve">
+    <value>Prioritäten und Aufgaben für den Tag ordnen.</value>
+  </data>
+  <data name="Sample_BookingChainEnd" xml:space="preserve">
+    <value>Ende der aktuellen Buchungskette.</value>
+  </data>
+  <data name="Sample_Lunch" xml:space="preserve">
+    <value>Mittagspause</value>
+  </data>
+  <data name="Sample_WorkBreak" xml:space="preserve">
+    <value>Arbeitsunterbrechung.</value>
+  </data>
+  <data name="Sample_TimeCollectionImplementation" xml:space="preserve">
+    <value>Die Zeiterfassungsansicht umsetzen.</value>
+  </data>
+  <data name="Sample_UiVerification" xml:space="preserve">
+    <value>Die Oberfläche fertigstellen und prüfen.</value>
+  </data>
+  <data name="Sample_Support" xml:space="preserve">
+    <value>Unterstützung</value>
+  </data>
+  <data name="Sample_CustomerQuestion" xml:space="preserve">
+    <value>Eine Kundenrückfrage bearbeiten.</value>
+  </data>
+  <data name="Sample_UnbookedActivity" xml:space="preserve">
+    <value>Zu einer nicht gebuchten Tätigkeit wechseln.</value>
+  </data>
+  <data name="Report_ExportDay_Title" xml:space="preserve">
+    <value>Tag exportieren</value>
+  </data>
+  <data name="Report_ExportDay_Heading" xml:space="preserve">
+    <value>CSV-Export für den ausgewählten Tag</value>
+  </data>
+  <data name="Report_ExportDay_Lead" xml:space="preserve">
+    <value>Der Tag {0:d} ist für den CSV-Export vorgemerkt.</value>
+  </data>
+  <data name="Report_ExportDay_Detail1" xml:space="preserve">
+    <value>Platzhalter für Datei- und Spaltenauswahl sowie Exportstatus.</value>
+  </data>
+  <data name="Report_ExportDay_Detail2" xml:space="preserve">
+    <value>Eine künftige Implementierung kann hier den Export starten.</value>
+  </data>
+  <data name="Report_ExportPeriod_Title" xml:space="preserve">
+    <value>Zeitraum exportieren</value>
+  </data>
+  <data name="Report_ExportPeriod_Heading" xml:space="preserve">
+    <value>CSV-Export für einen Zeitraum</value>
+  </data>
+  <data name="Report_ExportPeriod_Lead" xml:space="preserve">
+    <value>Dialogplatzhalter für Startdatum, Enddatum und Exportoptionen.</value>
+  </data>
+  <data name="Report_ExportPeriod_Detail1" xml:space="preserve">
+    <value>Platzhalter für Zeitraumwahl, Validierung und Exportstatus.</value>
+  </data>
+  <data name="Report_ExportPeriod_Detail2" xml:space="preserve">
+    <value>Der Befehl ist bereits mit dem Menü verbunden.</value>
+  </data>
+  <data name="Report_Day_Title" xml:space="preserve">
+    <value>Tagesauswertung</value>
+  </data>
+  <data name="Report_Day_Heading" xml:space="preserve">
+    <value>Auswertung: Tagesnachweis</value>
+  </data>
+  <data name="Report_Day_Lead" xml:space="preserve">
+    <value>Dialogplatzhalter für den Tagesnachweis vom {0:d}.</value>
+  </data>
+  <data name="Report_Day_Detail1" xml:space="preserve">
+    <value>Geplante Inhalte: Buchungen, Pausen und Soll-Ist-Vergleich.</value>
+  </data>
+  <data name="Report_Day_Detail2" xml:space="preserve">
+    <value>Export oder Druck kann später ergänzt werden.</value>
+  </data>
+  <data name="Report_Week_Title" xml:space="preserve">
+    <value>Wochenauswertung</value>
+  </data>
+  <data name="Report_Week_Heading" xml:space="preserve">
+    <value>Auswertung: Wochennachweis</value>
+  </data>
+  <data name="Report_Week_Lead" xml:space="preserve">
+    <value>Dialogplatzhalter für Wochenübersicht und Soll-Ist-Vergleich.</value>
+  </data>
+  <data name="Report_Week_Detail1" xml:space="preserve">
+    <value>Geplante Inhalte: Tage, Summen und Abweichungen.</value>
+  </data>
+  <data name="Report_Week_Detail2" xml:space="preserve">
+    <value>Die Auswahl wird sich am aktuell gewählten Datum orientieren.</value>
+  </data>
+  <data name="Report_Month_Title" xml:space="preserve">
+    <value>Monatsauswertung</value>
+  </data>
+  <data name="Report_Month_Heading" xml:space="preserve">
+    <value>Auswertung: Monatsnachweis</value>
+  </data>
+  <data name="Report_Month_Lead" xml:space="preserve">
+    <value>Dialogplatzhalter für Monatsübersicht, Salden und Freigaben.</value>
+  </data>
+  <data name="Report_Month_Detail1" xml:space="preserve">
+    <value>Geplante Inhalte: Monatskalender, Gesamtzeiten und offene Tage.</value>
+  </data>
+  <data name="Report_Month_Detail2" xml:space="preserve">
+    <value>Funktionen für den Monatsabschluss können später ergänzt werden.</value>
+  </data>
+  <data name="Report_Tenant_Title" xml:space="preserve">
+    <value>Mandantenstatistik</value>
+  </data>
+  <data name="Report_Tenant_Heading" xml:space="preserve">
+    <value>Auswertung: Mandantenverwaltung</value>
+  </data>
+  <data name="Report_Tenant_Lead" xml:space="preserve">
+    <value>Dialogplatzhalter für Verwaltungsstatistiken zu Benutzern und Projekten.</value>
+  </data>
+  <data name="Report_Tenant_Detail1" xml:space="preserve">
+    <value>Geplante Inhalte: Auslastung, Buchungsqualität und ausstehende Freigaben.</value>
+  </data>
+  <data name="Report_Tenant_Detail2" xml:space="preserve">
+    <value>Diese Ansicht ist als Einstieg in Verwaltungsauswertungen vorbereitet.</value>
+  </data>
+  <data name="TaskList_Title" xml:space="preserve"><value>Aufgabenliste</value></data>
+  <data name="Login_ConnectionRequired" xml:space="preserve"><value>Production benötigt TASKOTIME_CONNECTION_STRING für eine eingerichtete Task-o-Time-Datenbank.</value></data>
+  <data name="Login_InvalidMode" xml:space="preserve"><value>TASKOTIME_MODE muss Demo, LocalDemo oder Production sein.</value></data>
+  <data name="Login_ModeConfigured" xml:space="preserve"><value>Konfigurierte Testdienste</value></data>
+  <data name="Login_TenantMismatch" xml:space="preserve"><value>Der konfigurierte Mandant stimmt nicht mit dem angemeldeten Konto überein.</value></data>
+  <data name="Login_ModelConnectionMissing" xml:space="preserve"><value>Die EF6-Verbindung TaskOTimeContext fehlt in App.config.</value></data>
+  <data name="Login_NoTenants" xml:space="preserve"><value>Die konfigurierte Task-o-Time-Datenbank enthält keine Mandanten.</value></data>
+  <data name="Login_DatabaseFailed" xml:space="preserve"><value>Die konfigurierte Task-o-Time-SQL-Datenbank konnte nicht geladen werden. {0}</value></data>
+</root>

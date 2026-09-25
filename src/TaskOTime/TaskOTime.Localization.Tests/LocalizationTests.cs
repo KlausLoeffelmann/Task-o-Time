@@ -1,0 +1,705 @@
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Data;
+using System.Windows.Markup;
+using System.Windows.Threading;
+using System.Xml.Linq;
+using Microsoft.Extensions.Localization;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using TaskOTime.App;
+using TaskOTime.AppServer.Models;
+using TaskOTime.AppServer.Services;
+using TaskOTime.ViewModel.Localization;
+using TaskOTime.ViewModel.ViewModels;
+using TaskOTime.ViewModel;
+using TaskOTime.ViewModel.Views;
+using TaskOTime.ViewModel.Views.Localization;
+using TaskOTime.TimeTrackingServices.Tests.Doubles;
+
+namespace TaskOTime.Localization.Tests
+{
+    [TestClass]
+    public class LocalizationTests
+    {
+        private static Dispatcher dispatcher;
+        private static Thread uiThread;
+        private static IDisposable cultureContext;
+        private static readonly LocalizationService Localizer = LocalizationService.Current;
+
+        [AssemblyInitialize]
+        public static void Initialize(TestContext context)
+        {
+            var ready = new ManualResetEventSlim();
+            Exception failure = null;
+            uiThread = new Thread(() =>
+            {
+                try
+                {
+                    // Load presentation resources only. App.OnStartup connects to SQL and must not run here.
+                    var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
+                    app.Resources.MergedDictionaries.Add(new ResourceDictionary
+                    {
+                        Source = new Uri("/TaskOTime.App;component/Themes/ClassicDark.xaml", UriKind.Relative)
+                    });
+                    dispatcher = Dispatcher.CurrentDispatcher;
+                    cultureContext = Localizer.UseChangeContext(new WpfCultureChangeContext(dispatcher));
+                }
+                catch (Exception e) { failure = e; }
+                finally { ready.Set(); }
+                if (failure == null) Dispatcher.Run();
+            });
+            uiThread.SetApartmentState(ApartmentState.STA);
+            uiThread.IsBackground = true;
+            uiThread.Start();
+            ready.Wait();
+            if (failure != null) throw failure;
+        }
+
+        [AssemblyCleanup]
+        public static void Cleanup()
+        {
+            dispatcher.Invoke(() => cultureContext.Dispose());
+            dispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            dispatcher.BeginInvokeShutdown(DispatcherPriority.Send);
+            Assert.IsTrue(uiThread.Join(TimeSpan.FromSeconds(10)),
+                $"The test UI dispatcher did not stop: {uiThread.ThreadState}, {dispatcher.HasShutdownStarted}, {dispatcher.HasShutdownFinished}.");
+        }
+
+        private static void OnUi(Action action) => dispatcher.Invoke(() =>
+        {
+            Localizer.SetCulture("en");
+            try { action(); }
+            finally { Localizer.SetCulture("en"); }
+        });
+
+        private static void Flush() => dispatcher.Invoke(() => { }, DispatcherPriority.DataBind);
+
+        [TestMethod]
+        public void DesktopConfigurationErrorsUseRealResourcesBeforeAnyDatabaseAccess() => OnUi(() =>
+        {
+            var previousMode = Environment.GetEnvironmentVariable("TASKOTIME_MODE");
+            var previousConnection = Environment.GetEnvironmentVariable("TASKOTIME_CONNECTION_STRING");
+            try
+            {
+                foreach (var culture in new[] { "en", "de", "nl", "es" })
+                {
+                    Localizer.SetCulture(culture);
+                    Environment.SetEnvironmentVariable("TASKOTIME_MODE", "invalid");
+                    Assert.AreEqual(Localizer["Login_InvalidMode"],
+                        Assert.ThrowsException<InvalidOperationException>(() => DesktopServices.Create()).Message);
+                    Environment.SetEnvironmentVariable("TASKOTIME_MODE", "Production");
+                    Environment.SetEnvironmentVariable("TASKOTIME_CONNECTION_STRING", null);
+                    Assert.AreEqual(Localizer["Login_ConnectionRequired"],
+                        Assert.ThrowsException<InvalidOperationException>(() => DesktopServices.Create()).Message);
+                    Assert.AreEqual(Localizer["Common_NoServiceResult"],
+                        Assert.ThrowsException<InvalidOperationException>(() => DesktopServices.Require<object>(null)).Message);
+                }
+            }
+            finally
+            {
+                Environment.SetEnvironmentVariable("TASKOTIME_MODE", previousMode);
+                Environment.SetEnvironmentVariable("TASKOTIME_CONNECTION_STRING", previousConnection);
+            }
+        });
+
+        [TestMethod]
+        public void TaskDueDateAndOpenListEditorRefreshWithoutOverwritingDrafts() => OnUi(() =>
+        {
+            var date = new DateTimeOffset(2026, 4, 23, 0, 0, 0, TimeSpan.FromHours(2));
+            var task = new TaskItemViewModel("Customer task", "Customer description", "") { DueDate = date };
+            var label = new TextBlock { DataContext = task };
+            label.SetBinding(TextBlock.TextProperty, new Binding(nameof(TaskItemViewModel.DueText)));
+            var request = new TaskListEditRequestEventArgs("Customer list", "Customer subtitle", (_, _) => { });
+            var view = new TaskListEditDialog(request);
+            try
+            {
+                view.Show();
+                foreach (var culture in new[] { "en", "de", "nl", "es", "de-AT" })
+                {
+                    Localizer.SetCulture(culture);
+                    Flush();
+                    Assert.AreEqual(date.ToString("d", Localizer.Culture), label.Text);
+                    Assert.AreEqual(date, task.DueDate);
+                    Assert.AreEqual(Localizer["TaskList_Title"], view.Title);
+                    Assert.IsTrue(Descendants(view).OfType<TextBlock>().Any(x => x.Text == Localizer["Booking_Description"]));
+                    Assert.IsTrue(Descendants(view).OfType<Button>().Any(x => Equals(x.ToolTip, Localizer["Common_Cancel"])));
+                    Assert.AreEqual("Customer list", request.Title);
+                    Assert.AreEqual("Customer subtitle", request.Subtitle);
+                }
+                task.DueText = "Customer deadline";
+                Localizer.SetCulture("nl");
+                Flush();
+                Assert.IsNull(task.DueDate);
+                Assert.AreEqual("Customer deadline", label.Text);
+            }
+            finally { view.Close(); }
+        });
+
+        [TestMethod]
+        public void WpfHostRejectsWorkerCultureChangesWithoutChangingState() => OnUi(() =>
+        {
+            var notifiedOn = -1;
+            System.ComponentModel.PropertyChangedEventHandler handler = (_, _) => notifiedOn = Environment.CurrentManagedThreadId;
+            Localizer.PropertyChanged += handler;
+            try
+            {
+                var failure = System.Threading.Tasks.Task.Run(() =>
+                    Assert.ThrowsException<InvalidOperationException>(() => Localizer.SetCulture("de"))).GetAwaiter().GetResult();
+                Assert.IsNotNull(failure);
+                Assert.AreEqual("en", Localizer.CultureName);
+                Assert.AreEqual(-1, notifiedOn);
+                Localizer.SetCulture("nl");
+                Assert.AreEqual(Environment.CurrentManagedThreadId, notifiedOn);
+            }
+            finally { Localizer.PropertyChanged -= handler; }
+        });
+
+        [TestMethod]
+        public void MainReportDialogsRefreshOpenBindingsAndCloseTooltipInEveryLanguage() => OnUi(() =>
+        {
+            var main = new VmMain(new TimeCollectionViewModel());
+            var date = new DateTime(2026, 4, 23);
+            main.SelectedDate = date;
+            DialogShellViewModel model = null;
+            main.DialogRequested += (_, e) => model = e.Dialog;
+            var commands = new[]
+            {
+                (main.ExportSelectedDayCommand, "Report_ExportDay"),
+                (main.ExportPeriodCommand, "Report_ExportPeriod"),
+                (main.ShowDailyStatementCommand, "Report_Day"),
+                (main.ShowWeeklyStatementCommand, "Report_Week"),
+                (main.ShowMonthlyStatementCommand, "Report_Month"),
+                (main.ShowTenantAdminStatisticsCommand, "Report_Tenant")
+            };
+            foreach (var (command, prefix) in commands)
+            {
+                command.Execute(null);
+                var view = new DialogShell(model);
+                try
+                {
+                    view.Show();
+                    foreach (var culture in new[] { "en", "de", "nl", "es", "de-AT" })
+                    {
+                        Localizer.SetCulture(culture);
+                        Flush();
+                        Assert.AreEqual(Localizer[prefix + "_Title"], view.Title);
+                        Assert.AreEqual(XmlLanguage.GetLanguage(Localizer.CultureName), view.Language);
+                        Assert.IsTrue(Descendants(view).OfType<TextBlock>().Any(x => x.Text == Localizer[prefix + "_Heading"]));
+                        Assert.IsTrue(Descendants(view).OfType<TextBlock>().Any(x => x.Text == Localizer.Format(prefix + "_Lead", date)));
+                        CollectionAssert.AreEqual(new[] { Localizer[prefix + "_Detail1"], Localizer[prefix + "_Detail2"] }, model.Details.ToArray());
+                        Assert.IsTrue(Descendants(view).OfType<Button>().Any(x => Equals(x.ToolTip, Localizer["DialogCloseButtonText"])));
+                        if (prefix == "Report_ExportDay" || prefix == "Report_Day")
+                            StringAssert.Contains(model.LeadText, date.ToString("d", Localizer.Culture));
+                    }
+                }
+                finally { view.Close(); }
+            }
+            var plain = new DialogShellViewModel("Custom title", "Custom heading", "User content", "Custom detail");
+            Localizer.SetCulture("de");
+            Assert.AreEqual("Custom title", plain.Title);
+            Assert.AreEqual("User content", plain.LeadText);
+        });
+
+        [TestMethod]
+        public void EditableSampleAndNewTaskContentUsesCreationCultureWithoutRewritingUserData() => OnUi(() =>
+        {
+            foreach (var (culture, title) in new[] { ("en", "My day"), ("de", "Mein Tag"), ("nl", "Mijn dag"), ("es", "Mi día") })
+            {
+                Localizer.SetCulture(culture);
+                var tasks = new TaskManagementViewModel();
+                Assert.AreEqual(title, tasks.SelectedTaskList.Title);
+                tasks.NewTaskCommand.Execute(null);
+                Assert.AreEqual(Localizer["NewTaskButtonText"], tasks.SelectedTaskItem.Title);
+                tasks.SelectedTaskItem.Title = "Customer title";
+                Localizer.SetCulture("en");
+                Assert.AreEqual(title, tasks.SelectedTaskList.Title);
+                Assert.AreEqual("Customer title", tasks.SelectedTaskItem.Title);
+            }
+        });
+
+        [TestMethod]
+        public void ResourceSetsHaveExactParityAndValidFormatArguments()
+        {
+            var root = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Resources");
+            var neutral = ReadResources(Path.Combine(root, "Strings.resx"));
+            foreach (var language in new[] { "de", "nl", "es" })
+            {
+                var translated = ReadResources(Path.Combine(root, "Strings." + language + ".resx"));
+                CollectionAssert.AreEquivalent(neutral.Keys.ToArray(), translated.Keys.ToArray());
+                foreach (var key in neutral.Keys)
+                {
+                    Assert.IsFalse(string.IsNullOrWhiteSpace(translated[key]), key);
+                    CollectionAssert.AreEqual(Placeholders(neutral[key]), Placeholders(translated[key]), key);
+                }
+            }
+        }
+
+        private static string[] Placeholders(string value) =>
+            System.Text.RegularExpressions.Regex.Matches(value, @"\{(\d+)(?:[^}]*)\}")
+                .Cast<System.Text.RegularExpressions.Match>().Select(m => m.Groups[1].Value).OrderBy(x => x).ToArray();
+
+        private static Dictionary<string, string> ReadResources(string path) =>
+            XDocument.Load(path).Root.Elements("data").ToDictionary(x => (string)x.Attribute("name"), x => (string)x.Element("value"));
+
+        [TestMethod]
+        public void EveryLocalizedXamlBindingReferencesAnExistingResource()
+        {
+            var root = AppDomain.CurrentDomain.BaseDirectory;
+            var resources = ReadResources(Path.Combine(root, "Resources", "Strings.resx"));
+            foreach (var path in Directory.GetFiles(Path.Combine(root, "Views"), "*.xaml"))
+            {
+                var matches = System.Text.RegularExpressions.Regex.Matches(File.ReadAllText(path), @"\{loc:Loc ([^}]+)\}");
+                Assert.IsTrue(matches.Count > 0, path);
+                foreach (System.Text.RegularExpressions.Match match in matches)
+                    Assert.IsTrue(resources.ContainsKey(match.Groups[1].Value), path + ":" + match.Value);
+            }
+        }
+
+        [TestMethod]
+        public void RealMicrosoftLocalizerLoadsNeutralSatellitesAndParentFallback() => OnUi(() =>
+        {
+            Assert.IsInstanceOfType(Localizer.Strings, typeof(ResourceManagerStringLocalizer));
+            foreach (var pair in new[] { ("en", "Sign in"), ("de", "Anmelden"), ("nl", "Aanmelden"), ("es", "Iniciar sesión"), ("de-AT", "Anmelden") })
+            {
+                Localizer.SetCulture(pair.Item1);
+                Assert.AreEqual(pair.Item2, Localizer["Login_SignIn"]);
+                Assert.IsFalse(Localizer.Strings["Booking_Title"].ResourceNotFound);
+                Assert.IsFalse(Localizer.Strings["Main_Heading"].ResourceNotFound);
+                Assert.IsFalse(Localizer.Strings["Project_Title"].ResourceNotFound);
+            }
+            Localizer.SetCulture("fr-FR");
+            Assert.AreEqual("en", Localizer.Culture.Name);
+            Assert.AreEqual("Sign in", Localizer["Login_SignIn"]);
+            Localizer.SetCulture("invalid-culture-name");
+            Assert.AreEqual("en", Localizer.Culture.Name);
+            Assert.IsTrue(Localizer.Strings["Missing_Key"].ResourceNotFound);
+            Assert.AreEqual("Missing_Key", Localizer["Missing_Key"]);
+        });
+
+        [TestMethod]
+        public void EveryResourceIsActuallyResolvableAndTranslationsAreNotEnglishCopies() => OnUi(() =>
+        {
+            var neutral = Localizer.Strings.GetAllStrings(true).ToDictionary(x => x.Name, x => x.Value);
+            foreach (var culture in new[] { "de", "nl", "es" })
+            {
+                Localizer.SetCulture(culture);
+                foreach (var key in neutral.Keys)
+                    Assert.IsFalse(Localizer.Strings[key].ResourceNotFound, culture + ":" + key);
+                foreach (var key in new[] { "Login_ChangeRequired", "Main_EmptyDay", "Booking_InvalidTime", "Project_NameRequired" })
+                    Assert.AreNotEqual(neutral[key], Localizer[key], culture + ":" + key);
+            }
+        });
+
+        [TestMethod]
+        public void LoginErrorAndForcedPasswordStateUpdateWithoutRepeatingAuthentication() => OnUi(() =>
+        {
+            var authentication = new AuthenticationStub();
+            var vm = new LoginViewModel(authentication);
+            Assert.IsFalse(vm.Login("user", "wrong"));
+            StringAssert.Contains(vm.ErrorMessage, "user name or password");
+            Localizer.SetCulture("de");
+            StringAssert.Contains(vm.ErrorMessage, "Benutzername");
+            Assert.AreEqual(1, authentication.Calls);
+            authentication.RequireChange = true;
+            Assert.IsFalse(vm.Login("user", "temporary"));
+            Assert.IsTrue(vm.MustChangePassword);
+            Assert.IsNull(vm.Session);
+            Localizer.SetCulture("es");
+            StringAssert.Contains(vm.ErrorMessage, "contraseña temporal");
+            Assert.IsTrue(vm.ChangeTemporaryPassword("temporary", "new"));
+            Assert.IsNotNull(vm.Session);
+            Assert.IsFalse(vm.MustChangePassword);
+        });
+
+        [TestMethod]
+        public void OpenWindowBindingsUpdateIncludingMenusLabelsAndInheritedLanguage() => OnUi(() =>
+        {
+            var login = new LoginWindow(new LoginViewModel(new AuthenticationStub()), "", "Login_ModeDemo");
+            var options = new OptionsDialog(new AppOptionsViewModel());
+            var collection = new TimeCollectionViewModel();
+            var booking = new TimeEntryEditDialog(new TimeEntryEditRequestEventArgs(DateTime.Today.AddHours(8), "Customer title", "", false, null), collection);
+            var main = new MainWindow(new VmMain(collection), new DesktopServices(), new TenantUserDto { UserIdent = "test" });
+            try
+            {
+                Localizer.SetCulture("de");
+                Flush();
+                Assert.AreEqual("Task-o-Time – Anmelden", login.Title);
+                Assert.AreEqual("Optionen", options.Title);
+                Assert.AreEqual("Zeitbuchung", booking.Title);
+                Assert.AreEqual("de", booking.Language.IetfLanguageTag);
+                Assert.IsTrue(Descendants(main).OfType<MenuItem>().Any(x => Equals(x.Header, "_Datei")));
+                Assert.IsTrue(Descendants(booking).OfType<TextBlock>().Any(x => x.Text == "Kategorie"));
+                Assert.IsTrue(Descendants(login).OfType<TextBlock>().Any(x => x.Text.Contains("Lokale SQL-Demo")));
+                Localizer.SetCulture("nl");
+                Flush();
+                Assert.AreEqual("Tijdboeking", booking.Title);
+                Assert.IsTrue(Descendants(main).OfType<MenuItem>().Any(x => Equals(x.Header, "_Bestand")));
+                Assert.AreEqual("Customer title", booking.Request.Title);
+            }
+            finally
+            {
+                // Suppress placement persistence in memory while closing actual application views.
+                var settings = (System.Configuration.ApplicationSettingsBase)typeof(MainWindow).Assembly
+                    .GetType("TaskOTime.App.Properties.Settings").GetProperty("Default").GetValue(null);
+                var restore = settings["RestoreMainWindowPlacement"];
+                settings["RestoreMainWindowPlacement"] = false;
+                try
+                {
+                    main.Close();
+                    booking.Close();
+                    options.Close();
+                    login.Close();
+                }
+                finally { settings["RestoreMainWindowPlacement"] = restore; }
+            }
+        });
+
+        [TestMethod]
+        public void InactiveTenantErrorsAreLocalizedForSignInAndForcedPasswordChange() => OnUi(() =>
+        {
+            var service = new AuthenticationStub { TenantInactive = true };
+            var login = new LoginViewModel(service);
+            Assert.IsFalse(login.Login("user", "password"));
+            var expected = new[]
+            {
+                ("en", "The tenant is inactive, deleted, or unavailable."),
+                ("de", "Der Mandant ist inaktiv, gelöscht oder nicht verfügbar."),
+                ("nl", "De tenant is inactief, verwijderd of niet beschikbaar."),
+                ("es", "El cliente está inactivo, eliminado o no disponible.")
+            };
+            foreach (var pair in expected)
+            {
+                Localizer.SetCulture(pair.Item1);
+                Assert.AreEqual("TenantInactive: " + pair.Item2, login.ErrorMessage);
+                Assert.IsNull(login.Session);
+            }
+            Assert.AreEqual(1, service.Calls);
+            service.TenantInactive = false;
+            service.RequireChange = true;
+            Assert.IsFalse(login.Login("user", "temporary"));
+            Assert.IsTrue(login.MustChangePassword);
+            service.TenantInactive = true;
+            Assert.IsFalse(login.ChangeTemporaryPassword("temporary", "new"));
+            foreach (var pair in expected)
+            {
+                Localizer.SetCulture(pair.Item1);
+                Assert.AreEqual("TenantInactive: " + pair.Item2, login.ErrorMessage);
+                Assert.IsNull(login.Session);
+                Assert.IsTrue(login.MustChangePassword);
+            }
+        });
+
+        private static IEnumerable<DependencyObject> Descendants(DependencyObject root)
+        {
+            yield return root;
+            foreach (var child in LogicalTreeHelper.GetChildren(root).OfType<DependencyObject>())
+                foreach (var descendant in Descendants(child)) yield return descendant;
+        }
+
+        [TestMethod]
+        public void OpenProjectMainDataViewRefreshesLabelsAndPersistedStatusInEveryLanguage() => OnUi(() =>
+        {
+            var fixture = new ProjectFixture();
+            var window = new MainDataWindow { DataContext = fixture.Main };
+            window.Show();
+            try
+            {
+                var project = fixture.Main.Projects;
+                project.ProjectName = "Customer supplied name";
+                project.SaveCommand.Execute(null);
+                var selectedId = project.SelectedProject.IdProject;
+                var notifications = fixture.Interaction.Messages.Count;
+                foreach (var culture in new[] { "de", "nl", "es", "en", "fr-FR" })
+                {
+                    Localizer.SetCulture(culture);
+                    Flush();
+                    Assert.AreEqual(Localizer["MainData_Title"], window.Title);
+                    Assert.AreEqual(Localizer["Project_Heading"], window.ProjectScreen.HeadingLabel.Content);
+                    Assert.AreEqual(Localizer["Project_Selected"], window.ProjectScreen.AssignmentLabel.Text);
+                    Assert.AreEqual(Localizer["Project_Updated"], ((TextBlock)window.ProjectScreen.FindName("StatusLabel")).Text);
+                    Assert.AreEqual(Localizer["Project_Save"], window.ProjectScreen.SaveButton.Content);
+                    Assert.AreEqual(Localizer.CultureName, window.ProjectScreen.Language.IetfLanguageTag);
+                    Assert.AreEqual(selectedId, project.SelectedProject.IdProject);
+                    Assert.AreEqual("Customer supplied name", window.ProjectScreen.ProjectNameTextBox.Text);
+                    Assert.AreEqual(notifications, fixture.Interaction.Messages.Count);
+                }
+            }
+            finally { window.Close(); }
+        });
+
+        [TestMethod]
+        public void ProjectValidationAndServiceFailuresRetainKeysAndDraftsAcrossCultureChanges() => OnUi(() =>
+        {
+            var fixture = new ProjectFixture();
+            var project = fixture.Main.Projects;
+            var selected = project.SelectedProject;
+            var originalName = selected.ProjectName;
+            project.ProjectName = " ";
+            project.SaveCommand.Execute(null);
+            Assert.AreEqual(Localizer["Project_NameRequired"], project.OperationStatusText);
+            Localizer.SetCulture("nl");
+            Assert.AreEqual("Voer een projectnaam in.", project.OperationStatusText);
+            Assert.AreSame(selected, project.SelectedProject);
+            Assert.AreEqual(originalName, selected.ProjectName);
+
+            project.ProjectName = "Unsaved draft";
+            fixture.Services.FailMutations = true;
+            project.SaveCommand.Execute(null);
+            StringAssert.Contains(project.OperationStatusText, "Project opslaan mislukt");
+            var messageCount = fixture.Interaction.Messages.Count;
+            Localizer.SetCulture("es");
+            StringAssert.Contains(project.OperationStatusText, "Guardar proyecto");
+            Assert.IsFalse(project.OperationStatusText.Contains("Project opslaan"));
+            Assert.AreEqual(messageCount, fixture.Interaction.Messages.Count);
+            Assert.AreEqual("Unsaved draft", project.ProjectName);
+            Assert.AreEqual(originalName, selected.ProjectName);
+            Assert.AreSame(selected, project.SelectedProject);
+        });
+
+        [TestMethod]
+        public void ProjectCreateAndArchiveLocalizeNotificationsButKeepIdentifiersInvariant() => OnUi(() =>
+        {
+            var fixture = new ProjectFixture();
+            var project = fixture.Main.Projects;
+            Localizer.SetCulture("de");
+            project.NewCommand.Execute(null);
+            Assert.AreEqual("Neues Projekt", project.SelectedProject.ProjectName);
+            Assert.AreEqual("NEW", project.SelectedProject.ProjectIdentifier);
+            var created = project.SelectedProject;
+            project.ArchiveCommand.Execute(null);
+            Assert.IsFalse(project.Projects.Contains(created));
+            Assert.AreEqual("Projekt archiviert.", project.OperationStatusText);
+            Assert.AreEqual("Archivieren", fixture.Interaction.Messages.Last().Title);
+            Localizer.SetCulture("nl");
+            Assert.AreEqual("Project gearchiveerd.", project.OperationStatusText);
+            project.SelectedProject = null;
+            Assert.AreEqual("Geen toewijzingen", project.AssignmentText);
+        });
+
+        private sealed class ProjectFixture
+        {
+            public TestApplicationServices Services { get; } = new TestApplicationServices();
+            public RecordingInteraction Interaction { get; } = new RecordingInteraction();
+            public MainDataViewModel Main { get; }
+            public ProjectFixture()
+            {
+                var store = new ServiceWorkspace(Services.Tenant, Services.ActingUserId, Services, Services, Services);
+                Main = new MainDataViewModel(store, 1, Interaction);
+            }
+        }
+
+        private sealed class RecordingInteraction : IMaintenanceInteraction
+        {
+            public List<(string Message, string Title)> Messages { get; } = new List<(string, string)>();
+            public void Notify(string message, string title) => Messages.Add((message, title));
+            public bool Confirm(string message, string title) => throw new NotSupportedException();
+        }
+
+        [TestMethod]
+        public void OptionsDraftCancelAndApplyPreserveTransactionalSemantics() => OnUi(() =>
+        {
+            var main = new VmMain();
+            var draft = main.Options.Clone();
+            draft.CultureName = "de";
+            Assert.AreEqual("en", Localizer.Culture.Name);
+            Assert.AreEqual("en", main.Options.CultureName);
+            var savedDraft = main.Options.Clone();
+            savedDraft.CultureName = "nl";
+            savedDraft.SaturdayIsWorkday = !main.Options.SaturdayIsWorkday;
+            main.ApplyOptions(savedDraft);
+            Assert.AreEqual("nl", Localizer.Culture.Name);
+            Assert.AreEqual(savedDraft.SaturdayIsWorkday, main.Options.SaturdayIsWorkday);
+            Assert.AreEqual("Tijdregistratie", main.TimeCollection.Heading);
+        });
+
+        [TestMethod]
+        public void BothBookingBoundaryValidationsUseTheSameLocalizedMessage() => OnUi(() =>
+        {
+            var start = DateTime.Today.AddDays(1).AddHours(8);
+            var task = new TaskItemViewModel("Customer task", "", "");
+            var tasks = new TaskManagementViewModel(new[] { new TaskListViewModel("List", "", new[] { task }) }, () => start);
+            var times = new TimeCollectionViewModel(start.Date,
+                categories: new[] { new CategoryMainDataDto { IdCategory = Guid.NewGuid(), CategoryName = "Work" } });
+            var main = new VmMain(times, tasks);
+            tasks.StartTaskCommand.Execute(null);
+            TimeEntryEditRequestEventArgs request = null;
+            times.TimeEntryEditRequested += (_, e) => request = e;
+            times.AddCommand.Execute(null);
+            Assert.IsNotNull(request);
+            foreach (var culture in new[] { "en", "de", "nl", "es" })
+            {
+                Localizer.SetCulture(culture);
+                var direct = Assert.ThrowsException<InvalidOperationException>(() => times.RecordTask(task, start, start));
+                var dialog = Assert.ThrowsException<InvalidOperationException>(() => request.SaveAction(start, "Title", "", true));
+                Assert.AreEqual(Localizer["Booking_EndBeforeStart"], direct.Message);
+                Assert.AreEqual(direct.Message, dialog.Message);
+            }
+            Assert.IsTrue(task.IsStarted);
+            Assert.IsFalse(task.IsDone);
+            GC.KeepAlive(main);
+        });
+
+        [TestMethod]
+        public void CompensationFailureIsLocalizedWithoutLosingEitherException() => OnUi(() =>
+        {
+            foreach (var culture in new[] { "en", "de", "nl", "es" })
+            {
+                Localizer.SetCulture(culture);
+                var failure = new InvalidOperationException("Save diagnostic");
+                var services = new TestApplicationServices();
+                var access = new TimeBookingAccessContextDto
+                {
+                    IdTenant = services.Tenant.IdTenant,
+                    IdActingUser = services.ActingUserId,
+                    IdBookingUser = services.ActingUserId
+                };
+                var query = new MainDataQueryRequest { IdTenant = services.Tenant.IdTenant, IdActingUser = services.ActingUserId };
+                var start = DateTime.Today.AddDays(1).AddHours(8);
+                var times = new TimeCollectionViewModel(start.Date, services, access,
+                    services.GetProjects(query).Value, services.CategoryId, () => start,
+                    services.GetCategories(query).Value);
+                var task = new TaskItemViewModel("Customer task", "", "") { IdProject = services.ProjectId };
+                var tasks = new TaskManagementViewModel(
+                    new[] { new TaskListViewModel("List", "", new[] { task }) }, saveTask: _ =>
+                    {
+                        access.IdBookingUser = Guid.Empty;
+                        throw failure;
+                    });
+                var main = new VmMain(times, tasks) { ManualCompletionStartText = "08:00", ManualCompletionDurationText = "01:00" };
+                var error = Assert.ThrowsException<AggregateException>(() => tasks.CompleteTaskCommand.Execute(null));
+                StringAssert.StartsWith(error.Message, Localizer["Booking_CompletionRollbackFailed"]);
+                Assert.AreSame(failure, error.InnerExceptions[0]);
+                StringAssert.Contains(error.InnerExceptions[1].Message, "InvalidAccess");
+                Assert.IsFalse(task.IsDone);
+                GC.KeepAlive(main);
+            }
+        });
+
+        [TestMethod]
+        public void CultureRefreshesFormattedViewModelStateWithoutMutatingBookings() => OnUi(() =>
+        {
+            var main = new VmMain();
+            var selected = main.TimeCollection.SelectedDayEntries.First();
+            var id = selected.IDTimeItem;
+            var count = main.TimeCollection.SelectedDayEntries.Count;
+            var notifications = 0;
+            main.PropertyChanged += (_, e) => { if (string.IsNullOrEmpty(e.PropertyName)) notifications++; };
+            var englishDate = main.SelectedDateSummary;
+            Localizer.SetCulture("es");
+            Assert.AreNotEqual(englishDate, main.SelectedDateSummary);
+            StringAssert.Contains(main.TimeCollection.DaySummary, "registros");
+            Assert.IsTrue(notifications > 0);
+            Assert.AreEqual(id, selected.IDTimeItem);
+            Assert.AreEqual(count, main.TimeCollection.SelectedDayEntries.Count);
+        });
+
+        [TestMethod]
+        public void CultureAffectsParsingFormattingAndWpfNumericBindings() => OnUi(() =>
+        {
+            Localizer.SetCulture("en-US");
+            Assert.IsTrue(TimeInput.TryParseTime("2:30 PM", out var time));
+            Assert.AreEqual(TimeSpan.FromHours(14.5), time);
+            Localizer.SetCulture("de-DE");
+            Assert.IsTrue(TimeInput.TryParseTime("14:30", out time));
+            Assert.IsFalse(TimeInput.TryParseTime("24:01", out _));
+            Assert.IsFalse(TimeInput.TryParseTime("2026-09-11", out _));
+            Assert.AreEqual("1,5", 1.5.ToString(CultureInfo.CurrentCulture));
+            var box = (TextBox)XamlReader.Parse(
+                "<TextBox xmlns='http://schemas.microsoft.com/winfx/2006/xaml/presentation' " +
+                "xmlns:loc='clr-namespace:TaskOTime.ViewModel.Localization;assembly=TaskOTime.ViewModel' Language='{loc:Culture}'/>");
+            var source = new NumberSource { Value = 1.5 };
+            box.SetBinding(TextBox.TextProperty, new Binding(nameof(NumberSource.Value)) { Source = source, Mode = BindingMode.TwoWay });
+            Assert.AreEqual("1,5", box.Text);
+            box.Text = "2,5";
+            box.GetBindingExpression(TextBox.TextProperty).UpdateSource();
+            Assert.AreEqual(2.5, source.Value);
+            Localizer.SetCulture("en-US");
+            Flush();
+            Assert.AreEqual("2.5", box.Text);
+        });
+
+        public sealed class NumberSource { public double Value { get; set; } }
+
+        [TestMethod]
+        public void SelectedCultureSurvivesCallbacksWithAnOlderExecutionContext() => OnUi(() =>
+        {
+            Localizer.SetCulture("es");
+            CultureInfo.CurrentCulture = CultureInfo.GetCultureInfo("en-US");
+            CultureInfo.CurrentUICulture = CultureInfo.GetCultureInfo("en-US");
+            Assert.AreEqual("Iniciar sesión", Localizer["Login_SignIn"]);
+            StringAssert.Contains(Localizer.Format("Main_WeekInMonth", 2, new DateTime(2026, 9, 11)), "septiembre");
+            StringAssert.Contains(new VmMain().SelectedDateSummary, DateTime.Today.ToString("MMMM", Localizer.Culture));
+            Assert.IsFalse(TimeInput.TryParseTime("2:30 PM", out _));
+            Assert.AreEqual("en-US", CultureInfo.CurrentUICulture.Name);
+        });
+
+        [TestMethod]
+        public void WeakCultureSubscriptionsDoNotRetainDiscardedViewModels() => OnUi(() =>
+        {
+            var reference = CreateDiscardedViewModel();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            Assert.IsFalse(reference.IsAlive);
+            Localizer.SetCulture("de");
+        });
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference CreateDiscardedViewModel() => new WeakReference(new AppOptionsViewModel());
+
+        [TestMethod]
+        public void SharedWorkspaceAndCultureDoNotRetainDiscardedProjectEditors() => OnUi(() =>
+        {
+            var services = new TestApplicationServices();
+            var store = new ServiceWorkspace(services.Tenant, services.ActingUserId, services, services, services);
+            var reference = CreateDiscardedProject(store);
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            GC.Collect();
+            Assert.IsFalse(reference.IsAlive);
+            Localizer.SetCulture("de");
+            GC.KeepAlive(store);
+        });
+
+        [MethodImpl(MethodImplOptions.NoInlining)]
+        private static WeakReference CreateDiscardedProject(ServiceWorkspace store) =>
+            new WeakReference(new ProjectViewModel(store, new RecordingInteraction()));
+
+        private sealed class AuthenticationStub : IAuthenticationService
+        {
+            public int Calls;
+            public bool RequireChange;
+            public bool TenantInactive;
+            private bool changed;
+            public ServiceResult<AuthenticationResult> Authenticate(AuthenticateUserRequest request)
+            {
+                Calls++;
+                if (TenantInactive)
+                    return ServiceResult<AuthenticationResult>.Fail("TenantInactive", "Untranslated service diagnostic");
+                return RequireChange || changed
+                    ? ServiceResult<AuthenticationResult>.Ok(new AuthenticationResult
+                    {
+                        User = new TenantUserDto { IdTenant = Guid.NewGuid(), IdUser = Guid.NewGuid(), UserIdent = "user" },
+                        MustChangePassword = !changed
+                    })
+                    : ServiceResult<AuthenticationResult>.Fail("InvalidCredentials", "Service diagnostic");
+            }
+            public ServiceResult<TenantUserDto> ChangeTemporaryPassword(Guid tenant, Guid user, string temporary, string password)
+            {
+                if (TenantInactive)
+                    return ServiceResult<TenantUserDto>.Fail("TenantInactive", "Untranslated service diagnostic");
+                changed = true;
+                return ServiceResult<TenantUserDto>.Ok(new TenantUserDto());
+            }
+            public ServiceResult<TenantUserDto> ChangePassword(Guid tenant, Guid user, string current, string password) =>
+                throw new NotSupportedException();
+        }
+    }
+}

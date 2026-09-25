@@ -1,18 +1,42 @@
 using System;
+using System.Collections.Generic;
+using System.Globalization;
+using TaskOTime.ViewModel.Localization;
 using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    // Die Optionen zusammen halten, dann weiss das Binding an einer Stelle wie die Ansicht aussehen soll
-    public class AppOptionsViewModel : ViewModelBase
+    /// <summary>Bindable options; dialog drafts are applied only after confirmation.</summary>
+    public class AppOptionsViewModel : LocalizedViewModelBase
     {
 
         private bool _restoreMainWindowPlacement = true;
         private bool _saturdayIsWorkday;
         private bool _sundayIsWorkday;
-        // Zwei Wochen als Startwert erschien mir erstmal uebersichtlicher.
+        // Default to two weeks of booked dates.
         private int _bookedDateRangeCount = 14;
         private string _bookedDateRangeUnit = "Tage";
+        private string _cultureName = LocalizationService.Current.Culture.Name;
+
+        /// <summary>The dialog edits a draft. Applying options commits this culture.</summary>
+        public string CultureName
+        {
+            get => _cultureName;
+            set => SetProperty(ref _cultureName, LocalizationService.ResolveCulture(value).Name, nameof(CultureName));
+        }
+
+        public CultureInfo[] AvailableCultures => new[]
+        {
+            CultureInfo.GetCultureInfo("en"), CultureInfo.GetCultureInfo("de"),
+            CultureInfo.GetCultureInfo("nl"), CultureInfo.GetCultureInfo("es")
+        };
+
+        // Keep the stored range identifiers compatible with existing settings.
+        public KeyValuePair<string, string>[] RangeUnitChoices => new[]
+        {
+            new KeyValuePair<string, string>("Tage", Text("Options_Days")),
+            new KeyValuePair<string, string>("Wochen", Text("Options_Weeks"))
+        };
 
         public bool RestoreMainWindowPlacement
         {
@@ -22,12 +46,12 @@ namespace TaskOTime.ViewModel.ViewModels
             }
             set
             {
-                // Mit der Meldung merkt sich das Fenster seine Position dann vermutlich auch gleich dauerhaft.
+                // Notify the draft binding; persistence occurs only when Options is accepted.
                 SetProperty(ref _restoreMainWindowPlacement, value, nameof(RestoreMainWindowPlacement));
             }
         }
 
-        // Beide Wochenend-Haekchen getrennt, sonst kann man den Samstag garnicht einzeln waehlen.
+        // Weekend workdays can be enabled independently.
         public bool SaturdayIsWorkday
         {
             get
@@ -60,7 +84,7 @@ namespace TaskOTime.ViewModel.ViewModels
             }
             set
             {
-                // Eingabe erstmal zwischen 3 und 56 halten, die Zahl kommt ja direkt aus dem Dialog..
+                // Normalize the numeric input to the existing supported range.
                 int normalized = Math.Max(3, Math.Min(56, value));
                 if (SetProperty(ref _bookedDateRangeCount, normalized, nameof(BookedDateRangeCount)))
                 {
@@ -77,7 +101,7 @@ namespace TaskOTime.ViewModel.ViewModels
             }
             set
             {
-                // Nur Wochen extra erkennen; alles andere bleibt die Tagesauswahl
+                // Retain the stored week identifier; other input selects days.
                 string normalized = string.Equals(value, "Wochen", StringComparison.OrdinalIgnoreCase) ? "Wochen" : "Tage";
                 if (SetProperty(ref _bookedDateRangeUnit, normalized, nameof(BookedDateRangeUnit)))
                 {
@@ -87,12 +111,12 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
-        // Der Getter liest die Optionen, also muesste MVVM den Text doch schon dadurch mit beobachten.
         public string BookedDateRangeDescription
         {
             get
             {
-                return $"{BookedDateRangeCount} {BookedDateRangeUnit} anzeigen, die Buchungen aufweisen.";
+                return Text("Options_Range", BookedDateRangeCount,
+                    Text(BookedDateRangeUnit == "Wochen" ? "Options_Weeks" : "Options_Days"));
             }
         }
 
@@ -104,11 +128,12 @@ namespace TaskOTime.ViewModel.ViewModels
             }
         }
 
-        // Eigene Kopie fuer den Dialog machen, damit Abbrechen nicht schon alle Felder ueberschreibt.
+        /// <summary>Creates a draft so cancelling does not modify the live options.</summary>
         public AppOptionsViewModel Clone()
         {
             return new AppOptionsViewModel()
             {
+                CultureName = CultureName,
                 RestoreMainWindowPlacement = RestoreMainWindowPlacement,
                 SaturdayIsWorkday = SaturdayIsWorkday,
                 SundayIsWorkday = SundayIsWorkday,
@@ -117,9 +142,7 @@ namespace TaskOTime.ViewModel.ViewModels
             };
         }
 
-        // TODO: Beser bei Dutch nochmal nachfragen, weil, hier koennte das vielleicht sogar umgekehrt besser sein.
-        // Aber aufpassen, dass man einen Moment erwischt wo er wirklich zeit hat, und mach Notitsen!!
-        // Vielleicht lieber erst alle Fragen sammeln; wegen so einer kleinen Sache moechte ich nicht stoeren.
+        // Changing the unit applies its existing range constraints.
         private void NormalizeRangeForUnit()
         {
             if (BookedDateRangeUnit == "Wochen")

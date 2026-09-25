@@ -1,176 +1,160 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Linq;
-using System.Windows;
 using TaskOTime.AppServer.Models;
-using TaskOTime.ViewModel.Views;
+using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class MasterTaskViewModel
+    /// <summary>Maintains task lists, filtered task selection, and task edit drafts.</summary>
+    public sealed class MasterTaskViewModel : MaintenanceViewModel
     {
-        private readonly TaskWorkView _view;
-        private readonly ServiceWorkspace _store;
-        // '' <summary>
-        // '' Gives task controls their events so the view not must thinking.
-        // '' </summary>
-        // '' <param name="view">The task view which buttons belongs to this model.</param>
-        // '' <param name="store">The workspace that keep lists and tasks together.</param>
-        internal MasterTaskViewModel(TaskWorkView view, ServiceWorkspace store)
-        {
-            _view = view;
-            _store = store;
-            _view.DataContext = this;
-            // buttons direkt anfasen ist sauberes mvvm,weil die view dann dum bleibt
-            _view.TaskListListBox.ItemsSource = _store.TaskLists;
-            _view.TaskListListBox.SelectionChanged += this.ListChanged;
-            _view.TaskListView.SelectionChanged += this.TaskChanged;
-            _view.AddListButton.Click += this.AddList;
-            _view.AddTaskButton.Click += this.AddTask;
-            _view.SaveTaskButton.Click += this.SaveTask;
-            _view.DeleteTaskButton.Click += this.DeleteTask;
-            _view.TaskListListBox.SelectedIndex = 0;
-        }
+        private TaskListMainDataDto _selectedList;
+        private TaskItemMainDataDto _selectedTask;
+        private ProjectMainDataDto _selectedProject;
+        private string _taskName = "", _description = "", _status = "No selection";
+        private bool _completed;
 
-        // '' <summary>
-        // '' Shows only tasks which belongs into selected list.
-        // '' </summary>
-        // '' <remarks>
-        // '' First task get selected when there is some, for fields not stay waiting.
-        // '' </remarks>
-        private void ListChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        public MasterTaskViewModel(ServiceWorkspace store, IMaintenanceInteraction interaction) : base(store, interaction)
         {
-            TaskListMasterDataDto list = _view.TaskListListBox.SelectedItem as TaskListMasterDataDto;
-            // Bei Listenwechsel die sichtbaren Aufgaben neu nehmen; ToList bindet sie dann wohl weiter mit.
-            _view.TaskListView.ItemsSource = list is null ? null : _store.Tasks.Where(item => item.IdTaskList.HasValue && item.IdTaskList.Value == list.IdTaskList).ToList();
-            _view.AddTaskButton.IsEnabled = list is not null;
-            if (list is not null && _view.TaskListView.Items.Count > 0)
-                _view.TaskListView.SelectedIndex = 0;
-        }
-
-        private void TaskChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
-        {
-            // Auswahl in die Felder kopieren, sonst steht da noch der Text von der vorigen Aufgabe
-            TaskItemMasterDataDto task = _view.TaskListView.SelectedItem as TaskItemMasterDataDto;
-            _view.TaskNameTextBox.Text = task is null ? "" : task.TaskItemName;
-            _view.TaskDescriptionTextBox.Text = task is null ? "" : task.TaskItemDescription;
-            _view.CompletedCheckBox.IsChecked = task is not null && task.IsCompleted;
-            _view.TaskStatusLabel.Content = task is null ? "Keine Auswahl" : task.IsCompleted ? "Erledigt" : "Offen; Priorität " + task.Priority;
-            _view.SaveTaskButton.IsEnabled = task is not null;
-        }
-
-        private void AddList(object sender, RoutedEventArgs e)
-        {
-            var project = _store.Projects.First();
-            var list = new TaskListMasterDataDto()
+            AddListCommand = Command(AddList, () => SelectedProject != null && Projects.Contains(SelectedProject));
+            AddTaskCommand = Command(AddTask, () => SelectedList != null);
+            SaveTaskCommand = Command(SaveTask, () => SelectedTask != null);
+            DeleteTaskCommand = Command(DeleteTask, () => SelectedList != null && SelectedTask != null);
+            Store.Tasks.CollectionChanged += (_, __) => RefreshTasks();
+            TaskLists.CollectionChanged += (_, __) =>
             {
-                IdTenant = _store.Tenant.IdTenant,
-                IdProject = project.IdProject,
-                IdUser = _store.ActingUserId,
-                TaskListName = "Neue Liste",
-                TaskListDescription = "Beschreibung ergänzen"
+                var selectedId = SelectedList?.IdTaskList;
+                SelectedList = TaskLists.FirstOrDefault(list => list.IdTaskList == selectedId)
+                    ?? TaskLists.FirstOrDefault();
             };
-            try
+            Store.Projects.CollectionChanged += (_, __) =>
             {
-                var created = ServiceWorkspace.Require(_store.AdminService.CreateTaskList(new SaveTaskListRequest() { IdTenant = _store.Tenant.IdTenant, IdActingUser = _store.ActingUserId, Item = list }), "Aufgabenliste anlegen");
-                _store.TaskLists.Add(created);
-                _view.TaskListListBox.SelectedItem = created;
-            }
-            catch (InvalidOperationException ex)
-            {
-                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Servicefehler");
-            }
+                var selectedId = SelectedProject?.IdProject;
+                SelectedProject = Projects.FirstOrDefault(project => project.IdProject == selectedId)
+                    ?? Projects.FirstOrDefault();
+                RefreshCommands();
+            };
+            SelectedProject = Projects.FirstOrDefault();
+            SelectedList = TaskLists.FirstOrDefault();
         }
 
-        private void AddTask(object sender, RoutedEventArgs e)
+        public ObservableCollection<ProjectMainDataDto> Projects => Store.Projects;
+        public ObservableCollection<TaskListMainDataDto> TaskLists => Store.TaskLists;
+        public ObservableCollection<TaskItemMainDataDto> Tasks { get; } = new ObservableCollection<TaskItemMainDataDto>();
+        public DelegateCommand AddListCommand { get; }
+        public DelegateCommand AddTaskCommand { get; }
+        public DelegateCommand SaveTaskCommand { get; }
+        public DelegateCommand DeleteTaskCommand { get; }
+        public ProjectMainDataDto SelectedProject
         {
-            // Anlegen braucht eine Liste; ohne Auswahl also einfach nichts machen statt halbe Aufgabe.
-            TaskListMasterDataDto list = _view.TaskListListBox.SelectedItem as TaskListMasterDataDto;
-            if (list is null)
-                return;
-            var task = new TaskItemMasterDataDto()
+            get => _selectedProject;
+            set { if (SetProperty(ref _selectedProject, value, nameof(SelectedProject))) RefreshCommands(); }
+        }
+        public TaskListMainDataDto SelectedList
+        {
+            get => _selectedList;
+            set
             {
-                IdTenant = _store.Tenant.IdTenant,
-                IdProject = list.IdProject,
-                IdUser = list.IdUser,
-                IdTaskList = list.IdTaskList,
-                TaskItemName = "Neue Aufgabe",
-                TaskItemDescription = "Beschreibung ergänzen",
-                Priority = 1,
-                IsActive = true,
-                DateCreated = DateTimeOffset.Now,
+                if (!SetProperty(ref _selectedList, value, nameof(SelectedList))) return;
+                RefreshTasks();
+                RefreshCommands();
+            }
+        }
+        public TaskItemMainDataDto SelectedTask
+        {
+            get => _selectedTask;
+            set
+            {
+                if (!SetProperty(ref _selectedTask, value, nameof(SelectedTask))) return;
+                TaskName = value?.TaskItemName ?? "";
+                Description = value?.TaskItemDescription ?? "";
+                IsCompleted = value?.IsCompleted ?? false;
+                StatusText = value == null ? "No selection" : value.IsCompleted ? "Completed" : "Open; priority " + value.Priority;
+                RefreshCommands();
+            }
+        }
+        public string TaskName { get => _taskName; set => SetProperty(ref _taskName, value, nameof(TaskName)); }
+        public string Description { get => _description; set => SetProperty(ref _description, value, nameof(Description)); }
+        public bool IsCompleted { get => _completed; set => SetProperty(ref _completed, value, nameof(IsCompleted)); }
+        public string StatusText { get => _status; private set => SetProperty(ref _status, value, nameof(StatusText)); }
+
+        private void RefreshTasks()
+        {
+            var selectedId = SelectedTask?.IdTaskItem;
+            Tasks.Clear();
+            if (SelectedList != null)
+                foreach (var item in Store.Tasks.Where(item => item.IdTaskList == SelectedList.IdTaskList))
+                    Tasks.Add(item);
+            SelectedTask = Tasks.FirstOrDefault(item => item.IdTaskItem == selectedId) ?? Tasks.FirstOrDefault();
+        }
+
+        private void AddList()
+        {
+            var created = ServiceWorkspace.Require(Store.AdminService.CreateTaskList(new SaveTaskListRequest
+            {
+                IdTenant = Store.Tenant.IdTenant, IdActingUser = Store.ActingUserId,
+                Item = new TaskListMainDataDto
+                {
+                    IdTenant = Store.Tenant.IdTenant, IdProject = SelectedProject.IdProject,
+                    IdUser = Store.ActingUserId, TaskListName = "New list", TaskListDescription = "Add a description"
+                }
+            }), "Create task list");
+            TaskLists.Add(created);
+            SelectedList = created;
+        }
+
+        private void AddTask()
+        {
+            var list = SelectedList;
+            var created = ServiceWorkspace.Require(Store.AdminService.CreateTaskItem(new SaveTaskItemRequest
+            {
+                IdTenant = Store.Tenant.IdTenant, IdActingUser = Store.ActingUserId,
+                Item = new TaskItemMainDataDto
+                {
+                    IdTenant = Store.Tenant.IdTenant, IdProject = list.IdProject, IdUser = list.IdUser,
+                    IdTaskList = list.IdTaskList, TaskItemName = "New task", TaskItemDescription = "Add a description",
+                    Priority = 1, IsActive = true, DateCreated = DateTimeOffset.Now, DateModified = DateTimeOffset.Now
+                }
+            }), "Create task");
+            Store.Tasks.Add(created);
+            SelectedTask = created;
+        }
+
+        private void SaveTask()
+        {
+            var original = SelectedTask;
+            var draft = new TaskItemMainDataDto
+            {
+                IdTaskItem = original.IdTaskItem, IdTenant = original.IdTenant, IdUser = original.IdUser,
+                IdProject = original.IdProject, IdTaskList = original.IdTaskList, IdSymbol = original.IdSymbol,
+                QuickInfo = original.QuickInfo, DueDate = original.DueDate, TaskHoursBudget = original.TaskHoursBudget,
+                Priority = original.Priority, IsPrivateTask = original.IsPrivateTask, Scope = original.Scope,
+                IsActive = original.IsActive, IsDeleted = original.IsDeleted, IsForeign = original.IsForeign,
+                DateCreated = original.DateCreated, ExternalId = original.ExternalId, IdTagList = original.IdTagList,
+                TaskItemName = (TaskName ?? "").Trim(), TaskItemDescription = Description,
+                IsCompleted = IsCompleted, DateCompleted = IsCompleted ? original.DateCompleted ?? DateTimeOffset.Now : null,
                 DateModified = DateTimeOffset.Now
             };
-            try
+            var saved = ServiceWorkspace.Require(Store.AdminService.UpdateTaskItem(new SaveTaskItemRequest
             {
-                var created = ServiceWorkspace.Require(_store.AdminService.CreateTaskItem(new SaveTaskItemRequest() { IdTenant = _store.Tenant.IdTenant, IdActingUser = _store.ActingUserId, Item = task }), "Aufgabe anlegen");
-                _store.Tasks.Add(created);
-                ListChanged(null, null);
-                _view.TaskListView.SelectedItem = created;
-            }
-            catch (InvalidOperationException ex)
-            {
-                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Servicefehler");
-            }
+                IdTenant = Store.Tenant.IdTenant, IdActingUser = Store.ActingUserId, Item = draft
+            }), "Save task");
+            Store.Tasks[Store.Tasks.IndexOf(original)] = saved;
+            SelectedTask = saved;
+            StatusText = "Saved at " + DateTime.Now.ToString("HH:mm");
+            Interaction.Notify("Task saved.", "Task");
         }
 
-        // '' <summary>
-        // '' Saves task with the texts what controls currently has.
-        // '' </summary>
-        // '' <param name="sender">The save button which click was received.</param>
-        // '' <param name="e">The event data that no extra reading needs here.</param>
-        private void SaveTask(object sender, RoutedEventArgs e)
+        private void DeleteTask()
         {
-            TaskItemMasterDataDto task = _view.TaskListView.SelectedItem as TaskItemMasterDataDto;
-            if (task is null)
-                return;
-            task.TaskItemName = _view.TaskNameTextBox.Text.Trim();
-            task.TaskItemDescription = _view.TaskDescriptionTextBox.Text;
-            task.IsCompleted = _view.CompletedCheckBox.IsChecked.GetValueOrDefault();
-            task.DateModified = DateTimeOffset.Now;
-            try
+            var task = SelectedTask;
+            ServiceWorkspace.Require(Store.AdminService.DeleteTaskItem(new DeleteMainDataRequest
             {
-                ServiceWorkspace.Require(_store.AdminService.UpdateTaskItem(new SaveTaskItemRequest() { IdTenant = _store.Tenant.IdTenant, IdActingUser = _store.ActingUserId, Item = task }), "Aufgabe speichern");
-                _view.TaskListView.Items.Refresh();
-                // TODO: Rueckmeldung vielleicht nur im Label? Erst ein Beispiel sammeln, bevor ich Dutch frage.
-                // Lieber den Entwurf noch zweimal pruefen; ich will ihn damit wirklich nicht unnoetig aufhalten.
-                _view.TaskStatusLabel.Content = "Gespeichert um " + DateTime.Now.ToString("HH:mm");
-                MessageBox.Show(Window.GetWindow(_view), "Aufgabe über IAdminMasterDataService gespeichert.", "Aufgabe");
-            }
-            catch (InvalidOperationException ex)
-            {
-                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Servicefehler");
-            }
-        }
-
-        // '' <summary>
-        // '' Deletes selected task and make the current list showing again.
-        // '' </summary>
-        // '' <remarks>
-        // '' This request does hard delete, so the task not only gets hidden.
-        // '' </remarks>
-        private void DeleteTask(object sender, RoutedEventArgs e)
-        {
-            // Nach dem Loeschen die Liste nochmal laden, dann sind Auswahl und Felder wieder syncron.
-            TaskListMasterDataDto list = _view.TaskListListBox.SelectedItem as TaskListMasterDataDto;
-            TaskItemMasterDataDto task = _view.TaskListView.SelectedItem as TaskItemMasterDataDto;
-            if (list is null || task is null)
-                return;
-            try
-            {
-                ServiceWorkspace.Require(_store.AdminService.DeleteTaskItem(new DeleteMasterDataRequest()
-                {
-                    IdTenant = _store.Tenant.IdTenant,
-                    IdActingUser = _store.ActingUserId,
-                    IdItem = task.IdTaskItem,
-                    HardDelete = true
-                }), "Aufgabe löschen");
-                _store.Tasks.Remove(task);
-                ListChanged(null, null);
-            }
-            catch (InvalidOperationException ex)
-            {
-                MessageBox.Show(Window.GetWindow(_view), ex.Message, "Servicefehler");
-            }
+                IdTenant = Store.Tenant.IdTenant, IdActingUser = Store.ActingUserId,
+                IdItem = task.IdTaskItem, HardDelete = true
+            }), "Delete task");
+            Store.Tasks.Remove(task);
         }
     }
 }

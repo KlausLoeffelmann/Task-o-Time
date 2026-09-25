@@ -8,7 +8,7 @@ using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class TaskManagementViewModel : ViewModelBase
+    public class TaskManagementViewModel : Localization.LocalizedViewModelBase
     {
 
         private TaskListViewModel _selectedTaskList;
@@ -193,7 +193,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return "Taken";
+                return Text("Main_Tasks");
             }
         }
 
@@ -201,7 +201,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return "Lists above, taken below – ready for later AppServer data.";
+                return Text("Task_PanelSummary");
             }
         }
 
@@ -211,7 +211,7 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (SelectedTaskList is null)
                 {
-                    return "Geen takenlijst geselecteerd.";
+                    return Text("Task_NoList");
                 }
 
                 return SelectedTaskList.ProgressSummary;
@@ -224,7 +224,7 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (SelectedTaskItem is null)
                 {
-                    return "No task selected.";
+                    return Text("Task_NoSelection");
                 }
 
                 return SelectedTaskItem.ActionHint;
@@ -233,7 +233,25 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private static ObservableCollection<TaskListViewModel> CreateSampleTaskLists()
         {
-            return new ObservableCollection<TaskListViewModel>() { new TaskListViewModel("Mein Tag", "Fokus für heute", new[] { new TaskItemViewModel("Zeitbuchungen prüfen", "Tageszeiten kurz mit dem Kalender abgleichen.", "Heute"), new TaskItemViewModel("Rückfragen klären", "Offene Punkte aus der Morgenrunde nachfassen.", "Heute"), new TaskItemViewModel("Tagesabschluss vorbereiten", "Notizen und offene Blöcke für den Feierabend sammeln.", "17:00") }), new TaskListViewModel("Projektarbeit", "Aktive Liefergegenstände", new[] { new TaskItemViewModel("UI-Schnitt abstimmen", "Aufgabenpanel mit Zeiterfassung verzahnen.", "Diese Woche"), new TaskItemViewModel("Service-Vertrag skizzieren", "Felder für spätere AppServer-Tasks festhalten.", "Später") }), new TaskListViewModel("Nachverfolgung", "Wartet auf Antwort", new[] { new TaskItemViewModel("Freigabe einholen", "Status beim Fachbereich nachfragen.", "Morgen"), new TaskItemViewModel("Dokumentation ergänzen", "Kurze Bediennotiz für Aufgabenstatus vormerken.", "Diese Woche") }) };
+            return new ObservableCollection<TaskListViewModel>
+            {
+                new TaskListViewModel(Text("Sample_MyDay"), Text("Sample_TodayFocus"), new[]
+                {
+                    new TaskItemViewModel(Text("Sample_CheckBookings"), Text("Sample_CheckBookingsDescription"), Text("TodayButtonText")),
+                    new TaskItemViewModel(Text("Sample_ClarifyQuestions"), Text("Sample_ClarifyQuestionsDescription"), Text("TodayButtonText")),
+                    new TaskItemViewModel(Text("Sample_PrepareDayEnd"), Text("Sample_PrepareDayEndDescription"), "17:00")
+                }),
+                new TaskListViewModel(Text("Sample_ProjectWork"), Text("Sample_Deliverables"), new[]
+                {
+                    new TaskItemViewModel(Text("Sample_CoordinateUi"), Text("Sample_CoordinateUiDescription"), Text("Main_ThisWeek")),
+                    new TaskItemViewModel(Text("Sample_ServiceContract"), Text("Sample_ServiceContractDescription"), Text("Sample_Later"))
+                }),
+                new TaskListViewModel(Text("Sample_FollowUp"), Text("Sample_Waiting"), new[]
+                {
+                    new TaskItemViewModel(Text("Sample_GetApproval"), Text("Sample_GetApprovalDescription"), Text("Sample_Tomorrow")),
+                    new TaskItemViewModel(Text("Sample_UpdateDocumentation"), Text("Sample_UpdateDocumentationDescription"), Text("Main_ThisWeek"))
+                })
+            };
         }
 
         private void AddTask()
@@ -243,7 +261,7 @@ namespace TaskOTime.ViewModel.ViewModels
                 return;
             }
 
-            var taskItem = new TaskItemViewModel("Neue Aufgabe", "Beschreibung ergänzen.", "Heute");
+            var taskItem = new TaskItemViewModel(Text("NewTaskButtonText"), Text("Booking_AddDescription"), Text("TodayButtonText"));
             taskItem.PropertyChanged += OnRecordingTaskPropertyChanged;
             SelectedTaskList.Tasks.Add(taskItem);
             SelectedTaskItem = taskItem;
@@ -257,14 +275,14 @@ namespace TaskOTime.ViewModel.ViewModels
                 return;
             }
 
-            SelectedTaskItem.Title = "Bearbeitet: " + SelectedTaskItem.Title;
-            SelectedTaskItem.Description = "Aufgabe wurde über die vorbereitete Bearbeiten-Aktion geändert.";
+            SelectedTaskItem.Title = Text("Task_EditedTitle", SelectedTaskItem.Title);
+            SelectedTaskItem.Description = Text("Task_EditDescription");
             RefreshSelectedTaskState();
         }
 
         private void RequestNewTaskList()
         {
-            TaskListEditRequested?.Invoke(this, new TaskListEditRequestEventArgs("Neue Aufgabenliste", "Beschreibung ergänzen", (title, subtitle) =>
+            TaskListEditRequested?.Invoke(this, new TaskListEditRequestEventArgs(Text("NewTaskListButtonText"), Text("Booking_AddDescription"), (title, subtitle) =>
 {
 var taskList = new TaskListViewModel(title, subtitle, Enumerable.Empty<TaskItemViewModel>());
 TaskLists.Add(taskList);
@@ -325,13 +343,15 @@ SelectedTaskList.Subtitle = subtitle;
                 return;
             }
 
-            // de taakstatus verandert pas nadat de gekoppelde boekingsaanvraag zonder uitzondering is verwerkt.  zo blijft de zichtbare status gelijk aan de opgeslagen toestand.
-            TaskCompletionRequested?.Invoke(this, new TaskCompletionRequestEventArgs(SelectedTaskItem, _clock()));
-            SelectedTaskItem.MarkDone();
-            if (_saveTask is not null)
-                _saveTask(SelectedTaskItem);
-            if (ReferenceEquals(CurrentRecordingTask, SelectedTaskItem))
+            // Complete the compensating persistence request before changing the live task state.
+            var task = SelectedTaskItem;
+            RequestCompletion(task, _clock(), false, true);
+            task.MarkDone();
+            if (ReferenceEquals(CurrentRecordingTask, task))
+            {
+                CompleteRecordingOnNextTimeEntry = false;
                 ClearCurrentRecording();
+            }
             RefreshSelectedTaskState();
         }
 
@@ -359,21 +379,49 @@ SelectedTaskList.Subtitle = subtitle;
                 return;
             }
 
-            TaskCompletionRequested?.Invoke(this, new TaskCompletionRequestEventArgs(CurrentRecordingTask, boundaryTime, true));
+            var task = CurrentRecordingTask;
+            RequestCompletion(task, boundaryTime, true, completeTask);
             if (completeTask)
             {
-                CurrentRecordingTask.MarkDone();
-                if (_saveTask is not null)
-                    _saveTask(CurrentRecordingTask);
+                task.MarkDone();
             }
             else
             {
-                CurrentRecordingTask.StopRecordingWithoutFinishing();
+                task.StopRecordingWithoutFinishing();
             }
 
             CompleteRecordingOnNextTimeEntry = false;
             ClearCurrentRecording();
             RefreshSelectedTaskState();
+        }
+
+        private void RequestCompletion(TaskItemViewModel task, DateTime completedAt, bool useExistingBoundary, bool completeTask)
+        {
+            var request = new TaskCompletionRequestEventArgs(task, completedAt, useExistingBoundary);
+            try
+            {
+                TaskCompletionRequested?.Invoke(this, request);
+                // The save callback receives the intended persisted state, but the
+                // live task keeps its recording timestamp and flags until success.
+                if (completeTask && _saveTask is not null)
+                    _saveTask(task.CreateCompletedSnapshot());
+            }
+            catch (Exception failure)
+            {
+                try
+                {
+                    request.RollbackBooking?.Invoke();
+                }
+                catch (Exception rollbackFailure)
+                {
+                    throw new AggregateException(Text("Booking_CompletionRollbackFailed"), failure, rollbackFailure);
+                }
+                finally
+                {
+                    RefreshSelectedTaskState();
+                }
+                throw;
+            }
         }
 
         public void UpdateRecordingClock(DateTime nowValue)

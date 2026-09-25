@@ -2,15 +2,15 @@ using System;
 
 namespace ActiveDevelop.TimeTrackingServices
 {
-    // '' <summary>
-    // ''  bewaart een tijdregel met wijzigingsmeldingen, optionele tijdstippen en verwijzingen naar buren.
-    // ''  de regel beheert geen eigen sorteerlijst.  een omringende collectie kan de buurrelaties wijzigen.
-    // '' </summary>
-    // '' <remarks>
-    // ''  ontbrekende actievlaggen zijn niet zonder meer gelijk aan onwaar: zij kunnen een berekening
-    // ''  overslaan.  de collectieberekening van tijdsafstanden staat los van deze vlagafhankelijke logica.
-    // ''  eigenschapsmeldingen worden meteen doorgegeven en vormen geen gezamenlijke wijzigingstransactie.
-    // '' </remarks>
+    /// <summary>
+    /// Stores a time item with change notifications, nullable timestamps and references to its neighbors.
+    /// The item does not maintain a sorted list; its containing collection may change the neighbor links.
+    /// </summary>
+    /// <remarks>
+    /// Missing action flags are not equivalent to false: they can cause a calculation to be skipped.
+    /// The collection's timestamp-distance calculation is separate from this flag-dependent logic.
+    /// Property notifications are raised immediately and do not form an atomic change transaction.
+    /// </remarks>
     public class TimeItemBase : ObservableObject, ITimeItem<Guid>
     {
 
@@ -67,13 +67,13 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
-        // '' <summary>
-        // ''  meldt een gewijzigd tijdstip voordat de afzonderlijke tijdstipmelding en duurberekening volgen.
-        // '' </summary>
-        // '' <remarks>
-        // ''  bij een uitzondering wordt alleen het tijdstipveld teruggezet.  reeds uitgevoerde reacties
-        // ''  van afnemers worden niet teruggedraaid en er volgt geen extra herstelmelding.
-        // '' </remarks>
+        /// <summary>
+        /// Raises the property change before the separate timestamp event and duration calculation.
+        /// </summary>
+        /// <remarks>
+        /// If an exception occurs, only the timestamp field is restored. Subscriber side effects are
+        /// not rolled back, and no additional notification announces the restoration.
+        /// </remarks>
         public DateTimeOffset? EventTime
         {
             get
@@ -222,13 +222,13 @@ namespace ActiveDevelop.TimeTrackingServices
             }
         }
 
-        // '' <summary>
-        // ''  berekent per richting alleen wanneer de betreffende buur en de bijbehorende actievlag bestaan.
-        // '' </summary>
-        // '' <remarks>
-        // ''  binnen zo'n berekening wist een begin- of eindactie de duur, net als een ontbrekend tijdstip.
-        // ''  ontbreekt de buur of de benodigde vlag, dan blijft de bestaande duur in die richting staan.
-        // '' </remarks>
+        /// <summary>
+        /// Calculates each direction only when its neighbor and the corresponding action flag exist.
+        /// </summary>
+        /// <remarks>
+        /// Within either calculation, a start or end action clears the duration, as does a missing timestamp.
+        /// If the neighbor or required flag is absent, the existing duration in that direction is retained.
+        /// </remarks>
         protected virtual void CalculateDurationToLinkedItems()
         {
             if (PreviousItem is not null && IsStartAction.HasValue)

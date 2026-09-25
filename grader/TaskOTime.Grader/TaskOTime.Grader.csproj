@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <IsTestProject>true</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Artifacts\**;test-results\**</DefaultItemExcludes>
+    <!-- These analyzers run inside the xUnit host, not as distributed compiler plugins. -->
+    <NoWarn>$(NoWarn);RS1038;RS1041;RS1036;RS2008;RS1030</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Update="CompilerInputs.targets" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="ScenarioScope.xml" CopyToOutputDirectory="PreserveNewest" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.VisualBasic" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Localization" Version="10.0.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" />
+    <PackageReference Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.0" />
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net461" Version="1.0.3" PrivateAssets="all" GeneratePathProperty="true" />
+  </ItemGroup>
+  <Target Name="WriteFrameworkReferencePath" AfterTargets="Build">
+    <WriteLinesToFile File="$(TargetDir)framework-reference-root.txt"
+                      Lines="$(PkgMicrosoft_NETFramework_ReferenceAssemblies_net461)\build\.NETFramework"
+                      Overwrite="true" />
+  </Target>
+</Project>

@@ -4,25 +4,36 @@ using System.Windows.Data;
 
 namespace TaskOTime.App.Convert
 {
-    // Die Formatirung lieber hier sammeln, damit nicht jede Zeilenansicht ihren eigenen Text baut.
+    /// <summary>
+    /// Centralizes duration formatting for bindings that display total hours and a minutes component.
+    /// </summary>
     public sealed class TimeSpanDisplayConverter : IValueConverter
     {
-        // Weil hier Text rauskommt, stellt das Binding seine Richtung wohl von selber auf OneWay.
+        /// <summary>
+        /// Formats a duration using the supplied culture, or returns the zero display for other input types.
+        /// </summary>
+        /// <remarks>
+        /// Returning text does not select a binding mode; callers must configure one-way bindings explicitly.
+        /// Negative durations retain their signed components rather than being normalized to a separate sign.
+        /// </remarks>
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
             if (!(value is TimeSpan timeSpan))
             {
-             // Noch kein Zeitwert da: erstmal dieselbe kleine Nullanzeige benutzen
+                // Missing or incompatible values use the same display as a zero duration.
                 return "0:00";
             }
 
-            // Vorne die ganzen Stunden, auch wenn es schon mehr als ein Tag ist.
+            // Use total hours so the displayed hour count does not wrap at a day.
             var totalHours = (int)Math.Floor(timeSpan.TotalHours);
-          // Rechts immer zwei Ziffern, sonst springt die Anzeige optisch so rum..
+            // Pad the minutes component to two digits for a stable display width.
             return totalHours.ToString("0", culture) + ":" + timeSpan.Minutes.ToString("00", culture);
         }
 
-        // Den Rueckweg brauchen wir dann ja nicht; das Interface will die Methode aber trozdem haben.
+        /// <summary>
+        /// Rejects reverse conversion because display text is not an editable duration format.
+        /// </summary>
+        /// <exception cref="NotSupportedException">Always thrown; reverse conversion is not implemented.</exception>
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
             throw new NotSupportedException();

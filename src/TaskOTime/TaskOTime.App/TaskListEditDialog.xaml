@@ -1,24 +1,26 @@
 <Window x:Class="TaskOTime.App.TaskListEditDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Aufgabenliste"
+        xmlns:loc="clr-namespace:TaskOTime.ViewModel.Localization;assembly=TaskOTime.ViewModel"
+        Language="{loc:Culture}"
+        Title="{loc:Loc TaskList_Title}"
         MinWidth="420"
         SizeToContent="WidthAndHeight"
         WindowStartupLocation="CenterOwner"
-        Background="{StaticResource WindowBackgroundBrush}">
+        Background="{DynamicResource WindowBackgroundBrush}">
     <Border Style="{StaticResource PanelBorderStyle}" Margin="12">
         <StackPanel>
-            <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="Aufgabenliste" />
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Name" />
+            <TextBlock Style="{StaticResource SectionHeaderTextStyle}" Text="{loc:Loc TaskList_Title}" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Name}" />
             <TextBox Margin="0,2,0,8" Text="{Binding Title, UpdateSourceTrigger=PropertyChanged}" />
-            <TextBlock Foreground="{StaticResource MutedForegroundBrush}" Text="Beschreibung" />
+            <TextBlock Foreground="{DynamicResource MutedForegroundBrush}" Text="{loc:Loc Booking_Description}" />
             <TextBox Margin="0,2,0,16" Text="{Binding Subtitle, UpdateSourceTrigger=PropertyChanged}" />
             <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
-                <Button MinWidth="42" ToolTip="OK" IsDefault="True" Click="OnOkClick">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button MinWidth="42" ToolTip="{loc:Loc Common_OK}" IsDefault="True" Click="OnOkClick">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
-                <Button MinWidth="42" ToolTip="Abbrechen" IsCancel="True">
-                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{StaticResource MenuForegroundBrush}" Text="" />
+                <Button MinWidth="42" ToolTip="{loc:Loc Common_Cancel}" IsCancel="True">
+                    <TextBlock FontFamily="Segoe MDL2 Assets" FontSize="16" Foreground="{DynamicResource MenuForegroundBrush}" Text="" />
                 </Button>
             </StackPanel>
         </StackPanel>

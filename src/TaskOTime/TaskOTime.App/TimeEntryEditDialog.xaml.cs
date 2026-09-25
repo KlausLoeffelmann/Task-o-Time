@@ -1,7 +1,7 @@
 using System;
-using System.Globalization;
 using System.Windows;
 using TaskOTime.ViewModel.ViewModels;
+using TaskOTime.ViewModel.Localization;
 
 namespace TaskOTime.App;
 
@@ -27,13 +27,13 @@ public partial class TimeEntryEditDialog : Window
 
     private bool TryNormalizeEntryTime()
     {
-        if (TimeSpan.TryParseExact(StartTimeTextBox.Text, new[] { @"h\:mm", @"hh\:mm" },
-            CultureInfo.InvariantCulture, out var time) && time >= TimeSpan.Zero && time < TimeSpan.FromDays(1))
+        if (TimeInput.TryParseTime(StartTimeTextBox.Text, out var time))
         {
             Request.EntryTime = Request.EntryTime.Date.Add(time);
             return true;
         }
-        MessageBox.Show(this, "Startzeit bitte als HH:mm eingeben.", "Zeitbuchung", MessageBoxButton.OK, MessageBoxImage.Warning);
+        MessageBox.Show(this, LocalizationService.Current["Booking_InvalidTime"],
+            LocalizationService.Current["Booking_Title"], MessageBoxButton.OK, MessageBoxImage.Warning);
         return false;
     }
 }

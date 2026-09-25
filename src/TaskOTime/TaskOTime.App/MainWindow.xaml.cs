@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Threading;
 using System.Linq;
@@ -6,6 +7,7 @@ using TaskOTime.AppServer.Models;
 using TaskOTime.ViewModel.Views;
 using TaskOTime.App.Properties;
 using TaskOTime.ViewModel.ViewModels;
+using TaskOTime.ViewModel.Localization;
 
 namespace TaskOTime.App;
 
@@ -26,13 +28,14 @@ public partial class MainWindow : Window
         _services = services;
         _session = session;
         InitializeComponent();
-        Title += " – " + session.UserIdent + " – " + services.ModeDescription;
+        UpdateLocalizedTitle(null, null);
+        PropertyChangedEventManager.AddHandler(LocalizationService.Current, UpdateLocalizedTitle, string.Empty);
         DataContext = _viewModel;
         _viewModel.DialogRequested += OnDialogRequested;
         _viewModel.OptionsRequested += OnOptionsRequested;
         _viewModel.TaskListEditRequested += OnTaskListEditRequested;
         _viewModel.TimeEntryEditRequested += OnTimeEntryEditRequested;
-        _viewModel.MasterDataRequested += OnMasterDataRequested;
+        _viewModel.MainDataRequested += OnMainDataRequested;
         Closed += (_, _) => _recordingTimer.Stop();
         Loaded += (_, _) =>
         {
@@ -49,18 +52,29 @@ public partial class MainWindow : Window
 
     public bool LogoutRequested { get; private set; }
 
+    private void UpdateLocalizedTitle(object sender, PropertyChangedEventArgs e)
+    {
+        Title = LocalizationService.Current["AppTitle"] + " – " + _session.UserIdent + " – " + _services.ModeDescription;
+    }
+
     private void OnLogoutClick(object sender, RoutedEventArgs e)
     {
         LogoutRequested = true;
         Close();
     }
 
-    private void OnMasterDataRequested(object sender, int tab)
+    private void OnMainDataRequested(object sender, int tab)
     {
-        var window = new MasterDataWindow { Owner = this };
-        var masterData = new MasterDataViewModel(window, _services.TenantFor(_session), _session.IdUser,
-            _services.Admin, _services.Users, _services.Bookings, tab);
+        var window = new MainDataWindow { Owner = this };
+        window.DataContext = new MainDataViewModel(_services.TenantFor(_session), _session.IdUser,
+            _services.Admin, _services.Users, _services.Bookings, tab, new MaintenanceInteraction(window));
         window.ShowDialog();
+        if (!_services.TenantFor(_session).IsActive)
+        {
+            LogoutRequested = true;
+            Close();
+            return;
+        }
         var selectedProjectId = _viewModel.TimeCollection.SelectedProject?.IdProject;
         _viewModel.TimeCollection.Projects.Clear();
         foreach (var project in DesktopServices.Require(_services.Admin.GetProjects(DesktopServices.Query(_session))))
@@ -169,6 +183,7 @@ public partial class MainWindow : Window
     private void LoadOptions()
     {
         var options = _viewModel.Options;
+        options.CultureName = Settings.Default.CultureName;
         options.RestoreMainWindowPlacement = Settings.Default.RestoreMainWindowPlacement;
         options.SaturdayIsWorkday = Settings.Default.SaturdayIsWorkday;
         options.SundayIsWorkday = Settings.Default.SundayIsWorkday;
@@ -179,6 +194,7 @@ public partial class MainWindow : Window
 
     private static void SaveOptions(AppOptionsViewModel options)
     {
+        Settings.Default.CultureName = options.CultureName;
         Settings.Default.RestoreMainWindowPlacement = options.RestoreMainWindowPlacement;
         Settings.Default.SaturdayIsWorkday = options.SaturdayIsWorkday;
         Settings.Default.SundayIsWorkday = options.SundayIsWorkday;

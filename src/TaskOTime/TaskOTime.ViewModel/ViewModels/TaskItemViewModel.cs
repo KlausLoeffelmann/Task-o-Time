@@ -3,7 +3,7 @@ using TaskOTime.ViewModel.Base;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class TaskItemViewModel : ViewModelBase
+    public class TaskItemViewModel : Localization.LocalizedViewModelBase
     {
 
         private readonly Guid _id;
@@ -12,6 +12,7 @@ namespace TaskOTime.ViewModel.ViewModels
         private string _title;
         private string _description;
         private string _dueText;
+        private DateTimeOffset? _dueDate;
         private bool _isStarted;
         private bool _isDone;
         private bool _needsMore;
@@ -66,11 +67,26 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return _dueText;
+                return DueDate?.ToString("d", Localization.LocalizationService.Current.Culture) ?? _dueText;
             }
             set
             {
-                SetProperty(ref _dueText, value, nameof(DueText));
+                if (DueDate.HasValue)
+                {
+                    _dueText = value;
+                    DueDate = null;
+                }
+                else SetProperty(ref _dueText, value, nameof(DueText));
+            }
+        }
+
+        public DateTimeOffset? DueDate
+        {
+            get => _dueDate;
+            set
+            {
+                if (SetProperty(ref _dueDate, value, nameof(DueDate)))
+                    OnPropertyChanged(nameof(DueText));
             }
         }
 
@@ -157,20 +173,20 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (IsDone)
                 {
-                    return "Erledigt";
+                    return Text("Task_Done");
                 }
 
                 if (NeedsMore)
                 {
-                    return "Mehr zu tun";
+                    return Text("Task_More");
                 }
 
                 if (IsStarted)
                 {
-                    return "Läuft";
+                    return Text("Task_Running");
                 }
 
-                return "Bereit";
+                return Text("Task_Ready");
             }
         }
 
@@ -204,7 +220,7 @@ namespace TaskOTime.ViewModel.ViewModels
                     return string.Empty;
                 }
 
-                return $"{ShortTitle} sinds {StartedAt.Value:HH:mm} - {RecordingElapsedText}";
+                return Text("Task_Recording", ShortTitle, StartedAt.Value, RecordingElapsedText);
             }
         }
 
@@ -214,20 +230,20 @@ namespace TaskOTime.ViewModel.ViewModels
             {
                 if (IsDone)
                 {
-                    return "This task is complete.";
+                    return Text("Task_DoneHint");
                 }
 
                 if (NeedsMore)
                 {
-                    return "De taak blijft open en heeft meer werk nodig.";
+                    return Text("Task_MoreHint");
                 }
 
                 if (IsStarted)
                 {
-                    return "The task is currently running.";
+                    return Text("Task_RunningHint");
                 }
 
-                return "Klaar om te starten.";
+                return Text("Task_ReadyHint");
             }
         }
 
@@ -239,6 +255,17 @@ namespace TaskOTime.ViewModel.ViewModels
             OnPropertyChanged(nameof(startedAt));
             IsStarted = true;
             UpdateRecordingElapsed(DateTime.Now);
+        }
+
+        internal TaskItemViewModel CreateCompletedSnapshot()
+        {
+            var completed = new TaskItemViewModel(Id, Title, Description, DueText)
+            {
+                IdProject = IdProject,
+                IdTask = IdTask
+            };
+            completed.MarkDone();
+            return completed;
         }
 
         public void MarkDone()

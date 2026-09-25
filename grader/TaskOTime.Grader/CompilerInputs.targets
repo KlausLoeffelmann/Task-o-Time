@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup>
+    <!-- Force argument extraction even when a production assembly is already up-to-date.
+         SkipCompilerExecution prevents compiler output, so this sentinel is never created. -->
+    <CustomAdditionalCompileOutputs Include="$(MSBuildThisFileDirectory)test-results\compiler-input-never-created.sentinel" />
+  </ItemGroup>
+</Project>

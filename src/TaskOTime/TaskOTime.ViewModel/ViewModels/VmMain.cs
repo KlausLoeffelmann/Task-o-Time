@@ -3,10 +3,11 @@ using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Windows.Input;
 using TaskOTime.ViewModel.Base;
+using TaskOTime.ViewModel.Localization;
 
 namespace TaskOTime.ViewModel.ViewModels
 {
-    public class VmMain : ViewModelBase
+    public class VmMain : LocalizedViewModelBase
     {
 
         private DateTime _selectedDate;
@@ -25,6 +26,7 @@ namespace TaskOTime.ViewModel.ViewModels
             TimeCollection.TimeEntryEditRequested += OnTimeEntryEditRequested;
 
             TaskManagement = suppliedTaskManagement ?? new TaskManagementViewModel();
+            TimeCollection.RecordingTask = () => TaskManagement.CurrentRecordingTask;
             TaskManagement.PropertyChanged += OnTaskManagementPropertyChanged;
             TaskManagement.TaskListEditRequested += OnTaskListEditRequested;
             TaskManagement.TaskCompletionRequested += OnTaskCompletionRequested;
@@ -48,7 +50,7 @@ namespace TaskOTime.ViewModel.ViewModels
         public event EventHandler<AppOptionsViewModel> OptionsRequested;
         public event EventHandler<TaskListEditRequestEventArgs> TaskListEditRequested;
         public event EventHandler<TimeEntryEditRequestEventArgs> TimeEntryEditRequested;
-        public event EventHandler<int> MasterDataRequested;
+        public event EventHandler<int> MainDataRequested;
 
         public DateTime SelectedDate
         {
@@ -218,7 +220,7 @@ namespace TaskOTime.ViewModel.ViewModels
         {
             get
             {
-                return SelectedDate.ToString("dddd, dd. MMMM yyyy");
+                return SelectedDate.ToString("dddd, dd. MMMM yyyy", LocalizationService.Current.Culture);
             }
         }
 
@@ -234,7 +236,7 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void ShowExportSelectedDayDialog()
         {
-            RequestDialog("Tag exportieren", "CSV-Export für den ausgewählten Tag", string.Format("Der Tag {0:dd.MM.yyyy} ist für den CSV-Export vorgemerkt.", SelectedDate), "Platzhalter für Dateiauswahl, Spaltenauswahl und Exportstatus.", "Die spätere Implementierung kann hier den Exportauftrag starten.");
+            RequestLocalizedDialog("Report_ExportDay", SelectedDate);
         }
 
         private void ShowOptionsDialog()
@@ -250,6 +252,8 @@ namespace TaskOTime.ViewModel.ViewModels
             }
 
             Options.RestoreMainWindowPlacement = updatedOptions.RestoreMainWindowPlacement;
+            Options.CultureName = updatedOptions.CultureName;
+            LocalizationService.Current.SetCulture(Options.CultureName);
             Options.SaturdayIsWorkday = updatedOptions.SaturdayIsWorkday;
             Options.SundayIsWorkday = updatedOptions.SundayIsWorkday;
             Options.BookedDateRangeUnit = updatedOptions.BookedDateRangeUnit;
@@ -264,52 +268,57 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void ShowExportPeriodDialog()
         {
-            RequestDialog("Zeitraum exportieren", "CSV-Export für einen Zeitraum", "Dialoghülle für Startdatum, Enddatum und Exportoptionen.", "Platzhalter für Periodenauswahl, Validierung und Exportstatus.", "Der Befehl ist bereits für die Menübindung vorbereitet.");
+            RequestLocalizedDialog("Report_ExportPeriod");
         }
 
         private void ShowProjectsDialog()
         {
-            MasterDataRequested?.Invoke(this, 1);
+            MainDataRequested?.Invoke(this, 1);
         }
 
         private void ShowTaskListsDialog()
         {
-            MasterDataRequested?.Invoke(this, 2);
+            MainDataRequested?.Invoke(this, 2);
         }
 
         private void ShowTasksDialog()
         {
-            MasterDataRequested?.Invoke(this, 2);
+            MainDataRequested?.Invoke(this, 2);
         }
 
         private void ShowUsersAdminDialog()
         {
-            MasterDataRequested?.Invoke(this, 0);
+            MainDataRequested?.Invoke(this, 0);
         }
 
         private void ShowDailyStatementDialog()
         {
-            RequestDialog("Tagesauswertung", "Analyse: Tagesnachweis", string.Format("Dialoghülle für den Tagesnachweis vom {0:dd.MM.yyyy}.", SelectedDate), "Geplante Inhalte: Buchungen, Pausen, Soll/Ist-Abgleich.", "Export oder Druck kann später an diese Ansicht angebunden werden.");
+            RequestLocalizedDialog("Report_Day", SelectedDate);
         }
 
         private void ShowWeeklyStatementDialog()
         {
-            RequestDialog("Wochenauswertung", "Analyse: Wochennachweis", "Dialoghülle für Wochenübersicht und Soll/Ist-Vergleich.", "Geplante Inhalte: Tage, Summen, Abweichungen.", "Die Auswahl orientiert sich künftig am aktuell gewählten Datum.");
+            RequestLocalizedDialog("Report_Week");
         }
 
         private void ShowMonthlyStatementDialog()
         {
-            RequestDialog("Monatsauswertung", "Analyse: Monatsnachweis", "Dialoghülle für Monatsübersicht, Salden und Freigaben.", "Geplante Inhalte: Monatskalender, Gesamtzeiten, offene Tage.", "Die spätere Implementierung kann Monatsabschluss-Funktionen ergänzen.");
+            RequestLocalizedDialog("Report_Month");
         }
 
         private void ShowTenantAdminStatisticsDialog()
         {
-            RequestDialog("Mandantenstatistik", "Analyse: Mandanten-Administration", "Dialoghülle für administrative Statistiken über Benutzer und Projekte.", "Geplante Inhalte: Auslastung, Buchungsqualität, offene Freigaben.", "Diese Ansicht ist als Einstieg für Admin-Auswertungen vorbereitet.");
+            RequestLocalizedDialog("Report_Tenant");
         }
 
-        private void RequestDialog(string title, string heading, string leadText, params string[] details)
+        private void RequestLocalizedDialog(string resourcePrefix, params object[] leadArguments)
         {
-            DialogRequested?.Invoke(this, new DialogRequestedEventArgs(new DialogShellViewModel(title, heading, leadText, details)));
+            DialogRequested?.Invoke(this, new DialogRequestedEventArgs(new DialogShellViewModel(
+                new LocalizedMessage(resourcePrefix + "_Title"),
+                new LocalizedMessage(resourcePrefix + "_Heading"),
+                new LocalizedMessage(resourcePrefix + "_Lead", leadArguments),
+                new LocalizedMessage(resourcePrefix + "_Detail1"),
+                new LocalizedMessage(resourcePrefix + "_Detail2"))));
         }
 
         private void OnTaskListEditRequested(object sender, TaskListEditRequestEventArgs e)
@@ -329,12 +338,12 @@ namespace TaskOTime.ViewModel.ViewModels
 
         private void OnTaskCompletionRequested(object sender, TaskCompletionRequestEventArgs e)
         {
-            // de tijdgrens van de taak wordt door dezelfde boekingsstroom verwerkt als handmatige registraties.  daardoor gebruikt elke afsluiting dezelfde normalisatie.
+            // Route task boundaries through the same booking workflow as manual entries so both use the same normalization.
             if (e.UseExistingBoundary)
             {
                 if (!e.Task.StartedAt.HasValue)
-                    throw new InvalidOperationException("Die Aufgabe hat keine Startzeit.");
-                TimeCollection.RecordTask(e.Task, e.Task.StartedAt.Value, e.CompletedAt, true);
+                    throw new InvalidOperationException(Text("Main_NoStart"));
+                e.RollbackBooking = TimeCollection.RecordTaskWithCompensation(e.Task, e.Task.StartedAt.Value, e.CompletedAt, true);
                 SelectedDate = e.Task.StartedAt.Value.Date;
                 return;
             }
@@ -350,16 +359,16 @@ namespace TaskOTime.ViewModel.ViewModels
                 TimeSpan start;
                 if (!TimeSpan.TryParse(ManualCompletionStartText, out start) || start < TimeSpan.Zero || start >= TimeSpan.FromDays(1d))
                 {
-                    throw new InvalidOperationException("Startzeit bitte als HH:mm eingeben.");
+                    throw new InvalidOperationException(Text("Booking_InvalidTime"));
                 }
                 if (!TimeSpan.TryParse(ManualCompletionDurationText, out duration) || duration <= TimeSpan.Zero)
                 {
-                    throw new InvalidOperationException("Dauer bitte als HH:mm eingeben.");
+                    throw new InvalidOperationException(Text("Booking_InvalidDuration"));
                 }
                 startTime = SelectedDate.Add(start);
             }
-            var endTime = startTime.AddMinutes(duration.Minutes);
-            TimeCollection.RecordTask(e.Task, startTime, endTime);
+            var endTime = startTime.Add(duration);
+            e.RollbackBooking = TimeCollection.RecordTaskWithCompensation(e.Task, startTime, endTime);
             SelectedDate = startTime.Date;
         }
 
