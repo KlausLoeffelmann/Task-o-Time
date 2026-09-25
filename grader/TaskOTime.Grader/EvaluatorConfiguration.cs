@@ -9,20 +9,45 @@ namespace ExternalEvaluation;
 
 internal static class EvaluatorConfiguration
 {
-    private static string[] Paths => File.ReadAllLines(Path.Combine(AppContext.BaseDirectory, "evaluator-paths.txt"));
-    internal static string SourceRoot => Path.GetFullPath(
-        Environment.GetEnvironmentVariable("TASKOTIME_SOURCE_ROOT") ?? Paths[0]);
-    internal static string ArtifactRoot => Path.GetFullPath(Paths[1]);
-    internal static string AssessmentRoot => Path.GetFullPath(Paths[2]);
-    internal static string BuildConfiguration => Environment.GetEnvironmentVariable("ASSESSMENT_CONFIGURATION") ?? "Debug";
-    internal static IEnumerable<string> DiscoveryRoots =>
-        XDocument.Load(Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml")).Root!
-            .Element("Discovery")!.Elements("Root")
-            .Select(e => Path.GetFullPath(Path.Combine(SourceRoot, e.Value)))
-            .Append(Environment.GetEnvironmentVariable("MIGRATION_TOOL_ROOT") ?? SourceRoot)
-            .Where(Directory.Exists).Distinct(StringComparer.OrdinalIgnoreCase);
+    private static readonly string? SourceOverride = Environment.GetEnvironmentVariable("TASKOTIME_SOURCE_ROOT");
+    internal static string SourceRoot { get; } = SourceOverride is { Length: > 0 }
+        ? ValidateSourceRoot(SourceOverride)
+        : FindSourceRoot(AppContext.BaseDirectory);
+    internal static bool SourceOverrideUsed => SourceOverride is { Length: > 0 };
+    internal static string ArtifactRoot { get; } = Path.Combine(FindGraderRoot(AppContext.BaseDirectory), "Artifacts");
+    internal static string BuildConfiguration { get; } =
+        Environment.GetEnvironmentVariable("ASSESSMENT_CONFIGURATION") ??
+        File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "evaluator-configuration.txt")).Trim();
     internal static readonly ScenarioSelection Selection = ScenarioSelection.Load(
         Path.Combine(AppContext.BaseDirectory, "ScenarioScope.xml"));
+
+    private static string FindSourceRoot(string start)
+    {
+        for (var directory = new DirectoryInfo(start); directory != null; directory = directory.Parent)
+        {
+            var candidate = Path.Combine(directory.FullName, "src", "TaskOTime");
+            if (File.Exists(Path.Combine(candidate, "TaskOTime.slnx"))) return candidate;
+        }
+        throw new DirectoryNotFoundException(
+            "Cannot find src\\TaskOTime. Copy the grader to the repository root or set TASKOTIME_SOURCE_ROOT.");
+    }
+
+    private static string FindGraderRoot(string start)
+    {
+        for (var directory = new DirectoryInfo(start); directory != null; directory = directory.Parent)
+            if (File.Exists(Path.Combine(directory.FullName, "TaskOTime.Grader.csproj")) ||
+                File.Exists(Path.Combine(directory.FullName, "Modernization.Analyzers.Tests.csproj")))
+                return directory.FullName;
+        throw new DirectoryNotFoundException("Cannot find the TaskOTime.Grader project directory.");
+    }
+
+    private static string ValidateSourceRoot(string path)
+    {
+        var full = Path.GetFullPath(path);
+        if (!File.Exists(Path.Combine(full, "TaskOTime.slnx")))
+            throw new DirectoryNotFoundException("TASKOTIME_SOURCE_ROOT does not contain TaskOTime.slnx: " + full);
+        return full;
+    }
 }
 
 internal sealed class ScenarioSelection

@@ -21,8 +21,6 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
     internal static readonly DiagnosticDescriptor Theme = Rule("THM001", "Static theme conflict", "{0}");
     internal static readonly DiagnosticDescriptor ThemeCoverage = Rule("THM002", "Theme coverage unverified", "{0}");
     internal static readonly DiagnosticDescriptor Naming = Rule("NAM001", "Obsolete presentation terminology", "Presentation/application terminology still uses Master Data: {0}");
-    internal static readonly DiagnosticDescriptor Tool = new("TOOL001", "Static migration tool shape evidence incomplete", "{0}",
-        "StaticToolEvidence", DiagnosticSeverity.Info, true);
     internal static readonly DiagnosticDescriptor SdkProject = Rule("PRJ001", "SDK-style project migration incomplete", "{0}");
     internal static readonly DiagnosticDescriptor Net10 = Rule("PRJ002", ".NET 10 migration incomplete", "{0}");
     internal static readonly DiagnosticDescriptor EF = Rule("EF001", "EF6 compatibility boundary", "{0}");
@@ -30,26 +28,23 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
     internal static readonly DiagnosticDescriptor Inputs = new("ASM001", "Invalid assessment input", "{0}",
         "AssessmentInput", DiagnosticSeverity.Error, true);
     public override ImmutableArray<DiagnosticDescriptor> SupportedDiagnostics =>
-        [English, Documentation, Localization, Literal, ProductionVB, Scope, Theme, ThemeCoverage, Naming, Tool,
+        [English, Documentation, Localization, Literal, ProductionVB, Scope, Theme, ThemeCoverage, Naming,
             SdkProject, Net10, EF, Core, Inputs];
 
     private readonly IReadOnlyList<AssessmentProject>? corpus;
     private readonly Func<INamedTypeSymbol, bool> selection;
     private readonly Func<string, bool> sourceSelection;
     private readonly bool contracts;
-    private readonly IReadOnlyList<AssessmentProject> toolFixtures;
     internal SortedDictionary<string, CriterionMetric> Metrics { get; } = new(StringComparer.Ordinal);
 
     public OutcomeAnalyzer() : this(null, _ => false, _ => false, true) { }
     internal OutcomeAnalyzer(IReadOnlyList<AssessmentProject>? corpus, Func<INamedTypeSymbol, bool>? selection = null,
-        Func<string, bool>? sourceSelection = null, bool contracts = false,
-        IReadOnlyList<AssessmentProject>? toolFixtures = null)
+        Func<string, bool>? sourceSelection = null, bool contracts = false)
     {
         this.corpus = corpus;
         this.selection = selection ?? (_ => false);
         this.sourceSelection = sourceSelection ?? (_ => false);
         this.contracts = contracts;
-        this.toolFixtures = toolFixtures ?? corpus?.Where(p => p.Test).ToArray() ?? [];
     }
     private static DiagnosticDescriptor Rule(string id, string title, string message) =>
         new(id, title, message, "Modernization", DiagnosticSeverity.Warning, true);
@@ -65,7 +60,7 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
             var projects = corpus ?? [new AssessmentProject("", c.Compilation)];
             var recorder = new Recorder(c.ReportDiagnostic, Metrics);
             foreach (var name in new[] { "English", "Documentation", "Localization", "Language", "Scope",
-                "Theme", "Naming", "MigrationTool", "SdkStyle", "Net10", "EF6", "ProtectedCore", "Input" }) recorder.Measure(name, 0, 0);
+                "Theme", "Naming", "SdkStyle", "Net10", "EF6", "ProtectedCore", "Input" }) recorder.Measure(name, 0, 0);
             var production = projects.Where(p => !p.Test && !p.Tooling).ToArray();
             if (production.Length == 0 || production.All(p => !Evidence.Members(p.Compilation).Any(s => Evidence.Source(s, p))))
                 recorder.Report("Input", Inputs, Location.None, "The production source corpus is empty.");
@@ -101,7 +96,6 @@ public sealed class OutcomeAnalyzer : DiagnosticAnalyzer
             new LocalizationAnalysis(production, xml, recorder).Run();
             new ThemeAnalysis(production, xml.Where(x => Path.GetExtension(x.File.Path) == ".xaml").ToArray(),
                 selection, sourceSelection, recorder, contracts).Run();
-            MigrationToolAnalysis.Run(projects.Where(p => p.Tooling && !p.Test).ToArray(), files, recorder, toolFixtures);
             AnalyzeEF(production, xml, recorder);
         });
     }

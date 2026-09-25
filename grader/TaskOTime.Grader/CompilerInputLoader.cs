@@ -180,8 +180,6 @@ internal sealed class CompilerInputLoader(string intermediateRoot, string config
             compilation.ReferencedAssemblyNames.Any(a => a.Name is "xunit.core" or "Microsoft.VisualStudio.TestPlatform.TestFramework" or "nunit.framework") ||
             name.Split('.').Any(s => s.EndsWith("Tests", StringComparison.Ordinal));
         var tooling = compilation.ReferencedAssemblyNames.Any(a => a.Name == "Microsoft.CodeAnalysis.VisualBasic") && !test;
-        // A trusted replay declaration may identify a wrapper or project-only CLI without direct VB references.
-        tooling |= ToolReplay.DeclaredProjects.Contains(projectPath, StringComparer.OrdinalIgnoreCase) && !test;
         var generated = items.GetProperty("Compile").EnumerateArray().Where(a =>
             a.TryGetProperty("AutoGen", out var v) && v.GetString()?.Equals("true", StringComparison.OrdinalIgnoreCase) == true)
             .Select(a => a.GetProperty("FullPath").GetString()!).ToArray();

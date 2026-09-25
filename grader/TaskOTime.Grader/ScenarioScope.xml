@@ -1,23 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScenarioScope>
-  <!-- Starting-stage/mode policy is trusted StagePolicy.cs + assessor process selectors,
-       never candidate project properties. Stage integrity retains 6.5.1 through S2a;
-       S3/S4 and final delivery require the reviewed EF6 6.5.2 compatibility update.
-       RepositoryTests supplies that strict version to the unchanged EF contract check. -->
-  <!-- Paths are relative to TaskOTimeSourceRoot. Assessment/Artifacts/bin/obj and tests
-       are excluded from production discovery. MIGRATION_TOOL_ROOT adds another root.
-       Tooling projects are discovered even without application project references. -->
-  <Discovery>
-    <Root>.</Root>
-    <Root>..\..\tools</Root>
-    <Root>..\..\tooling</Root>
-    <!-- Converter inputs are project-shaped data, compiled only in their test/replay
-         contexts. A declared producer or project-reference dependency always wins. -->
-    <FixtureData Owner="..\..\tools\TaskOTime.Migration\Tests\TaskOTime.Migration.Tests.csproj"
-                 Root="..\..\tools\TaskOTime.Migration\Tests\Fixtures" />
-    <TestSupport Owner="TaskOTime.Theme.Tests\TaskOTime.Theme.Tests.vbproj"
-                 Project="TaskOTime.Theme.CaptureHost\TaskOTime.Theme.CaptureHost.csproj" />
-  </Discovery>
+  <!-- This file contains product requirements only. Project discovery comes from
+       the candidate solution tree and never from Golden-specific tool paths. -->
   <Localization NeutralLanguage="en">
     <RequiredLanguage>de</RequiredLanguage>
     <RequiredLanguage>nl</RequiredLanguage>
@@ -28,7 +12,7 @@
     <Surface Id="ProjectMainData">ProjectView</Surface>
     <OptionsSurface>Options</OptionsSurface>
   </Localization>
-  <EF6 Context="TaskOTime.DataLayer.TaskOTimeContext" PackageVersion="6.5.1">
+  <EF6 Context="TaskOTime.DataLayer.TaskOTimeContext" PackageVersion="6.5.2">
     <Entity>TaskOTime.DTOs.Category</Entity>
     <Entity>TaskOTime.DTOs.CategorySymbol</Entity>
     <Entity>TaskOTime.DTOs.GuidReservation</Entity>

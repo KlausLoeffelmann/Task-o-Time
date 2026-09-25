@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
-    [ValidateSet('original', 'vb-net472', 'csharp-net472', 'csharp-net10')]
+    [ValidateSet('original', 'vb-net472', 'csharp-net472', 'csharp-sdkstyle-net472', 'csharp-net10')]
     [string] $Stage,
 
     [string] $PromptPath,
@@ -15,6 +15,7 @@ $refs = @{
     'original' = 'modernization-original'
     'vb-net472' = 'candidate-vb-net472'
     'csharp-net472' = 'candidate-csharp-net472'
+    'csharp-sdkstyle-net472' = 'candidate-csharp-sdkstyle-net472'
     'csharp-net10' = 'candidate-csharp-net10'
 }
 $repository = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
@@ -68,7 +69,7 @@ try {
     $files = @(Get-ChildItem -LiteralPath $output -Recurse -Force -File)
     $manifestFiles = foreach ($file in $files) {
         $relative = $file.FullName.Substring($output.TrimEnd('\').Length + 1).Replace('\', '/')
-        if ($relative -match '(^|/)(assessment|tools|tooling|\.git|bin|obj)(/|$)') {
+        if ($relative -match '(^|/)(assessment|grader|tools|tooling|\.git|bin|obj)(/|$)') {
             throw "Private or generated material appeared in the candidate export: $relative"
         }
         [ordered]@{

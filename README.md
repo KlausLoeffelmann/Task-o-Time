@@ -1,60 +1,56 @@
-# Task-o-Time
+# Task-o-Time modernization harness
 
-This harness-template repository contains the staged modernization starting
-points, reusable migration tools, evaluator material, and corrected reference
-application.
+This public template contains four modernization starting points, one corrected
+reference application, and one universal Roslyn/xUnit grader.
 
-| Stage | Branch or tag | Application state |
-| --- | --- | --- |
-| S0 | `modernization-original` | Original Framework application, including production VB |
-| S1 | `candidate-vb-net472` | Framework 4.7.2 normalization checkpoint |
-| S2 | `candidate-csharp-net472` | Production C#; Framework 4.7.2 |
-| S2a | `modernization-S2a-sdk-net472` | SDK-style projects; still Framework 4.7.2 |
-| S3 | `candidate-csharp-net10` | Production C#, SDK-style projects, .NET 10 |
-| S4 | `TheGoldenBranch` / `modernization-S4-ideal` | Corrected reference application on .NET 10 |
+| Scenario | Candidate branch | Matching ideal branch | Starting point |
+| --- | --- | --- | --- |
+| S1 | `candidate-vb-net472` | `ideal-vb-net472` | VB and C#, .NET Framework 4.7.2 |
+| S2 | `candidate-csharp-net472` | `ideal-csharp-net472` | Production C#, .NET Framework 4.7.2 |
+| S2a | `candidate-csharp-sdkstyle-net472` | `ideal-csharp-sdkstyle-net472` | Production C#, SDK-style, .NET Framework 4.7.2 |
+| S3 | `candidate-csharp-net10` | `ideal-csharp-net10` | Production C#, SDK-style, .NET 10 |
 
-S0-S3 retain the intentional nonmigration defects. Existing VB tests can remain;
-S2 and S3 do not require production VB conversion. S4 includes business and MVVM
-corrections, English documentation and Main Data naming, live English/German/
+The scenarios have different starting conditions and require different amounts
+of work, but all must converge on the same completed application, definition of
+done, rubric, and ideal grade of `1.000`. S0 and the thematic `ideal-*` branches
+are historical construction provenance, not active candidate scenarios.
+
+The final application retains EF6, SQL Server, persisted schema compatibility,
+and desktop workflows while providing corrected business behavior, MVVM
+architecture, English documentation and Main Data terminology, English/German/
 Dutch/Spanish localization, and light/dark/high-contrast presentation.
-EF6, SQL Server, persisted schema compatibility, and desktop workflows remain.
 
-Application prerequisites and launch instructions are in
-`src\TaskOTime\TaskOTime.App\README.md`. Reusable language and project migration
-commands are documented in `tools\TaskOTime.Migration\README.md` and
-`tools\TaskOTime.ProjectMigration\README.md`. Stage provenance and previously
-collected development evidence are recorded in `tools\StageBaselines.json`.
+## Candidate isolation
 
-## Preparation is separate from assessment
+All relevant template refs are intentionally published to `origin`; therefore a
+trial model must not receive a clone of this repository. Export only the
+selected candidate:
 
-The harness requires all relevant versions in this repository on `origin`,
-including Golden, candidate snapshots, tools, and evaluator history. Publishing
-them here is intentional. This complete repository and its everything/reference
-branch must **never** be the model's working checkout.
+```powershell
+.\tools\ExportCandidate.ps1 -Stage vb-net472 -OutputDirectory <path>
+.\tools\ExportCandidate.ps1 -Stage csharp-net472 -OutputDirectory <path>
+.\tools\ExportCandidate.ps1 -Stage csharp-sdkstyle-net472 -OutputDirectory <path>
+.\tools\ExportCandidate.ps1 -Stage csharp-net10 -OutputDirectory <path>
+```
 
-Creating these stages and the Golden reference does not run the assessment or
-require an isolated replay receipt. Formal grading happens later in a headless
-Windows Docker container, using a completely new repository and working branch
-containing only the selected candidate snapshot. Do not clone this complete repository into a
-candidate environment: other refs and history expose the reference solution.
+Initialize the exported payload as a new candidate-only repository and run it in
+a no-network/no-GitHub environment. Each active candidate includes its own
+root `Candidate-Prompt.md`; the exporter rejects grader, assessment, ideal,
+preparation-tool, and Git-history material.
 
-Use `tools\ExportCandidate.ps1` to prepare the clean application payload, then
-initialize the new candidate repository from that payload. S1, S2, and S3 carry
-their selected standalone prompt as root `Candidate-Prompt.md`; the exporter
-fails rather than accepting an external prompt that could mismatch those
-branches. S0 still requires its standalone prompt through `-PromptPath`. Keep
-Golden, evaluator sources, preparation tools, and private evidence out of the
-candidate repository. Do not retain a candidate remote that exposes the
-template repository's other refs. Use the same frozen snapshot and prompt for
-comparable trials.
+## Grading
 
-The `modernization-*` tags preserve the original S0-S4 checkpoints.
-`TheGoldenBranch` also carries subsequent prompt and handoff documentation
-updates; the S4 tag is not moved for those changes. Supporting `ideal-*`,
-`tooling-*`, `validation-isolation`, and `assessment-*` branches preserve
-implementation provenance. In particular, `assessment-stage-profiles` includes
-unfinished experimental replay work, not an approved harness configuration.
+After a model claims completion, manually copy the canonical
+`grader\TaskOTime.Grader` directory into its result, add the project to
+`src\TaskOTime\TaskOTime.slnx`, build the application, and run the grader. The
+grader has no stage selector and applies the same universal outcome rubric to
+all four scenarios.
 
-Golden's preparation is not a claim that a later formal assessment has run or
-awarded 1.0. Experimental Windows Sandbox diagnostics are retained as supporting history;
-they are not prerequisites for branch creation or the planned container setup.
+Migration tooling and migration history are not required final deliverables and
+do not affect the score. Grading requires no replay plan, external executor,
+signed receipt, Sandbox, or AppContainer.
+
+See `assessment\Assessor-Guide.md` for the complete assessor workflow and
+`grader\TaskOTime.Grader\README.md` for commands, report locations, and rubric.
+Application setup is documented in
+`src\TaskOTime\TaskOTime.App\README.md`.
