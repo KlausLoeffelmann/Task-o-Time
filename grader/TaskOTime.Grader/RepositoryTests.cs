@@ -108,7 +108,8 @@ public sealed class RepositoryTests
                 .ToArray();
             var loaded = CompilerInputLoader.ClassifyTestSupport(
                 loader.Projects, root, productionRoots: productionRoots);
-            evaluated.AddRange(loaded.Select(project => project.State!).Where(state => state != null));
+            evaluated.AddRange(loaded.Select(project => project.State!).Where(state => state != null)
+                .Select(state => state with { Path = Relative(root, state.Path) }));
 
             foreach (var project in loaded)
             {
@@ -125,8 +126,10 @@ public sealed class RepositoryTests
             foreach (var project in corpus)
             {
                 projects.Add(Relative(root, project.Path));
-                sourcePaths.AddRange(project.Compilation.SyntaxTrees.Select(tree => Relative(root, tree.FilePath)));
-                additionalPaths.AddRange(project.AdditionalFiles.Select(file => Relative(root, file.Path)));
+                sourcePaths.AddRange(project.Compilation.SyntaxTrees
+                    .Select(tree => StablePath(root, project.Name, tree.FilePath)));
+                additionalPaths.AddRange(project.AdditionalFiles
+                    .Select(file => StablePath(root, project.Name, file.Path)));
                 architectureTypes.AddRange(new PresentationScope(project.Compilation).Types
                     .Where(EvaluatorConfiguration.Selection.Includes)
                     .Select(type => type.ToDisplayString()));
@@ -160,7 +163,7 @@ public sealed class RepositoryTests
                     .Append(scenario)
                     .DistinctBy(file => file.Path)
                     .ToImmutableArray());
-                additionalPaths.Add(Relative(root, scenario.Path));
+                additionalPaths.Add(@"Grader\ScenarioScope.xml.assessment");
                 var outcomeDiagnostics = await corpus.Last().Compilation
                     .WithAnalyzers([analyzer], options)
                     .GetAnalyzerDiagnosticsAsync();
@@ -347,7 +350,7 @@ public sealed class RepositoryTests
             diagnostic.Id,
             diagnostic.Id == "AD0001" ? "Error" : diagnostic.Severity.ToString(),
             project,
-            !string.IsNullOrEmpty(span.Path) ? Relative(root, span.Path) : "",
+            !string.IsNullOrEmpty(span.Path) ? StablePath(root, project, span.Path) : "",
             !string.IsNullOrEmpty(span.Path) ? span.StartLinePosition.Line + 1 : 0,
             !string.IsNullOrEmpty(span.Path) ? span.StartLinePosition.Character + 1 : 0,
             diagnostic.GetMessage(CultureInfo.InvariantCulture));
@@ -359,6 +362,19 @@ public sealed class RepositoryTests
 
     private static string Relative(string root, string path) =>
         string.IsNullOrEmpty(path) ? "" : Path.GetRelativePath(root, path).Replace('/', '\\');
+
+    private static string StablePath(string root, string project, string path)
+    {
+        var relative = Relative(root, path);
+        if (relative != ".." && !relative.StartsWith(@"..\", StringComparison.Ordinal)) return relative;
+
+        var artifact = Relative(EvaluatorConfiguration.ArtifactRoot, path);
+        var segments = Segments(artifact);
+        return segments.Length > 2 &&
+               segments[0].Equals("compiler-inputs", StringComparison.OrdinalIgnoreCase)
+            ? Path.Combine("Generated", project, Path.Combine(segments.Skip(2).ToArray()))
+            : Path.Combine("External", project, Path.GetFileName(path));
+    }
 
     private static string ReportRoot => Path.Combine(
         EvaluatorConfiguration.ArtifactRoot,
