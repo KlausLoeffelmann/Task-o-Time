@@ -74,4 +74,6 @@ tool or fixture paths.
 Analyzer fixtures exercise positive, negative, renamed-symbol,
 alternate-implementation, empty-scope, compiler-error, and deletion cases.
 `RubricTests` verifies fixed-subrule partial credit and ensures duplicate
-diagnostics cannot distort the grade.
+diagnostics cannot distort the grade. `CandidateBaselines.json` records the
+exact score and criterion results produced by clean exports of the four frozen
+candidate commits.
